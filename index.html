@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Portal • Alejandro Figueroa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000;
+            --fg: #fff;
+            --accent: #1e90ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'JetBrains Mono', monospace;
+            padding: 4rem 2rem;
+            text-align: left;
+        }
+
+        main {
+            max-width: 600px;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.25rem;
+            font-weight: 700;
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .projects {
+            list-style: none;
+            padding: 0;
+        }
+
+        .project-item {
+            margin-bottom: 2rem;
+        }
+
+        .project-item .name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--fg);
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-left: 0.5rem;
+            padding: 0.1em 0.4em;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--bg);
+            background-color: var(--accent);
+            border-radius: 0.2em;
+            vertical-align: text-bottom;
+        }
+
+        .badge.prototype {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .project-tagline {
+            font-size: 1rem;
+            margin: 0.25rem 0 0.5rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .project-desc {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .project-links {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .project-links a {
+            color: var(--accent);
+            text-decoration: none;
+            margin-right: 1rem;
+        }
+
+        .project-links a:hover {
+            text-decoration: underline;
+        }
+
+        .github-icon {
+            width: 1em;
+            height: 1em;
+            vertical-align: middle;
+            fill: var(--accent);
+            margin-right: 0.25rem;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>Alejandro Figueroa</h1>
+        <div class="tagline">Autonomous Systems &amp; Simulation Engineer</div>
+        <ul class="projects">
+            <!-- Fully polished, Live -->
+            <li class="project-item" id="CommitAura">
+                <span class="name">CommitAura</span><span class="badge">Live</span>
+                <div class="project-tagline">Expressive Commit Messaging</div>
+                <div class="project-desc">Transforms git commits into poetic, context-rich artifacts by analyzing staged
+                    changes and auto-generating meaningful, semantically driven commit messages directly in your
+                    terminal.</div>
+                <div class="project-links">
+                    <a href="commitaura.html">View Landing Page</a>
+                    <a href="https://github.com/cybrdelic/CommitAura"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+            <!-- Prototypes -->
+            <li class="project-item" id="Myriad">
+                <span class="name">Myriad</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Intelligent Codebase Contextualizer</div>
+                <div class="project-desc">An AI-driven TUI tool that indexes repositories, ranks relevant files using
+                    generative prompts, and provides floating-context summaries—making code exploration seamless and
+                    deeply contextual.</div>
+                <div class="project-links">
+                    <a href="https://github.com/cybrdelic/Myriad"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+            <li class="project-item" id="LeatherProject">
+                <span class="name">LeatherForge</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Digital Leatherwork Companion</div>
+                <div class="project-desc">LeatherForge is a browser-based design toolkit that generates customizable
+                    leather patterns and simulates stitch paths in real time. Export ready-to-cut SVG/CAD files for
+                    precision crafting of belts, wallets, and bespoke accessories.</div>
+                <div class="project-links">
+                    <a href="https://github.com/cybrdelic/LeatherProject"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+            <li class="project-item" id="OuterSense">
+                <span class="name">OuterSense</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Real-time Gaze &amp; Environment Tracking</div>
+                <div class="project-desc">A head- and eye-tracking system that fuses LiDAR mapping with webcam gaze
+                    detection to create a live digital twin of your workspace—optimizing attention-aware interfaces and
+                    robotic integration.</div>
+                <div class="project-links">
+                    <a href="https://github.com/cybrdelic/OuterSense"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+            <li class="project-item" id="Clippd">
+                <span class="name">Clippd</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Cinematic Scene Understanding Pipeline</div>
+                <div class="project-desc">Leveraging CLIP, MIDAS, and SAM2/Mask R&#45;CNN, Clippd semantically segments
+                    video frames and reconstructs physical geometry—enabling real-time, physics-grounded simulations
+                    from raw footage.</div>
+                <div class="project-links">
+                    <a href="https://github.com/cybrdelic/Clippd"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+            <li class="project-item" id="JJUGG">
+                <span class="name">JJUGG</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Autonomous Job Hunting Platform</div>
+                <div class="project-desc">A userscript-powered local web app capturing and analyzing job applications in
+                    real time—offering analytics, tracking, and a custom UI to optimize your job-seeking workflow.</div>
+                <div class="project-links">
+                    <a href="https://github.com/cybrdelic/JJUGG"><svg class="github-icon" viewBox="0 0 16 16"
+                            aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 ..." />
+                        </svg>View Repo</a>
+                </div>
+            </li>
+        </ul>
+    </main>
+</body>
+
+</html>
