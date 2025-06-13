@@ -85,15 +85,27 @@
                 radial-gradient(circle at 80% 20%, rgba(30, 144, 255, 0.03) 0%, transparent 50%);
             color: var(--fg);
             font-family: 'JetBrains Mono', monospace;
-            padding: 4rem 2rem;
+            padding: 0;
             text-align: left;
             line-height: 1.6;
             min-height: 100vh;
         }
 
-        main {
+        .header {
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            background-image:
+                radial-gradient(circle at 20% 80%, rgba(30, 144, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(30, 144, 255, 0.03) 0%, transparent 50%);
+            z-index: 100;
+            padding: 2rem;
             max-width: 600px;
-            margin: 0;
+        }
+
+        .main-content {
+            max-width: 600px;
+            padding: 0 2rem 4rem;
         }
 
         h1 {
@@ -113,37 +125,44 @@
         .projects {
             list-style: none;
             padding: 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
+            margin-top: 0;
         }
 
         .project-item {
-            padding: 1rem;
+            margin-bottom: 3rem;
+            padding: 0;
             transition: all 0.2s ease;
         }
 
         .project-item:hover {
-            transform: translateY(-2px);
+            transform: translateX(4px);
+        }
+
+        .project-header {
+            margin-bottom: 0.5rem;
         }
 
         .project-item .name {
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--fg);
-            border-bottom: none;
+            margin: 0;
+            line-height: 1.2;
+            display: inline;
         }
 
         .badge {
-            display: inline-block;
+            display: inline;
             margin-left: 0.5rem;
-            padding: 0.1em 0.4em;
-            font-size: 0.75rem;
+            padding: 0.2em 0.5em;
+            font-size: 0.7rem;
             font-weight: 700;
             color: var(--bg);
             background-color: var(--accent);
             border-radius: 0.2em;
-            vertical-align: text-bottom;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            vertical-align: middle;
         }
 
         .badge.prototype {
@@ -151,71 +170,72 @@
             color: rgba(255, 255, 255, 0.7);
         }
 
+        .badge.live {
+            background-color: #22c55e;
+            color: white;
+        }
+
         .project-tagline {
             font-size: 1rem;
             margin: 0.25rem 0 0.5rem;
             color: rgba(255, 255, 255, 0.7);
+            font-weight: 400;
+            line-height: 1.3;
         }
 
         .project-desc {
             font-size: 0.9rem;
             line-height: 1.5;
             color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 0.75rem;
         }
 
         .project-links {
             margin-top: 0.5rem;
-            font-size: 0.8rem;
-            position: relative;
         }
 
         .project-links a {
             color: var(--accent);
             text-decoration: none;
             margin-right: 1rem;
-            padding: 0.3em 0.6em;
-            border-radius: 0.3em;
-            font-size: 0.75em;
+            padding: 0.2em 0.4em;
+            border-radius: 0.2em;
+            font-size: 0.8rem;
             font-weight: 600;
             display: inline-block;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
             transition: all 0.2s ease;
+            border: 1px solid transparent;
         }
 
         .project-links a:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(30, 144, 255, 0.3);
+            transform: translateX(2px);
+            background: rgba(30, 144, 255, 0.1);
+            border-color: rgba(30, 144, 255, 0.3);
         }
 
         .project-links a.demo {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
+            color: #ff6b6b;
         }
 
         .project-links a.docs {
-            background: linear-gradient(135deg, #4834d4, #686de0);
-            color: white;
+            color: #686de0;
         }
 
         .project-links a.landing {
-            background: linear-gradient(135deg, #00d2d3, #54a0ff);
-            color: white;
+            color: #54a0ff;
         }
 
         .project-links a.crate {
-            background: linear-gradient(135deg, #ffa726, #ff8f00);
-            color: white;
+            color: #ffa726;
         }
 
         .project-links a.repo {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: var(--fg);
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .project-links a.repo:hover {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .github-icon {
@@ -328,45 +348,120 @@
 
         .link-preview {
             position: fixed;
-            background: rgba(0, 0, 0, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
             z-index: 1000;
             pointer-events: none;
             opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transform: translateY(10px) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            filter: blur(2px);
+            will-change: transform, opacity, filter;
         }
 
         .link-preview.show {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+
+        .link-preview::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: linear-gradient(135deg,
+                    rgba(30, 144, 255, 0.1) 0%,
+                    rgba(30, 144, 255, 0.05) 50%,
+                    rgba(255, 255, 255, 0.02) 100%);
+            border-radius: 0.5rem;
+            z-index: -1;
+            animation: preview-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes preview-glow {
+            0% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
         }
 
         .link-preview iframe {
             width: 1200px;
             height: 800px;
             border: none;
-            border-radius: 0.3rem;
-            background: #fff;
+            border-radius: 0.4rem;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
             transform: scale(0.4);
             transform-origin: top left;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 2px 8px rgba(30, 144, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            overflow: hidden;
         }
 
-        .link-preview .preview-title {
-            color: var(--accent);
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
+        .link-preview.loading iframe {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            position: relative;
         }
 
-        .link-preview .preview-url {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.7rem;
-            margin-top: 0.5rem;
-            word-break: break-all;
+        .link-preview.loading iframe::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(30, 144, 255, 0.2) 50%,
+                    transparent 100%);
+            animation: loading-shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% {
+                left: -100%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        .preview-loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.4);
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(30, 144, 255, 0.1);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            animation: preview-spin 1s linear infinite;
+            z-index: 1;
+        }
+
+        @keyframes preview-spin {
+            0% {
+                transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.4) rotate(360deg);
+            }
+        }
+
+        .link-preview:hover {
+            transform: translateY(-2px) scale(1.02);
+            filter: blur(0) brightness(1.05);
         }
 
         /* Disable tooltips on mobile devices */
@@ -377,6 +472,38 @@
             }
         }
 
+        /* Responsive design improvements */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem;
+            }
+
+            .main-content {
+                padding: 0 1.5rem 2rem;
+            }
+
+            .project-item {
+                margin-bottom: 2rem;
+            }
+
+            .project-item .name {
+                font-size: 1.25rem;
+            }
+
+            .project-tagline {
+                font-size: 0.95rem;
+            }
+
+            .project-desc {
+                font-size: 0.85rem;
+            }
+
+            .project-links a {
+                font-size: 0.75rem;
+                margin-right: 0.75rem;
+            }
+        }
+
         /* Ensure tooltips don't exceed viewport width */
         @media (max-width: 400px) {
             .link-preview iframe {
@@ -384,14 +511,22 @@
                 height: 667px;
                 transform: scale(0.28);
             }
+
+            .project-links a {
+                font-size: 0.7rem;
+                margin-right: 0.5rem;
+            }
         }
     </style>
 </head>
 
 <body>
-    <main>
+    <header class="header">
         <h1>Alejandro Figueroa</h1>
         <div class="tagline">Autonomous Systems &amp; Simulation Engineer</div>
+    </header>
+
+    <main class="main-content">
         <div class="mailing-list">
             <h2>Stay Updated</h2>
             <p>Get notified about new projects, technical insights, and research updates.</p>
@@ -402,82 +537,89 @@
             <div class="form-message" id="formMessage"></div>
         </div>
 
-        <ul class="projects">
-            <!-- Fully polished, Live -->
+        <ul class="projects"><!-- Fully polished, Live -->
             <li class="project-item" id="CommitAura">
-                <span class="name">CommitAura</span><span class="badge">Live</span>
-                <div class="project-tagline">LLM-generated commit messages and a push—one command, always consistent.
+                <div class="project-header">
+                    <span class="name">CommitAura</span><span class="badge live">Live</span>
                 </div>
-                <div class="project-desc">Written in Rust, CommitAura reads the staged diff, summarizes changes, calls a
-                    language model for a clear, conventional-style commit message, and completes the commit-push cycle
+                <div class="project-tagline">LLM-generated commit messages and a push—one command, always
+                    consistent.
+                </div>
+                <div class="project-desc">Written in Rust, CommitAura reads the staged diff, summarizes changes,
+                    calls a
+                    language model for a clear, conventional-style commit message, and completes the commit-push
+                    cycle
                     in a single step. </div>
                 <div class="project-links">
-                    <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank" class="landing">View
-                        Landing Page</a>
-                    <a href="https://crates.io/crates/commitaura" target="_blank" class="crate">View Crate</a>
-                    <a href="https://github.com/cybrdelic/CommitAura" target="_blank" class="repo"><svg
-                            class="github-icon" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
+                    <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank"
+                        class="landing">landing</a>
+                    <a href="https://crates.io/crates/commitaura" target="_blank" class="crate">crate</a>
+                    <a href="https://github.com/cybrdelic/CommitAura" target="_blank" class="repo">repo</a>
                 </div>
             </li>
             <li class="project-item" id="Tessellarity">
-                <span class="name">Tessellarity</span><span class="badge prototype">Prototype</span>
+                <div class="project-header">
+                    <span class="name">Tessellarity</span><span class="badge prototype">Prototype</span>
+                </div>
                 <div class="project-tagline">Abstracted WebGPU Ocean → Modular Physics Kernel</div>
-                <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tessellarity pulls the water
-                    code behind a clean plug-in interface, leaving a general WebGPU update loop that any WGSL module can
-                    drop into. The original ocean now lives as an upgraded plug-in (depth-tint, subsurface scattering,
+                <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tessellarity pulls the
+                    water
+                    code behind a clean plug-in interface, leaving a general WebGPU update loop that any WGSL module
+                    can
+                    drop into. The original ocean now lives as an upgraded plug-in (depth-tint, subsurface
+                    scattering,
                     env-map lighting, opacity controls), while new fluid, cloth, or EM kernels can hot-reload via
-                    TypeScript hooks. A browser-native test harness keeps every module honest, turning a one-off water
+                    TypeScript hooks. A browser-native test harness keeps every module honest, turning a one-off
+                    water
                     sim into a reusable, research-grade backbone—all in plain HTML + TS + WGSL.</div>
                 <div class="project-links">
-                    <a href="https://cybrdelic.github.io/Tessellarity/demo" target="_blank" class="demo">View Demo</a>
-                    <a href="https://cybrdelic.github.io/Tessellarity/docs" target="_blank" class="docs">View Docs</a>
-                    <a href="https://cybrdelic.github.io/Tessellarity/index.html" target="_blank" class="landing">View
-                        Landing Page</a>
-                    <a href="https://github.com/cybrdelic/Tessellarity" class="repo"><svg class="github-icon"
-                            viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
+                    <a href="https://cybrdelic.github.io/Tessellarity/demo" target="_blank" class="demo">demo</a>
+                    <a href="https://cybrdelic.github.io/Tessellarity/docs" target="_blank" class="docs">docs</a>
+                    <a href="https://cybrdelic.github.io/Tessellarity/index.html" target="_blank"
+                        class="landing">landing</a>
+                    <a href="https://github.com/cybrdelic/Tessellarity" class="repo">repo</a>
                 </div>
             </li>
             <li class="project-item" id="OuterSense">
-                <span class="name">OuterSense</span><span class="badge prototype">Prototype</span>
+                <div class="project-header">
+                    <span class="name">OuterSense</span><span class="badge prototype">Prototype</span>
+                </div>
                 <div class="project-tagline">Real-time gaze tracking with a live 3-D head-and-screen twin.</div>
-                <div class="project-desc">OuterSense V1 combines Mediapipe eye tracking with custom quaternion math to
+                <div class="project-desc">OuterSense V1 combines Mediapipe eye tracking with custom quaternion math
+                    to
                     emit a sub-3 ms gaze ray and render a WebGL twin of the user and screen. It provides high-level
-                    events—focus enter, look away—for web apps and lays the groundwork for future robotics integration
+                    events—focus enter, look away—for web apps and lays the groundwork for future robotics
+                    integration
                     (LiDAR, voltage sensors).</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/OuterSense" class="repo"><svg class="github-icon"
-                            viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
+                    <a href="https://github.com/cybrdelic/OuterSense" class="repo">repo</a>
                 </div>
             </li>
             <li class="project-item" id="Clippd">
-                <span class="name">Clippd</span><span class="badge prototype">Prototype</span>
+                <div class="project-header">
+                    <span class="name">Clippd</span><span class="badge prototype">Prototype</span>
+                </div>
                 <div class="project-tagline">Semantic, depth, and mask data fused into a live scene graph.</div>
-                <div class="project-desc">Clippd streams each video frame through CLIP (semantics), MiDaS (depth), and a
-                    SAM-style segmenter, then merges the outputs into a per-pixel scene graph visualized in Three.js. A
+                <div class="project-desc">Clippd streams each video frame through CLIP (semantics), MiDaS (depth),
+                    and a
+                    SAM-style segmenter, then merges the outputs into a per-pixel scene graph visualized in
+                    Three.js. A
                     Rust ↔ Python bridge keeps compute kernels testable and fast.</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/Clippd" class="repo"><svg class="github-icon"
-                            viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
+                    <a href="https://github.com/cybrdelic/Clippd" class="repo">repo</a>
                 </div>
             </li>
             <li class="project-item" id="JJUGG">
-                <span class="name">JJUGG</span><span class="badge prototype">Prototype</span>
+                <div class="project-header">
+                    <span class="name">JJUGG</span><span class="badge prototype">Prototype</span>
+                </div>
                 <div class="project-tagline">Autonomous Job Hunting Platform</div>
-                <div class="project-desc">A userscript-powered local web app capturing and analyzing job applications in
-                    real time—offering analytics, tracking, and a custom UI to optimize your job-seeking workflow.</div>
+                <div class="project-desc">A userscript-powered local web app capturing and analyzing job
+                    applications in
+                    real time—offering analytics, tracking, and a custom UI to optimize your job-seeking workflow.
+                </div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/JJUGG" class="repo"><svg class="github-icon"
-                            viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
+                    <a href="https://github.com/cybrdelic/JJUGG" class="repo">repo</a>
                 </div>
             </li>
         </ul>
@@ -577,17 +719,18 @@
 
             if (!isTouchDevice) {
                 const projectLinks = document.querySelectorAll('.project-links a[href^="http"]');
-                let currentPreview = null;
-
-                projectLinks.forEach(link => {
-                    // Skip GitHub repo links for preview
-                    if (link.classList.contains('repo')) return;
-
-                    link.addEventListener('mouseenter', function (e) {
+                let currentPreview = null; projectLinks.forEach(link => {
+                    // Skip GitHub repo links and crate links for preview
+                    if (link.classList.contains('repo') || link.classList.contains('crate')) return; link.addEventListener('mouseenter', function (e) {
                         const url = this.href;
                         const linkText = this.textContent.trim();
 
-                        showLinkPreview(e, url, linkText);
+                        // Add slight delay to prevent accidental triggers
+                        setTimeout(() => {
+                            if (this.matches(':hover')) {
+                                showLinkPreview(e, url, linkText);
+                            }
+                        }, 200);
                     });
 
                     link.addEventListener('mouseleave', function () {
@@ -599,31 +742,57 @@
                             positionPreview(e);
                         }
                     });
-                });
-
-                function showLinkPreview(event, url, title) {
+                }); function showLinkPreview(event, url, title) {
                     hideLinkPreview(); // Remove any existing preview
 
                     const preview = document.createElement('div');
-                    preview.className = 'link-preview';
-                    preview.innerHTML = `
-                        <div class="preview-title">${title}</div>
-                        <iframe src="${url}" loading="lazy"></iframe>
-                        <div class="preview-url">${url}</div>
-                    `;
+                    preview.className = 'link-preview loading';
 
+                    // Create loader
+                    const loader = document.createElement('div');
+                    loader.className = 'preview-loader';
+
+                    // Create iframe
+                    const iframe = document.createElement('iframe');
+                    iframe.src = url;
+                    iframe.loading = 'lazy';
+                    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
+
+                    // Handle iframe load events
+                    iframe.addEventListener('load', () => {
+                        preview.classList.remove('loading');
+                        loader.remove();
+                    });
+
+                    iframe.addEventListener('error', () => {
+                        preview.classList.remove('loading');
+                        loader.remove();
+                        // Show a subtle error state
+                        iframe.style.background = 'linear-gradient(135deg, #2a1a1a 0%, #3d2d2d 100%)';
+                    });
+
+                    preview.appendChild(loader);
+                    preview.appendChild(iframe);
                     document.body.appendChild(preview);
                     currentPreview = preview;
 
                     // Position and show the preview
                     positionPreview(event);
-                    setTimeout(() => preview.classList.add('show'), 50);
-                }
 
-                function hideLinkPreview() {
+                    // Smooth entrance with slight delay for better perceived performance
+                    requestAnimationFrame(() => {
+                        setTimeout(() => preview.classList.add('show'), 100);
+                    });
+                } function hideLinkPreview() {
                     if (currentPreview) {
-                        currentPreview.remove();
-                        currentPreview = null;
+                        currentPreview.classList.remove('show');
+                        // Wait for transition to complete before removing
+                        setTimeout(() => {
+                            if (currentPreview) {
+                                currentPreview.remove();
+                                currentPreview = null;
+                            }
+                        }, 400);
                     }
                 } function positionPreview(event) {
                     if (!currentPreview) return;
@@ -636,23 +805,26 @@
                     const previewWidth = 480;  // 1200 * 0.4
                     const previewHeight = 400; // 800 * 0.4 + padding
 
-                    // Position to the right of cursor by default
-                    let left = x + 15;
+                    // Smart positioning with cursor offset
+                    let left = x + 20;
                     let top = y - previewHeight / 2;
 
-                    // Adjust if preview would go off screen
+                    // Prevent overflow on right edge
                     if (left + previewWidth > window.innerWidth - 20) {
-                        left = x - previewWidth - 15;
+                        left = x - previewWidth - 20;
                     }
 
+                    // Prevent overflow on top/bottom
                     if (top < 20) {
                         top = 20;
                     } else if (top + previewHeight > window.innerHeight - 20) {
                         top = window.innerHeight - previewHeight - 20;
                     }
 
-                    preview.style.left = left + 'px';
-                    preview.style.top = top + 'px';
+                    // Smooth positioning with CSS transforms for better performance
+                    preview.style.transform = `translate(${left}px, ${top}px)`;
+                    preview.style.left = '0';
+                    preview.style.top = '0';
                 }
             }
         });
