@@ -124,40 +124,30 @@
             <!-- Fully polished, Live -->
             <li class="project-item" id="CommitAura">
                 <span class="name">CommitAura</span><span class="badge">Live</span>
-                <div class="project-tagline">Expressive Commit Messaging</div>
-                <div class="project-desc">Transforms git commits into poetic, context-rich artifacts by analyzing staged
-                    changes and auto-generating meaningful, semantically driven commit messages directly in your
-                    terminal.</div>
+                <div class="project-tagline">LLM-generated commit messages and a push—one command, always consistent.
+                </div>
+                <div class="project-desc">Written in Rust, CommitAura reads the staged diff, summarizes changes, calls a
+                    language model for a clear, conventional-style commit message, and completes the commit-push cycle
+                    in a single step. </div>
                 <div class="project-links">
-                    <a href="commitaura.html">View Landing Page</a>
-                    <a href="https://github.com/cybrdelic/CommitAura"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
+                    <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank">View Landing Page</a>
+                    <a href="https://github.com/cybrdelic/CommitAura" target="_blank"><svg class="github-icon"
+                            viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
             </li>
-            <!-- Prototypes -->
-            <li class="project-item" id="Myriad">
-                <span class="name">Myriad</span><span class="badge prototype">Prototype</span>
-                <div class="project-tagline">Intelligent Codebase Contextualizer</div>
-                <div class="project-desc">An AI-driven TUI tool that indexes repositories, ranks relevant files using
-                    generative prompts, and provides floating-context summaries—making code exploration seamless and
-                    deeply contextual.</div>
+            <li class="project-item" id="Tesselarity">
+                <span class="name">Tesselarity</span><span class="badge prototype">Prototype</span>
+                <div class="project-tagline">Abstracted WebGPU Ocean → Modular Physics Kernel</div>
+                <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tesselarity pulls the water
+                    code behind a clean plug-in interface, leaving a general WebGPU update loop that any WGSL module can
+                    drop into. The original ocean now lives as an upgraded plug-in (depth-tint, subsurface scattering,
+                    env-map lighting, opacity controls), while new fluid, cloth, or EM kernels can hot-reload via
+                    TypeScript hooks. A browser-native test harness keeps every module honest, turning a one-off water
+                    sim into a reusable, research-grade backbone—all in plain HTML + TS + WGSL.</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/Myriad"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
-                            <path d="M8 0C3.58 0 0 3.58 ..." />
-                        </svg>View Repo</a>
-                </div>
-            </li>
-            <li class="project-item" id="LeatherProject">
-                <span class="name">LeatherForge</span><span class="badge prototype">Prototype</span>
-                <div class="project-tagline">Digital Leatherwork Companion</div>
-                <div class="project-desc">LeatherForge is a browser-based design toolkit that generates customizable
-                    leather patterns and simulates stitch paths in real time. Export ready-to-cut SVG/CAD files for
-                    precision crafting of belts, wallets, and bespoke accessories.</div>
-                <div class="project-links">
-                    <a href="https://github.com/cybrdelic/LeatherProject"><svg class="github-icon" viewBox="0 0 16 16"
+                    <a href="https://github.com/cybrdelic/Tesselarity"><svg class="github-icon" viewBox="0 0 16 16"
                             aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
@@ -165,10 +155,11 @@
             </li>
             <li class="project-item" id="OuterSense">
                 <span class="name">OuterSense</span><span class="badge prototype">Prototype</span>
-                <div class="project-tagline">Real-time Gaze &amp; Environment Tracking</div>
-                <div class="project-desc">A head- and eye-tracking system that fuses LiDAR mapping with webcam gaze
-                    detection to create a live digital twin of your workspace—optimizing attention-aware interfaces and
-                    robotic integration.</div>
+                <div class="project-tagline">Real-time gaze tracking with a live 3-D head-and-screen twin.</div>
+                <div class="project-desc">OuterSense V1 combines Mediapipe eye tracking with custom quaternion math to
+                    emit a sub-3 ms gaze ray and render a WebGL twin of the user and screen. It provides high-level
+                    events—focus enter, look away—for web apps and lays the groundwork for future robotics integration
+                    (LiDAR, voltage sensors).</div>
                 <div class="project-links">
                     <a href="https://github.com/cybrdelic/OuterSense"><svg class="github-icon" viewBox="0 0 16 16"
                             aria-hidden="true">
@@ -178,10 +169,10 @@
             </li>
             <li class="project-item" id="Clippd">
                 <span class="name">Clippd</span><span class="badge prototype">Prototype</span>
-                <div class="project-tagline">Cinematic Scene Understanding Pipeline</div>
-                <div class="project-desc">Leveraging CLIP, MIDAS, and SAM2/Mask R&#45;CNN, Clippd semantically segments
-                    video frames and reconstructs physical geometry—enabling real-time, physics-grounded simulations
-                    from raw footage.</div>
+                <div class="project-tagline">Semantic, depth, and mask data fused into a live scene graph.</div>
+                <div class="project-desc">Clippd streams each video frame through CLIP (semantics), MiDaS (depth), and a
+                    SAM-style segmenter, then merges the outputs into a per-pixel scene graph visualized in Three.js. A
+                    Rust ↔ Python bridge keeps compute kernels testable and fast.</div>
                 <div class="project-links">
                     <a href="https://github.com/cybrdelic/Clippd"><svg class="github-icon" viewBox="0 0 16 16"
                             aria-hidden="true">
