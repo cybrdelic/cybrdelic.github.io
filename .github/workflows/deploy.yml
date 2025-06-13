@@ -1,0 +1,92 @@
+name: Deploy Portfolio to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual triggers
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: 🧪 Test & Validate
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: 🔧 Install dependencies
+      run: npm ci
+
+    - name: ✅ Run HTML validation
+      run: npm run validate
+
+    - name: 📊 Check file sizes
+      run: npm run size-check
+
+    - name: 🔒 Run security scan
+      run: npm run security-scan
+
+    - name: 🏗️ Test build process
+      run: npm run build:prod
+
+    - name: 📋 Generate status report
+      run: npm run status
+
+  deploy:
+    name: 🚀 Deploy to GitHub Pages
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: 🔧 Install dependencies
+      run: npm ci
+
+    - name: 🏗️ Build production version
+      run: npm run build:prod
+
+    - name: 📊 Generate deployment report
+      run: npm run report
+
+    - name: 🔧 Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: 📤 Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'dist'
+
+    - name: 🚀 Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: ✅ Post-deployment check
+      run: echo "🎉 Deployment complete! Site available at ${{ steps.deployment.outputs.page_url }}"

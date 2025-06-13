@@ -3,11 +3,63 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Portal • Alejandro Figueroa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- SEO Meta Tags -->
+    <title>Alejandro Figueroa - Autonomous Systems Engineer | Portfolio</title>
+    <meta name="description"
+        content="Portfolio of Alejandro Figueroa, specializing in autonomous systems, WebGPU simulations, Rust development, and cutting-edge computer graphics. Explore projects like Tesselarity, CommitAura, and more.">
+    <meta name="keywords"
+        content="autonomous systems, simulation engineer, rust developer, webgpu, computer graphics, portfolio, tesselarity, commitaura">
+    <meta name="author" content="Alejandro Figueroa">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://cybrdelic.github.io/">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Alejandro Figueroa - Autonomous Systems &amp; Simulation Engineer">
+    <meta property="og:description"
+        content="Explore cutting-edge projects in autonomous systems, WebGPU simulations, and Rust development.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cybrdelic.github.io/">
+    <meta property="og:image" content="https://cybrdelic.github.io/assets/images/og-image.jpg">
+    <meta property="og:site_name" content="Alejandro Figueroa Portfolio">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Alejandro Figueroa - Autonomous Systems Engineer">
+    <meta name="twitter:description"
+        content="Portfolio showcasing autonomous systems, WebGPU simulations, and innovative Rust projects.">
+    <meta name="twitter:image" content="https://cybrdelic.github.io/assets/images/twitter-card.jpg">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Alejandro Figueroa",
+        "jobTitle": "Autonomous Systems &amp; Simulation Engineer",
+        "url": "https://cybrdelic.github.io/",
+        "sameAs": [
+            "https://github.com/cybrdelic"
+        ],
+        "knowsAbout": [
+            "Autonomous Systems",
+            "WebGPU",
+            "Rust Programming",
+            "Computer Graphics",
+            "Simulation Engineering"
+        ]
+    }
+    </script>
     <style>
         :root {
             --bg: #000;
@@ -23,10 +75,15 @@
 
         body {
             background: var(--bg);
+            background-image:
+                radial-gradient(circle at 20% 80%, rgba(30, 144, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(30, 144, 255, 0.03) 0%, transparent 50%);
             color: var(--fg);
             font-family: 'JetBrains Mono', monospace;
             padding: 4rem 2rem;
             text-align: left;
+            line-height: 1.6;
+            min-height: 100vh;
         }
 
         main {
@@ -38,21 +95,31 @@
             font-size: 3rem;
             margin-bottom: 0.25rem;
             font-weight: 700;
+            text-shadow: 0 0 20px rgba(30, 144, 255, 0.1);
         }
 
         .tagline {
             font-size: 1.25rem;
             margin-bottom: 2rem;
             color: rgba(255, 255, 255, 0.9);
+            opacity: 0.8;
         }
 
         .projects {
             list-style: none;
             padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
         }
 
         .project-item {
-            margin-bottom: 2rem;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .project-item:hover {
+            transform: translateY(-2px);
         }
 
         .project-item .name {
@@ -94,16 +161,56 @@
         .project-links {
             margin-top: 0.5rem;
             font-size: 0.8rem;
+            position: relative;
         }
 
         .project-links a {
             color: var(--accent);
             text-decoration: none;
             margin-right: 1rem;
+            padding: 0.3em 0.6em;
+            border-radius: 0.3em;
+            font-size: 0.75em;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
         }
 
         .project-links a:hover {
-            text-decoration: underline;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(30, 144, 255, 0.3);
+        }
+
+        .project-links a.demo {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+
+        .project-links a.docs {
+            background: linear-gradient(135deg, #4834d4, #686de0);
+            color: white;
+        }
+
+        .project-links a.landing {
+            background: linear-gradient(135deg, #00d2d3, #54a0ff);
+            color: white;
+        }
+
+        .project-links a.crate {
+            background: linear-gradient(135deg, #ffa726, #ff8f00);
+            color: white;
+        }
+
+        .project-links a.repo {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--fg);
+        }
+
+        .project-links a.repo:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
         }
 
         .github-icon {
@@ -113,6 +220,166 @@
             fill: var(--accent);
             margin-right: 0.25rem;
         }
+
+        .mailing-list {
+            margin-bottom: 3rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        .mailing-list h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+
+        .mailing-list p {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .email-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .email-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.75em 1em;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.3em;
+            color: var(--fg);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .email-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
+        }
+
+        .email-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .subscribe-btn {
+            padding: 0.75em 1.5em;
+            background: linear-gradient(135deg, var(--accent), #0066cc);
+            color: white;
+            border: none;
+            border-radius: 0.3em;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .subscribe-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(30, 144, 255, 0.4);
+        }
+
+        .subscribe-btn:active {
+            transform: translateY(0);
+        }
+
+        .subscribe-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .form-message {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 0.3rem;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .form-message.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+
+        .form-message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .link-preview {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .link-preview.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .link-preview iframe {
+            width: 1200px;
+            height: 800px;
+            border: none;
+            border-radius: 0.3rem;
+            background: #fff;
+            transform: scale(0.4);
+            transform-origin: top left;
+        }
+
+        .link-preview .preview-title {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .link-preview .preview-url {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.7rem;
+            margin-top: 0.5rem;
+            word-break: break-all;
+        }
+
+        /* Disable tooltips on mobile devices */
+        @media (max-width: 768px),
+        (hover: none) {
+            .link-preview {
+                display: none !important;
+            }
+        }
+
+        /* Ensure tooltips don't exceed viewport width */
+        @media (max-width: 400px) {
+            .link-preview iframe {
+                width: 1000px;
+                height: 667px;
+                transform: scale(0.28);
+            }
+        }
     </style>
 </head>
 
@@ -120,6 +387,16 @@
     <main>
         <h1>Alejandro Figueroa</h1>
         <div class="tagline">Autonomous Systems &amp; Simulation Engineer</div>
+        <div class="mailing-list">
+            <h2>Stay Updated</h2>
+            <p>Get notified about new projects, technical insights, and research updates.</p>
+            <form class="email-form" id="mailingListForm">
+                <input type="email" class="email-input" id="emailInput" placeholder="your@email.com" required>
+                <button type="submit" class="subscribe-btn" id="subscribeBtn">Subscribe</button>
+            </form>
+            <div class="form-message" id="formMessage"></div>
+        </div>
+
         <ul class="projects">
             <!-- Fully polished, Live -->
             <li class="project-item" id="CommitAura">
@@ -130,25 +407,31 @@
                     language model for a clear, conventional-style commit message, and completes the commit-push cycle
                     in a single step. </div>
                 <div class="project-links">
-                    <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank">View Landing Page</a>
-                    <a href="https://github.com/cybrdelic/CommitAura" target="_blank"><svg class="github-icon"
-                            viewBox="0 0 16 16" aria-hidden="true">
+                    <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank" class="landing">View
+                        Landing Page</a>
+                    <a href="https://crates.io/crates/commitaura" target="_blank" class="crate">View Crate</a>
+                    <a href="https://github.com/cybrdelic/CommitAura" target="_blank" class="repo"><svg
+                            class="github-icon" viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
             </li>
-            <li class="project-item" id="Tesselarity">
-                <span class="name">Tesselarity</span><span class="badge prototype">Prototype</span>
+            <li class="project-item" id="Tessellarity">
+                <span class="name">Tessellarity</span><span class="badge prototype">Prototype</span>
                 <div class="project-tagline">Abstracted WebGPU Ocean → Modular Physics Kernel</div>
-                <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tesselarity pulls the water
+                <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tessellarity pulls the water
                     code behind a clean plug-in interface, leaving a general WebGPU update loop that any WGSL module can
                     drop into. The original ocean now lives as an upgraded plug-in (depth-tint, subsurface scattering,
                     env-map lighting, opacity controls), while new fluid, cloth, or EM kernels can hot-reload via
                     TypeScript hooks. A browser-native test harness keeps every module honest, turning a one-off water
                     sim into a reusable, research-grade backbone—all in plain HTML + TS + WGSL.</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/Tesselarity"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
+                    <a href="https://cybrdelic.github.io/Tessellarity/demo" target="_blank" class="demo">View Demo</a>
+                    <a href="https://cybrdelic.github.io/Tessellarity/docs" target="_blank" class="docs">View Docs</a>
+                    <a href="https://cybrdelic.github.io/Tessellarity/index.html" target="_blank" class="landing">View
+                        Landing Page</a>
+                    <a href="https://github.com/cybrdelic/Tessellarity" class="repo"><svg class="github-icon"
+                            viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
@@ -161,8 +444,8 @@
                     events—focus enter, look away—for web apps and lays the groundwork for future robotics integration
                     (LiDAR, voltage sensors).</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/OuterSense"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
+                    <a href="https://github.com/cybrdelic/OuterSense" class="repo"><svg class="github-icon"
+                            viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
@@ -174,8 +457,8 @@
                     SAM-style segmenter, then merges the outputs into a per-pixel scene graph visualized in Three.js. A
                     Rust ↔ Python bridge keeps compute kernels testable and fast.</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/Clippd"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
+                    <a href="https://github.com/cybrdelic/Clippd" class="repo"><svg class="github-icon"
+                            viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
@@ -186,14 +469,189 @@
                 <div class="project-desc">A userscript-powered local web app capturing and analyzing job applications in
                     real time—offering analytics, tracking, and a custom UI to optimize your job-seeking workflow.</div>
                 <div class="project-links">
-                    <a href="https://github.com/cybrdelic/JJUGG"><svg class="github-icon" viewBox="0 0 16 16"
-                            aria-hidden="true">
+                    <a href="https://github.com/cybrdelic/JJUGG" class="repo"><svg class="github-icon"
+                            viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 0C3.58 0 0 3.58 ..." />
                         </svg>View Repo</a>
                 </div>
             </li>
         </ul>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('mailingListForm');
+            const emailInput = document.getElementById('emailInput');
+            const subscribeBtn = document.getElementById('subscribeBtn');
+            const formMessage = document.getElementById('formMessage');
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const email = emailInput.value.trim();
+                if (!email) {
+                    showMessage('Please enter a valid email address.', 'error');
+                    return;
+                }
+
+                // Disable form during submission
+                subscribeBtn.disabled = true;
+                subscribeBtn.textContent = 'Subscribing...';
+                hideMessage(); try {
+                    // Using Formspree for form handling
+                    const response = await fetch('https://formspree.io/f/xkgbrygq', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            _subject: 'New Mailing List Subscription',
+                            _replyto: email
+                        })
+                    });
+
+                    if (response.ok) {
+                        showMessage('Successfully subscribed! Thank you for joining.', 'success');
+                        emailInput.value = '';
+
+                        // Store subscription status
+                        localStorage.setItem('subscribed', 'true');
+                        localStorage.setItem('subscribedEmail', email);
+                    } else {
+                        throw new Error('Network response was not ok');
+                    }
+                } catch (error) {
+                    console.error('Subscription error:', error);
+                    showMessage('Something went wrong. Please try again later.', 'error');
+                }
+
+                // Re-enable form
+                subscribeBtn.disabled = false;
+                subscribeBtn.textContent = 'Subscribe';
+            });
+
+            function showMessage(text, type) {
+                formMessage.textContent = text;
+                formMessage.className = `form-message ${type}`;
+                formMessage.style.display = 'block';
+
+                if (type === 'success') {
+                    setTimeout(hideMessage, 5000);
+                }
+            }
+
+            function hideMessage() {
+                formMessage.style.display = 'none';
+                formMessage.className = 'form-message';
+            }
+
+            // Check if user is already subscribed
+            if (localStorage.getItem('subscribed') === 'true') {
+                const subscribedEmail = localStorage.getItem('subscribedEmail');
+                showMessage(`Already subscribed with ${subscribedEmail}`, 'success');
+                subscribeBtn.textContent = 'Subscribed ✓';
+                subscribeBtn.disabled = true;
+            }
+
+            // Email validation on input
+            emailInput.addEventListener('input', function () {
+                const email = this.value.trim();
+                if (email && !isValidEmail(email)) {
+                    this.style.borderColor = '#ef4444';
+                } else {
+                    this.style.borderColor = '';
+                }
+            });
+
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }            // Link preview functionality (disabled on mobile/touch devices)
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+            if (!isTouchDevice) {
+                const projectLinks = document.querySelectorAll('.project-links a[href^="http"]');
+                let currentPreview = null;
+
+                projectLinks.forEach(link => {
+                    // Skip GitHub repo links for preview
+                    if (link.classList.contains('repo')) return;
+
+                    link.addEventListener('mouseenter', function (e) {
+                        const url = this.href;
+                        const linkText = this.textContent.trim();
+
+                        showLinkPreview(e, url, linkText);
+                    });
+
+                    link.addEventListener('mouseleave', function () {
+                        hideLinkPreview();
+                    });
+
+                    link.addEventListener('mousemove', function (e) {
+                        if (currentPreview) {
+                            positionPreview(e);
+                        }
+                    });
+                });
+
+                function showLinkPreview(event, url, title) {
+                    hideLinkPreview(); // Remove any existing preview
+
+                    const preview = document.createElement('div');
+                    preview.className = 'link-preview';
+                    preview.innerHTML = `
+                        <div class="preview-title">${title}</div>
+                        <iframe src="${url}" loading="lazy"></iframe>
+                        <div class="preview-url">${url}</div>
+                    `;
+
+                    document.body.appendChild(preview);
+                    currentPreview = preview;
+
+                    // Position and show the preview
+                    positionPreview(event);
+                    setTimeout(() => preview.classList.add('show'), 50);
+                }
+
+                function hideLinkPreview() {
+                    if (currentPreview) {
+                        currentPreview.remove();
+                        currentPreview = null;
+                    }
+                } function positionPreview(event) {
+                    if (!currentPreview) return;
+
+                    const preview = currentPreview;
+                    const x = event.clientX;
+                    const y = event.clientY;
+
+                    // Updated preview size for larger iframe (1200x800 scaled to 0.4 = 480x320)
+                    const previewWidth = 480;  // 1200 * 0.4
+                    const previewHeight = 400; // 800 * 0.4 + padding
+
+                    // Position to the right of cursor by default
+                    let left = x + 15;
+                    let top = y - previewHeight / 2;
+
+                    // Adjust if preview would go off screen
+                    if (left + previewWidth > window.innerWidth - 20) {
+                        left = x - previewWidth - 15;
+                    }
+
+                    if (top < 20) {
+                        top = 20;
+                    } else if (top + previewHeight > window.innerHeight - 20) {
+                        top = window.innerHeight - previewHeight - 20;
+                    }
+
+                    preview.style.left = left + 'px';
+                    preview.style.top = top + 'px';
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
