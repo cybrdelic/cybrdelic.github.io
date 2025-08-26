@@ -1,7 +1,12 @@
 {
     "name": "cybrdelic-portfolio",
     "version": "1.0.0",
-    "description": "Alejandro Figueroa's Portfolio Website",
+    "description": "Alejandro Figueroa's Portfolio Website - Automated deployment via GitHub Actions",
+    "homepage": "https://cybrdelic.github.io",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/cybrdelic/cybrdelic.github.io.git"
+    },
     "scripts": {
         "dev": "live-server --port=3000 --open=index.html",
         "build": "npm run clean && npm run validate && npm run minify && npm run copy-assets",

@@ -34,7 +34,7 @@ npm run serve:dist         # Preview production build locally
 ### GitHub Actions (Automatic)
 The repository includes automated deployment via GitHub Actions:
 
-1. **On every push to `main`**: Automatically builds and deploys
+1. **On every push to `master`**: Automatically builds and deploys
 2. **On pull requests**: Creates preview builds for review
 3. **Manual trigger**: Deploy on-demand via GitHub UI
 
@@ -48,6 +48,20 @@ The repository includes automated deployment via GitHub Actions:
 - 🔒 Security scanning
 - 📦 Optimized builds with minification and compression
 - 🚀 Automatic deployment to GitHub Pages
+
+### 📚 Detailed Documentation
+For comprehensive information about the automated deployment system, see:
+**[📖 Automated Deployment Documentation](docs/AUTOMATED_DEPLOYMENT.md)**
+
+### Quick Start
+```bash
+# Make changes and deploy automatically
+git add .
+git commit -m "Your changes"
+git push origin master
+```
+
+**That's it!** GitHub Actions handles the rest automatically.
 
 ## 📦 Build Process
 

@@ -1,5 +1,21 @@
 name: Deploy Portfolio to GitHub Pages
 
+# 🤖 AUTOMATED DEPLOYMENT WORKFLOW
+#
+# This workflow automatically deploys the portfolio to GitHub Pages on every push to master.
+#
+# Triggers:
+# - Push to master branch (automatic deployment)
+# - Pull requests to master (validation only)
+# - Manual dispatch (on-demand deployment)
+#
+# Process:
+# 1. Test & Validate: HTML validation, security scans, file size checks
+# 2. Build: Production build with minification and compression
+# 3. Deploy: Upload to GitHub Pages and make live
+#
+# Documentation: docs/AUTOMATED_DEPLOYMENT.md
+
 on:
   push:
     branches: [ master ]
