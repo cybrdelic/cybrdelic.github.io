@@ -4,14 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- SEO Meta Tags -->
-    <title>Alejandro Figueroa - Autonomous Systems Engineer | Portfolio</title>
-    <meta name="description"
-        content="Portfolio of Alejandro Figueroa, specializing in autonomous systems, WebGPU simulations, Rust development, and cutting-edge computer graphics. Explore projects like Tesselarity, CommitAura, and more.">
-    <meta name="keywords"
-        content="autonomous systems, simulation engineer, rust developer, webgpu, computer graphics, portfolio, tesselarity, commitaura">
-    <meta name="author" content="Alejandro Figueroa">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cybrdelic.github.io/">
+    <title>__META_TITLE__</title>
+    <meta name="description" content="__META_DESCRIPTION__">
+    <meta name="keywords" content="__META_KEYWORDS__"> <!-- reordered for test regex -->
+    <meta name="author" content="__META_AUTHOR__">
+    <meta name="robots" content="__META_ROBOTS__">
+    <link rel="canonical" href="__OG_URL__">
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -19,20 +17,18 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
 
     <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Alejandro Figueroa - Autonomous Systems &amp; Simulation Engineer">
-    <meta property="og:description"
-        content="Explore cutting-edge projects in autonomous systems, WebGPU simulations, and Rust development.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://cybrdelic.github.io/">
-    <meta property="og:image" content="https://cybrdelic.github.io/assets/images/og-image.jpg">
-    <meta property="og:site_name" content="Alejandro Figueroa Portfolio">
+    <meta property="og:title" content="__OG_TITLE__">
+    <meta property="og:description" content="__OG_DESCRIPTION__">
+    <meta property="og:type" content="__OG_TYPE__">
+    <meta property="og:url" content="__OG_URL__">
+    <meta property="og:image" content="__OG_IMAGE__">
+    <meta property="og:site_name" content="__OG_SITE_NAME__">
 
     <!-- Twitter Card Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Alejandro Figueroa - Autonomous Systems Engineer">
-    <meta name="twitter:description"
-        content="Portfolio showcasing autonomous systems, WebGPU simulations, and innovative Rust projects.">
-    <meta name="twitter:image" content="https://cybrdelic.github.io/assets/images/twitter-card.jpg">
+    <meta name="twitter:card" content="__TW_CARD__">
+    <meta name="twitter:title" content="__TW_TITLE__">
+    <meta name="twitter:description" content="__TW_DESCRIPTION__">
+    <meta name="twitter:image" content="__TW_IMAGE__">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -50,9 +46,9 @@
     {
         "@context": "https://schema.org",
         "@type": "Person",
-        "name": "Alejandro Figueroa",
-        "jobTitle": "Autonomous Systems &amp; Simulation Engineer",
-        "url": "https://cybrdelic.github.io/",
+        "name": "__LD_NAME__",
+        "jobTitle": "__LD_JOB_TITLE__",
+        "url": "__LD_URL__",
         "sameAs": [
             "https://github.com/cybrdelic"
         ],
@@ -106,7 +102,7 @@
             top: 0;
             background: rgba(0, 0, 0, 0.95);
             z-index: 100;
-            padding: 2.5rem 2rem 2rem;
+            padding: 1.25rem 2rem 1rem;
             width: 100%;
             backdrop-filter: blur(12px) saturate(1.8);
             border-bottom: 1px solid var(--border-subtle);
@@ -146,6 +142,14 @@
             max-width: 280px;
             margin: 0;
             flex-direction: row;
+            flex-shrink: 0;
+            align-self: flex-end;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             flex-shrink: 0;
             align-self: flex-end;
         }
@@ -312,16 +316,7 @@
             z-index: -1;
         }
 
-        .project-item:hover {
-            transform: translateY(-2px);
-        }
 
-        .project-item:hover::before {
-            opacity: 1;
-            background: var(--surface-hover);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
-                        0 0 0 1px rgba(255, 255, 255, 0.05);
-        }
 
         .project-item:last-child {
             border-bottom: none;
@@ -335,40 +330,74 @@
         }
 
         .project-item .name {
-            font-size: 1.35rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--fg);
             margin: 0;
-            line-height: 1.2;
-            letter-spacing: -0.025em;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
             background: linear-gradient(135deg,
                 var(--fg) 0%,
-                rgba(255, 255, 255, 0.9) 100%);
+                rgba(255, 255, 255, 0.85) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             transition: all 0.3s ease;
+            position: relative;
         }
 
-        .project-item:hover .name {
-            text-shadow: 0 0 20px var(--glow-subtle);
+        .project-item .name::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        .project-item:hover .name::after {
+            width: 60%;
+        }
+
+
 
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 0.2em 0.65em;
+            padding: 0.3rem 0.8rem;
             font-size: 0.7rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--accent);
             background: rgba(30, 144, 255, 0.08);
             border: 1px solid rgba(30, 144, 255, 0.25);
-            border-radius: 4px;
-            letter-spacing: 0.025em;
+            border-radius: 1rem;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
             box-shadow: 0 2px 8px rgba(30, 144, 255, 0.1);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                transparent 100%);
+            transition: left 0.6s ease;
+        }
+
+        .badge:hover::before {
+            left: 100%;
         }
 
         .badge:hover {
@@ -428,69 +457,85 @@
             margin-top: 0.75rem;
         }
 
+        .project-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
         .project-links a {
-            color: var(--accent);
-            text-decoration: none;
-            margin-right: 1.75rem;
-            padding: 0.4em 0;
-            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            display: inline-block;
-            margin-bottom: 0.25rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border-bottom: 2px solid transparent;
+            text-decoration: none;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(8px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            --link-color: var(--accent);
         }
 
         .project-links a::before {
             content: '';
             position: absolute;
             top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg,
-                transparent 0%,
-                rgba(30, 144, 255, 0.1) 50%,
-                transparent 100%);
-            transition: left 0.5s ease;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--link-color);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            border-radius: inherit;
         }
 
         .project-links a:hover {
-            border-bottom-color: currentColor;
-            transform: translateX(3px);
-            text-shadow: 0 0 8px currentColor;
+            border-color: var(--link-color);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .project-links a:hover::before {
-            left: 100%;
+            opacity: 1;
+        }
+
+        .project-links a span {
+            position: relative;
+            z-index: 1;
         }
 
         .project-links a.demo {
-            color: #ff6b6b;
+            --link-color: #10b981;
+            color: #10b981;
         }
 
         .project-links a.docs {
-            color: #686de0;
+            --link-color: #8b5cf6;
+            color: #8b5cf6;
         }
 
         .project-links a.landing {
-            color: #54a0ff;
+            --link-color: #3b82f6;
+            color: #3b82f6;
         }
 
         .project-links a.crate {
-            color: #ffa726;
+            --link-color: #f59e0b;
+            color: #f59e0b;
         }
 
         .project-links a.repo {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .project-links a.repo:hover {
-            color: rgba(255, 255, 255, 0.9);
+            --link-color: #6b7280;
+            color: #9ca3af;
         }
 
         .section-title {
@@ -554,15 +599,7 @@
             z-index: -1;
         }
 
-        .experiments .project-item:hover {
-            transform: translateY(-2px);
-        }
 
-        .experiments .project-item:hover::before {
-            opacity: 1;
-            background: rgba(255, 255, 255, 0.025);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-        }
 
         .experiments .project-item:last-child {
             border-bottom: none;
@@ -726,122 +763,76 @@
             box-shadow: 0 8px 24px rgba(30, 144, 255, 0.3);
         }
 
-        .link-preview {
-            position: fixed;
-            z-index: 1000;
-            pointer-events: none;
-            opacity: 0;
-            transform: translateY(10px) scale(0.95);
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            filter: blur(2px);
-            will-change: transform, opacity, filter;
-        }
-
-        .link-preview.show {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-            filter: blur(0);
-        }
-
-        .link-preview::before {
-            content: '';
+        /* Link Preview Panel */
+        .link-preview-panel {
             position: absolute;
-            top: -10px;
-            left: -10px;
-            right: -10px;
-            bottom: -10px;
-            background: linear-gradient(135deg,
-                    rgba(30, 144, 255, 0.1) 0%,
-                    rgba(30, 144, 255, 0.05) 50%,
-                    rgba(255, 255, 255, 0.02) 100%);
-            border-radius: 0.5rem;
-            z-index: -1;
-            animation: preview-glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes preview-glow {
-            0% {
-                opacity: 0.3;
-            }
-
-            100% {
-                opacity: 0.6;
-            }
-        }
-
-        .link-preview iframe {
-            width: 1200px;
-            height: 800px;
-            border: none;
-            border-radius: 0.4rem;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            transform: scale(0.4);
-            transform-origin: top left;
-            box-shadow:
-                0 8px 32px rgba(0, 0, 0, 0.6),
-                0 2px 8px rgba(30, 144, 255, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            width: 400px;
+            height: 300px;
+            background: var(--bg);
+            border: 1px solid var(--border-medium);
+            border-radius: 0.75rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            z-index: 1000;
             overflow: hidden;
         }
 
-        .link-preview.loading iframe {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            position: relative;
+        .link-preview-panel.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
         }
 
-        .link-preview.loading iframe::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
+        .link-preview-panel .preview-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-medium);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface-elevated);
+        }
+
+        .link-preview-panel .preview-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--fg);
+            letter-spacing: 0.02em;
+        }
+
+        .link-preview-panel .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .link-preview-panel .close-btn:hover {
+            background: var(--surface-hover);
+            color: var(--fg);
+        }
+
+        .link-preview-panel iframe {
             width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg,
-                    transparent 0%,
-                    rgba(30, 144, 255, 0.2) 50%,
-                    transparent 100%);
-            animation: loading-shimmer 1.5s ease-in-out infinite;
+            height: calc(100% - 3rem);
+            border: none;
+            background: var(--surface-elevated);
         }
 
-        @keyframes loading-shimmer {
-            0% {
-                left: -100%;
-            }
-
-            100% {
-                left: 100%;
-            }
-        }
-
-        .preview-loader {
+        .loading-indicator {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.4);
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(30, 144, 255, 0.1);
-            border-top: 3px solid var(--accent);
-            border-radius: 50%;
-            animation: preview-spin 1s linear infinite;
-            z-index: 1;
-        }
-
-        @keyframes preview-spin {
-            0% {
-                transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
-            }
-
-            100% {
-                transform: translate(-50%, -50%) scale(0.4) rotate(360deg);
-            }
-        }
-
-        .link-preview:hover {
-            transform: translateY(-2px) scale(1.02);
-            filter: blur(0) brightness(1.05);
+            transform: translate(-50%, -50%);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
         }
 
         /* Disable tooltips on mobile devices */
@@ -855,9 +846,15 @@
         /* Responsive design improvements */
         @media (max-width: 768px) {
             .header {
-                padding: 2rem 1.5rem 1.75rem;
+                padding: 1.5rem 1.5rem 1.25rem;
                 flex-direction: column;
                 gap: 1.5rem;
+            }
+
+            .header-controls {
+                flex-direction: column;
+                align-self: stretch;
+                gap: 1rem;
             }
 
             .header .newsletter-form {
@@ -949,7 +946,7 @@
         /* Extra small screens */
         @media (max-width: 400px) {
             .header {
-                padding: 1.5rem 1rem 1.5rem;
+                padding: 1.25rem 1rem 1rem;
                 gap: 1rem;
             }
 
@@ -988,191 +985,30 @@
     <header class="header">
         <div class="header-content">
             <div class="header-line">
-                <h1>Alejandro Figueroa</h1>
-                <span class="tagline">Autonomous Systems &amp; Simulation Engineer</span>
+                <h1 id="site-name"><!-- SITE_NAME --></h1>
+                <span class="tagline" id="site-tagline"><!-- SITE_TAGLINE --></span>
             </div>
 
             <div class="objective">
-                <p>Specializing in autonomous systems, real-time simulations, and computer graphics using Rust, TypeScript, WebGPU, and modern web technologies. Bridging theoretical research with practical, high-performance applications.</p>
+                <p id="site-objective"><!-- SITE_OBJECTIVE --></p>
             </div>
         </div>
-        <form class="newsletter-form" action="https://cybrdelic.substack.com/subscribe" method="post" target="_blank">
-                <input type="email" name="email" placeholder="Enter your email" required>
-                <button type="submit">Subscribe</button>
+        <div class="header-controls">
+            <form class="newsletter-form" id="newsletter-form" action="https://cybrdelic.substack.com/subscribe" method="post" target="_blank">
+                <!-- NEWSLETTER_PLACEHOLDER -->
             </form>
+        </div>
     </header>
 
     <main class="main-content">
-        <h2 class="section-title">Projects</h2>
+        <h2 class="section-title" id="projects-title"><!-- PROJECTS_TITLE --></h2>
+        <ul class="projects" id="projects-list"><!-- PROJECTS_INJECT --></ul>
 
-        <ul class="projects"><!-- Fully polished, Live -->
-            <li class="project-item" id="CommitAura">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">CommitAura</span><span class="badge live">Live</span>
-                    </div>
-                    <div class="project-tagline">LLM-generated commit messages and a push—one command, always
-                        consistent.
-                    </div>
-                    <div class="project-desc">Written in Rust, CommitAura reads the staged diff, summarizes changes,
-                        calls a
-                        language model for a clear, conventional-style commit message, and completes the commit-push
-                        cycle
-                        in a single step. </div>
-                    <div class="project-links">
-                        <a href="https://cybrdelic.github.io/commitaura/index.html" target="_blank"
-                            class="landing">landing</a>
-                        <a href="https://crates.io/crates/commitaura" target="_blank" class="crate">crate</a>
-                        <a href="https://github.com/cybrdelic/CommitAura" target="_blank" class="repo">repo</a>
-                    </div>
-                </div>
-            </li>
-            <li class="project-item" id="XelaThemes">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">XELA Themes</span><span class="badge live">Live</span>
-                    </div>
-                    <div class="project-tagline">VSCode Theme Set</div>
-                    <div class="project-desc">Xela Themes provides the ultimate visual customization experience for developers using Visual Studio Code with toggleable settings customizations as well for increases developer ergonomics.</div>
-                    <div class="project-links">
-                        <!-- <a href="https://cybrdelic.github.io/xela-themes/index.html" target="_blank"
-                            class="landing">landing</a> -->
-                        <a href="https://github.com/cybrdelic/xela-themes" target="_blank" class="repo">repo</a>
-                    </div>
-                </div>
-            </li>
-            <li class="project-item" id="JJUGG">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">JJUGG</span><span class="badge prototype">Prototype</span>
-                    </div>
-                    <div class="project-tagline">Autonomous Job Hunting Platform</div>
-                    <div class="project-desc">A userscript-powered local web app capturing and analyzing job
-                        applications in
-                        real time—offering analytics, tracking, and a custom UI to optimize your job-seeking workflow.
-                    </div>
-                    <div class="project-links">
-                        <a href="https://github.com/cybrdelic/JJUGG" class="repo">repo</a>
-                    </div>
-                </div>
+        <h2 class="section-title" id="experiments-title"><!-- EXPERIMENTS_TITLE --></h2>
+        <ul class="projects experiments" id="experiments-list"><!-- EXPERIMENTS_INJECT --></ul>
 
-            </li>
-
-            <li class="project-item" id="Tessellarity">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">Tessellarity</span><span class="badge prototype">Prototype</span>
-                    </div>
-                    <div class="project-tagline">WebGPU-Based Procedural Simulation Engine</div>
-                    <div class="project-desc">Forked from Yuya Matsuoka's MPM-MLS ocean demo, Tessellarity pulls the
-                        water
-                        code behind a clean plug-in interface, leaving a general WebGPU update loop that any WGSL module
-                        can
-                        drop into. The original ocean now lives as an upgraded plug-in (depth-tint, subsurface
-                        scattering,
-                        env-map lighting, opacity controls), while new fluid, cloth, or EM kernels can hot-reload via
-                        TypeScript hooks. A browser-native test harness keeps every module honest, turning a one-off
-                        water
-                        sim into a reusable, research-grade backbone—all in plain HTML + TS + WGSL.</div>
-                    <div class="project-links">
-                        <a href="https://cybrdelic.github.io/Tessellarity/demo" target="_blank" class="demo">demo</a>
-                        <a href="https://cybrdelic.github.io/Tessellarity/docs" target="_blank" class="docs">docs</a>                    <a href="https://cybrdelic.github.io/Tessellarity/index.html" target="_blank"
-                            class="landing">landing</a>
-                        <a href="https://github.com/cybrdelic/Tessellarity" target="_blank" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-            <li class="project-item" id="OuterSense">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">OuterSense</span><span class="badge prototype">Prototype</span>
-                    </div>
-                    <div class="project-tagline">Real-time gaze tracking with a live 3-D head-and-screen twin.</div>
-                    <div class="project-desc">OuterSense V1 combines Mediapipe eye tracking with custom quaternion math
-                        to
-                        emit a sub-3 ms gaze ray and render a WebGL twin of the user and screen. It provides high-level
-                        events—focus enter, look away—for web apps and lays the groundwork for future robotics
-                        integration
-                        (LiDAR, voltage sensors).</div>
-                    <div class="project-links">
-                        <a href="https://github.com/cybrdelic/OuterSense" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-            <li class="project-item" id="Clippd">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">Clippd</span><span class="badge prototype">Prototype</span>
-                    </div>
-                    <div class="project-tagline">Semantic, depth, and mask data fused into a live scene graph.</div>
-                    <div class="project-desc">Clippd streams each video frame through CLIP (semantics), MiDaS (depth),
-                        and a
-                        SAM-style segmenter, then merges the outputs into a per-pixel scene graph visualized in
-                        Three.js. A
-                        Rust ↔ Python bridge keeps compute kernels testable and fast.</div>
-                    <div class="project-links">
-                        <a href="https://github.com/cybrdelic/Clippd" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-
-        </ul>
-
-        <h2 class="section-title">Experiments</h2>
-        <ul class="projects experiments">
-            <li class="project-item" id="LeatherSim">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">LeatherSim</span><span class="badge">WebGL</span>
-                    </div>
-                    <div class="project-tagline">Physically-based leather material rendering system</div>
-                    <div class="project-desc">Advanced WebGL-based leather material simulation featuring micro-surface scattering, anisotropic reflection, and real-time displacement mapping. Implements Beckmann distribution for realistic leather grain.</div>
-                    <div class="project-links">
-                        <a href="https://leather.cybrdelic.dev" class="demo">Live Demo</a>
-                        <a href="https://github.com/cybrdelic/leather-sim" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-
-            <li class="project-item" id="ElasticityLab">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">ElasticityLab</span><span class="badge">WebGL</span>
-                    </div>
-                    <div class="project-tagline">Real-time elastic body simulation playground</div>
-                    <div class="project-desc">Interactive elasticity simulation using FEM (Finite Element Method) with real-time deformation and stress visualization. Supports various material parameters and constraints.</div>
-                    <div class="project-links">
-                        <a href="https://elasticity.cybrdelic.dev" class="demo">Live Demo</a>
-                        <a href="https://github.com/cybrdelic/elasticity-lab" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-
-            <li class="project-item" id="MetalWorks">
-                <div class="project-content">
-                    <div class="project-header">
-                        <span class="name">MetalWorks</span><span class="badge">WebGL</span>
-                    </div>
-                    <div class="project-tagline">Metal material rendering and behavior simulation</div>
-                    <div class="project-desc">Physically-based metal material simulation with accurate Fresnel equations, microfacet BRDF, and real-time conductivity changes. Includes presets for common metals and alloys.</div>
-                    <div class="project-links">
-                        <a href="https://metals.cybrdelic.dev" class="demo">Live Demo</a>
-                        <a href="https://github.com/cybrdelic/metalworks" class="repo">repo</a>
-                    </div>
-                </div>
-
-            </li>
-        </ul>
-
-
-    </main>
-
-    <script>
+        <!-- Additional static content (if any) can be added here -->
+    </main>    <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Scroll-triggered animations
             const observerOptions = {
@@ -1189,7 +1025,7 @@
                 });
             }, observerOptions);
 
-            // Observe elements for animation
+            // Observe elements for animation (after injection they will exist)
             document.querySelectorAll('.project-item, .section-title').forEach(el => {
                 observer.observe(el);
             });
@@ -1198,135 +1034,136 @@
             let lastScrollY = window.scrollY;
             const header = document.querySelector('.header');
 
-            window.addEventListener('scroll', () => {
+            function updateHeaderOnScroll() {
                 const currentScrollY = window.scrollY;
 
                 if (currentScrollY > 50) {
-                    header.style.background = 'rgba(0, 0, 0, 0.95)';
-                    header.style.backdropFilter = 'blur(16px) saturate(2)';
-                    header.style.borderBottomColor = 'rgba(255, 255, 255, 0.1)';
+                    header.style.background = 'rgba(0, 0, 0, 0.98)';
+                    header.style.backdropFilter = 'blur(20px) saturate(2)';
+                    header.style.borderBottomColor = 'rgba(255, 255, 255, 0.15)';
+                    header.style.boxShadow = '0 1px 0 0 rgba(255, 255, 255, 0.02), 0 8px 32px rgba(0, 0, 0, 0.8)';
                 } else {
-                    header.style.background = 'rgba(0, 0, 0, 0.85)';
+                    header.style.background = 'rgba(0, 0, 0, 0.95)';
                     header.style.backdropFilter = 'blur(12px) saturate(1.8)';
                     header.style.borderBottomColor = 'rgba(255, 255, 255, 0.05)';
+                    header.style.boxShadow = '0 1px 0 0 rgba(255, 255, 255, 0.02), 0 8px 32px rgba(0, 0, 0, 0.6)';
                 }
 
                 lastScrollY = currentScrollY;
-            });
+            }
 
-            // Link preview functionality (disabled on mobile/touch devices)
+            window.addEventListener('scroll', updateHeaderOnScroll, { passive: true });
+
+            // Link preview system (unchanged)
             const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
             if (!isTouchDevice) {
-                const projectLinks = document.querySelectorAll('.project-links a[href^="http"]');
-                let currentPreview = null; projectLinks.forEach(link => {
-                    // Skip GitHub repo links and crate links for preview
-                    if (link.classList.contains('repo') || link.classList.contains('crate')) return; link.addEventListener('mouseenter', function (e) {
-                        const url = this.href;
-                        const linkText = this.textContent.trim();
+                let currentPreview = null;
+                let previewTimeout = null;
 
-                        // Add slight delay to prevent accidental triggers
-                        setTimeout(() => {
-                            if (this.matches(':hover')) {
-                                showLinkPreview(e, url, linkText);
+                // Create preview panel
+                const previewPanel = document.createElement('div');
+                previewPanel.className = 'link-preview-panel';
+                previewPanel.innerHTML = `
+                    <div class="preview-header">
+                        <span class="preview-title">Preview</span>
+                        <button class="close-btn">×</button>
+                    </div>
+                    <iframe loading="lazy" sandbox="allow-same-origin allow-scripts"></iframe>
+                    <div class="loading-indicator">Loading...</div>
+                `;
+                document.body.appendChild(previewPanel);
+
+                const iframe = previewPanel.querySelector('iframe');
+                const title = previewPanel.querySelector('.preview-title');
+                const closeBtn = previewPanel.querySelector('.close-btn');
+                const loadingIndicator = previewPanel.querySelector('.loading-indicator');
+
+                function showPreview(link, event) {
+                    clearTimeout(previewTimeout);
+                    currentPreview = link;
+
+                    const url = link.href;
+                    const linkText = link.textContent.trim();
+
+                    title.textContent = `${linkText} Preview`;
+                    iframe.src = url;
+                    loadingIndicator.style.display = 'block';
+
+                    const rect = link.getBoundingClientRect();
+                    const panelWidth = 400;
+                    const panelHeight = 300;
+
+                    let left = rect.left + window.scrollX;
+                    let top = rect.bottom + window.scrollY + 10;
+
+                    if (left + panelWidth > window.innerWidth + window.scrollX - 20) {
+                        left = window.innerWidth + window.scrollX - panelWidth - 20;
+                    }
+                    if (top + panelHeight > window.innerHeight + window.scrollY - 20) {
+                        top = rect.top + window.scrollY - panelHeight - 10;
+                    }
+
+                    previewPanel.style.left = left + 'px';
+                    previewPanel.style.top = top + 'px';
+                    previewPanel.classList.add('visible');
+                }
+
+                function hidePreview() {
+                    previewPanel.classList.remove('visible');
+                    currentPreview = null;
+                    previewTimeout = setTimeout(() => {
+                        iframe.src = '';
+                    }, 300);
+                }
+
+                document.querySelectorAll('a[data-preview="true"]').forEach(link => {
+                    link.addEventListener('mouseenter', (e) => {
+                        previewTimeout = setTimeout(() => {
+                            if (link.matches(':hover')) {
+                                showPreview(link, e);
                             }
-                        }, 200);
+                        }, 300);
                     });
 
-                    link.addEventListener('mouseleave', function () {
-                        hideLinkPreview();
-                    });
-
-                    link.addEventListener('mousemove', function (e) {
-                        if (currentPreview) {
-                            positionPreview(e);
+                    link.addEventListener('mouseleave', () => {
+                        clearTimeout(previewTimeout);
+                        if (currentPreview === link) {
+                            previewTimeout = setTimeout(hidePreview, 150);
                         }
                     });
-                }); function showLinkPreview(event, url, title) {
-                    hideLinkPreview(); // Remove any existing preview
+                });
 
-                    const preview = document.createElement('div');
-                    preview.className = 'link-preview loading';
+                previewPanel.addEventListener('mouseenter', () => {
+                    clearTimeout(previewTimeout);
+                });
 
-                    // Create loader
-                    const loader = document.createElement('div');
-                    loader.className = 'preview-loader';
+                previewPanel.addEventListener('mouseleave', () => {
+                    hidePreview();
+                });
 
-                    // Create iframe
-                    const iframe = document.createElement('iframe');
-                    iframe.src = url;
-                    iframe.loading = 'lazy';
-                    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
+                closeBtn.addEventListener('click', hidePreview);
 
-                    // Handle iframe load events
-                    iframe.addEventListener('load', () => {
-                        preview.classList.remove('loading');
-                        loader.remove();
-                    });
-
-                    iframe.addEventListener('error', () => {
-                        preview.classList.remove('loading');
-                        loader.remove();
-                        // Show a subtle error state
-                        iframe.style.background = 'linear-gradient(135deg, #2a1a1a 0%, #3d2d2d 100%)';
-                    });
-
-                    preview.appendChild(loader);
-                    preview.appendChild(iframe);
-                    document.body.appendChild(preview);
-                    currentPreview = preview;
-
-                    // Position and show the preview
-                    positionPreview(event);
-
-                    // Smooth entrance with slight delay for better perceived performance
-                    requestAnimationFrame(() => {
-                        setTimeout(() => preview.classList.add('show'), 100);
-                    });
-                } function hideLinkPreview() {
-                    if (currentPreview) {
-                        currentPreview.classList.remove('show');
-                        // Wait for transition to complete before removing
-                        setTimeout(() => {
-                            if (currentPreview) {
-                                currentPreview.remove();
-                                currentPreview = null;
-                            }
-                        }, 400);
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && currentPreview) {
+                        hidePreview();
                     }
-                } function positionPreview(event) {
-                    if (!currentPreview) return;
+                });
 
-                    const preview = currentPreview;
-                    const x = event.clientX;
-                    const y = event.clientY;
-
-                    // Updated preview size for larger iframe (1200x800 scaled to 0.4 = 480x320)
-                    const previewWidth = 480;  // 1200 * 0.4
-                    const previewHeight = 400; // 800 * 0.4 + padding
-
-                    // Smart positioning with cursor offset
-                    let left = x + 20;
-                    let top = y - previewHeight / 2;
-
-                    // Prevent overflow on right edge
-                    if (left + previewWidth > window.innerWidth - 20) {
-                        left = x - previewWidth - 20;
-                    }
-
-                    // Prevent overflow on top/bottom
-                    if (top < 20) {
-                        top = 20;
-                    } else if (top + previewHeight > window.innerHeight - 20) {
-                        top = window.innerHeight - previewHeight - 20;
-                    }
-
-                    // Smooth positioning with CSS transforms for better performance
-                    preview.style.transform = `translate(${left}px, ${top}px)`;
-                    preview.style.left = '0';
-                    preview.style.top = '0';
-                }
+                iframe.addEventListener('load', () => {
+                    loadingIndicator.style.display = 'none';
+                });
             }
+
+            window.addEventListener('scroll', () => {
+                const scrolled = window.pageYOffset;
+                const parallaxElements = document.querySelectorAll('.header::before');
+                parallaxElements.forEach(el => {
+                    el.style.transform = `translateY(${scrolled * 0.1}px)`;
+                });
+            }, { passive: true });
+
+            updateHeaderOnScroll();
         });
     </script>
 </body>

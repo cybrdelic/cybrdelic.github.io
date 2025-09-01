@@ -2,11 +2,13 @@
 
 This document explains the automated deployment system for the Cybrdelic Portfolio website, which automatically deploys your changes to GitHub Pages on every push to the `master` branch.
 
+> Update: Site content now sourced from TypeScript (`content/content.ts`) and injected into a tokenized `index.html` template during the build. Legacy YAML removed.
+
 ## 📋 Overview
 
 The automated deployment system uses **GitHub Actions** to:
-- ✅ Validate HTML and run quality checks
-- 🏗️ Build optimized production assets
+- ✅ Validate HTML and run quality checks (on generated `dist/index.html`)
+- 🏗️ Build optimized production assets (token replacement + minification)
 - 🚀 Deploy to GitHub Pages automatically
 - 📊 Generate deployment reports
 
@@ -36,7 +38,6 @@ The deployment workflow triggers on:
 
 ### For Regular Updates
 ```bash
-# Make your changes to any files
 git add .
 git commit -m "Update portfolio content"
 git push origin master
@@ -48,13 +49,21 @@ git push origin master
 npm run deploy
 ```
 
+## 🧩 Content Generation Flow
+1. Edit `content/content.ts` (type-safe content object)
+2. Edit `index.html` template structure (tokens only, no literal copy)
+3. Run `npm run build` → generates `dist/index.html`
+4. GitHub Actions validates and deploys the generated file
+
+Tokens examples: `__META_TITLE__`, `<!-- SITE_NAME -->`, `<!-- PROJECTS_INJECT -->`.
+
 ## 📁 File Structure
 
 ```
-.github/
-├── workflows/
-│   ├── deploy.yml      # Main deployment workflow
-│   └── preview.yml     # Preview builds for PRs
+content/            # TypeScript content source
+index.html          # Template (placeholder tokens)
+dist/index.html     # Generated output (what gets deployed)
+scripts/build.js    # Token replacement + injection
 ```
 
 ## ⚙️ Workflow Configuration
@@ -112,7 +121,7 @@ Gzipped: 26 KB -> 7 KB  # 73% compression ratio
 npm run dev                 # Start local development server
 
 # Building
-npm run build              # Standard build
+npm run build              # Standard build (TS content -> dist/index.html)
 npm run build:prod         # Production build with optimization
 
 # Deployment
@@ -121,7 +130,7 @@ npm run deploy:check       # Pre-deployment validation
 npm run deploy:force       # Force deployment (use with caution)
 
 # Validation
-npm run validate           # HTML validation
+npm run validate           # HTML validation (generated file)
 npm run security-scan      # Security checks
 npm run size-check         # File size analysis
 ```
