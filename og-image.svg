@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <g opacity="0.1">
+    <line x1="0" y1="157.5" x2="1200" y2="157.5" stroke="#6366f1" stroke-width="1"/>
+    <line x1="0" y1="315" x2="1200" y2="315" stroke="#6366f1" stroke-width="1"/>
+    <line x1="0" y1="472.5" x2="1200" y2="472.5" stroke="#6366f1" stroke-width="1"/>
+    <line x1="300" y1="0" x2="300" y2="630" stroke="#6366f1" stroke-width="1"/>
+    <line x1="600" y1="0" x2="600" y2="630" stroke="#6366f1" stroke-width="1"/>
+    <line x1="900" y1="0" x2="900" y2="630" stroke="#6366f1" stroke-width="1"/>
+  </g>
+
+  <!-- Gradient accent circles -->
+  <circle cx="150" cy="100" r="80" fill="url(#accentGrad)" opacity="0.3" filter="blur(40px)"/>
+  <circle cx="1050" cy="530" r="100" fill="url(#accentGrad)" opacity="0.3" filter="blur(40px)"/>
+
+  <!-- Main content -->
+  <g transform="translate(100, 200)">
+    <!-- Name -->
+    <text x="0" y="0" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="white">
+      Alex
+    </text>
+
+    <!-- Title -->
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="36" font-weight="500" fill="#94a3b8">
+      Creative Developer &amp; UI Engineer
+    </text>
+
+    <!-- Description -->
+    <text x="0" y="140" font-family="Arial, sans-serif" font-size="24" font-weight="400" fill="#64748b">
+      Interactive web experiences, custom animations,
+    </text>
+    <text x="0" y="175" font-family="Arial, sans-serif" font-size="24" font-weight="400" fill="#64748b">
+      and innovative UI/UX design
+    </text>
+  </g>
+
+  <!-- Decorative element -->
+  <rect x="100" y="500" width="120" height="6" fill="url(#accentGrad)" rx="3"/>
+</svg>
