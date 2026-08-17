@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<meta name="theme-color" content="#090b10"/>
+<title>Sponza GI — WebGPU</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090b10;color:#f3f6fb;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}.glass{background:rgba(8,11,16,.66);border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 36px rgba(0,0,0,.22)}#hud{position:fixed;z-index:10;top:max(9px,env(safe-area-inset-top));left:max(9px,env(safe-area-inset-left));border-radius:14px;padding:9px;width:min(365px,calc(100vw - 18px));user-select:none}.top{display:flex;justify-content:space-between;align-items:center;gap:8px}.title{font-weight:800;font-size:13px}.stats,.controls{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.pill,button{border-radius:9px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.07);color:#f7f9fc;font:600 11px/1 system-ui;padding:7px 9px}.pill{padding:5px 7px;color:rgba(255,255,255,.78)}button{appearance:none;min-height:30px}button.on,button.active{background:#f0f4f8;color:#101318;border-color:transparent}.desc{font-size:10px;color:rgba(255,255,255,.55);line-height:1.35;margin-top:6px}#collapse{padding:0;width:30px;height:30px;font-size:16px}#hud.min .stats,#hud.min .controls,#hud.min .desc{display:none}#hud.min{width:auto}.views{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:5px;max-width:calc(100vw - 16px);overflow-x:auto;padding:6px;border-radius:13px;scrollbar-width:none}.views::-webkit-scrollbar{display:none}.views button{white-space:nowrap;background:rgba(14,18,25,.74)}.views button.active{background:#f0f4f8;color:#101318}.loading{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:#090b10}.loadbox{text-align:center;max-width:min(520px,86vw)}.loadtitle{font-size:19px;font-weight:850}.muted{font-size:12px;color:rgba(255,255,255,.58);margin-top:7px}.bar{height:4px;width:min(310px,72vw);background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin:14px auto}.bar i{display:block;height:100%;width:30%;background:#fff;border-radius:99px;animation:load 1s ease-in-out infinite alternate}@keyframes load{to{transform:translateX(230%)}}#error{display:none;color:#ffb8b8;font-size:12px;line-height:1.4;margin-top:10px}.toast{position:fixed;z-index:20;left:50%;top:50%;transform:translate(-50%,-50%) translateY(8px);opacity:0;pointer-events:none;border-radius:10px;padding:8px 10px;font-size:11px;transition:.18s}.toast.show{opacity:1;transform:translate(-50%,-50%)}@media(max-width:600px){#hud{padding:8px;width:min(330px,calc(100vw - 18px))}.desc{display:none}.controls button{padding:7px 8px}.views button{padding:8px 10px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="loading" class="loading"><div class="loadbox"><div class="loadtitle">SPONZA GI</div><div id="loadmsg" class="muted">Starting WebGPU/TSL pipeline…</div><div class="bar"><i></i></div><div id="error"></div></div></div>
+<div id="hud" class="glass">
+  <div class="top"><div class="title">Sponza · SSGI + GTAO + TRAA + Bloom</div><button id="collapse">−</button></div>
+  <div class="stats"><span id="backend" class="pill">GPU --</span><span id="fps" class="pill">-- fps</span><span id="scale" class="pill">--%</span></div>
+  <div class="controls"><button id="gi" class="on">GI</button><button id="ao" class="on">GTAO</button><button id="taa" class="on">TRAA</button><button id="bloom" class="on">Bloom</button><button id="tour">Auto tour</button></div>
+  <div class="desc">Reconstruction of the requested Speedball-style stack using Three.js WebGPU/TSL: screen-space indirect illumination → GTAO → temporal reprojection AA → stabilized bloom.</div>
+</div>
+<div id="views" class="views glass"><button data-view="hero" class="active">Hero</button><button data-view="center">Center</button><button data-view="arcade">Arcade</button><button data-view="balcony">Balcony</button><button data-view="side">Side</button><button data-view="wide">Wide</button></div>
+<div id="toast" class="toast glass"></div>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, normalView, velocity, vec4 } from 'three/tsl';
+import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $=id=>document.getElementById(id),loading=$('loading'),loadmsg=$('loadmsg'),errorEl=$('error'),fpsEl=$('fps'),scaleEl=$('scale'),backendEl=$('backend'),toast=$('toast');
+const mobile=matchMedia('(pointer:coarse)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const state={gi:true,ao:true,taa:true,bloom:true,tour:false,scale:mobile?.72:.92,min:mobile?.52:.70,max:mobile?.84:1};
+let renderer,scene,camera,controls,pipeline,scenePass,ssgiPass,aoPass,traaPass,bloomPass,colorNode,depthNode,normalNode,velocityNode;
+let root,box,presets={},transition=null,active='hero',tourAt=0,tourI=0,frames=0,fpsStart=performance.now(),perf=0,perfN=0;
+const raycaster=new THREE.Raycaster();
+
+function fail(m){errorEl.style.display='block';errorEl.textContent=m;loadmsg.textContent='Could not start demo'}
+function note(m){toast.textContent=m;toast.classList.add('show');clearTimeout(note.t);note.t=setTimeout(()=>toast.classList.remove('show'),800)}
+function setButton(id,on){$(id).classList.toggle('on',on)}
+
+async function init(){
+  try{
+    renderer=new THREE.WebGPURenderer({antialias:false,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.35:1.8));
+    renderer.setSize(innerWidth,innerHeight);
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure=1.35;
+    document.body.prepend(renderer.domElement);
+    await renderer.init();
+    backendEl.textContent=navigator.gpu?'WebGPU':'WebGL2';
+
+    scene=new THREE.Scene();scene.background=new THREE.Color(0x121720);
+    camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,10000);
+    controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.07;controls.screenSpacePanning=true;controls.touches.ONE=THREE.TOUCH.ROTATE;controls.touches.TWO=THREE.TOUCH.DOLLY_PAN;
+
+    scene.add(new THREE.HemisphereLight(0xd4e2f4,0x57463b,1.15));
+    const sun=new THREE.DirectionalLight(0xffe1bd,4.1);sun.position.set(-6,12,5);scene.add(sun);
+    const fill=new THREE.DirectionalLight(0x8fb8ff,1.0);fill.position.set(7,6,-4);scene.add(fill);
+
+    loadmsg.textContent='Loading Sponza…';
+    const loader=new GLTFLoader();
+    const urls=['https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@main/Models/Sponza/glTF/Sponza.gltf','https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Sponza/glTF/Sponza.gltf'];
+    let gltf=null,lastErr=null;for(const url of urls){try{gltf=await loader.loadAsync(url);break}catch(e){lastErr=e}}
+    if(!gltf)throw lastErr||new Error('all Sponza sources failed');
+    root=gltf.scene;root.traverse(o=>{if(o.isMesh){o.frustumCulled=true;if(o.material){o.material.side=THREE.FrontSide;o.material.needsUpdate=true}}});scene.add(root);
+    box=new THREE.Box3().setFromObject(root);buildPresets();goView('hero',true);
+
+    buildPipeline();applyPipeline();resize();
+    loading.style.display='none';renderer.setAnimationLoop(loop);
+  }catch(e){console.error(e);fail(e?.message||String(e))}
+}
+
+function buildPipeline(){
+  pipeline=new THREE.RenderPipeline(renderer);
+  scenePass=pass(scene,camera);
+  scenePass.setMRT(mrt({output,normal:normalView,velocity}));
+  colorNode=scenePass.getTextureNode('output');depthNode=scenePass.getTextureNode('depth');normalNode=scenePass.getTextureNode('normal');velocityNode=scenePass.getTextureNode('velocity');
+  scenePass.getTexture('normal').type=THREE.UnsignedByteType;
+  scenePass.getTexture('velocity').type=THREE.HalfFloatType;
+  ssgiPass=ssgi(colorNode,depthNode,normalNode,camera);ssgiPass.resolutionScale=mobile?.55:.75;
+  aoPass=ao(depthNode,normalNode,camera);aoPass.resolutionScale=mobile?.55:.75;
+  traaPass=traa(colorNode,depthNode,velocityNode,camera);
+  bloomPass=bloom(colorNode,0.24,0.18,1.15);
+}
+function applyPipeline(){
+  let n=state.gi?ssgiPass:colorNode;
+  if(state.ao)n=vec4(n.rgb.mul(aoPass.r),n.a);
+  if(state.taa)n=traa(n,depthNode,velocityNode,camera);
+  if(state.bloom){const b=bloom(n,0.22,0.16,1.12);n=n.add(b)}
+  pipeline.outputNode=n;pipeline.needsUpdate=true;
+}
+
+function buildPresets(){
+  const c=box.getCenter(new THREE.Vector3()),s=box.getSize(new THREE.Vector3()),R=Math.max(s.x,s.z),H=s.y;
+  const baseTarget=new THREE.Vector3(c.x,box.min.y+H*.23,c.z);
+  const defs={hero:[0,.03,.42,0,-.02,-.12,50],center:[0,.02,.26,0,-.02,-.18,52],arcade:[-.27,-.04,.16,.10,.00,-.24,55],balcony:[-.22,.24,.18,.08,.02,-.12,48],side:[.36,.02,.06,-.10,-.02,-.08,51],wide:[0,.22,.56,0,-.02,-.08,44]};
+  for(const [name,d] of Object.entries(defs)){
+    const target=baseTarget.clone().add(new THREE.Vector3(d[3]*R,d[4]*H,d[5]*R));
+    const desired=baseTarget.clone().add(new THREE.Vector3(d[0]*R,d[1]*H,d[2]*R));
+    presets[name]={pos:safeCamera(target,desired,R*.025),target,fov:d[6]};
+  }
+}
+function safeCamera(target,desired,margin){
+  const dir=desired.clone().sub(target),dist=dir.length();dir.normalize();raycaster.set(target,dir);raycaster.far=dist;const hits=raycaster.intersectObject(root,true);
+  let p=desired.clone();if(hits.length&&hits[0].distance<dist*.98){const d=Math.max(margin,hits[0].distance-margin);p=target.clone().addScaledVector(dir,d)}
+  const down=new THREE.Vector3(0,-1,0);raycaster.set(p.clone().add(new THREE.Vector3(0,margin*4,0)),down);raycaster.far=box.getSize(new THREE.Vector3()).y;const floor=raycaster.intersectObject(root,true);if(floor.length&&p.y-floor[0].point.y<margin*3)p.y=floor[0].point.y+margin*3;
+  return p;
+}
+function goView(name,instant=false){const p=presets[name];if(!p)return;active=name;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));transition={start:performance.now(),dur:instant?1:700,a:camera.position.clone(),b:p.pos.clone(),ta:controls.target.clone(),tb:p.target.clone(),fa:camera.fov,fb:p.fov};if(!instant)note(name)}
+function updateTransition(t){if(!transition)return;let x=Math.min(1,(t-transition.start)/transition.dur);x=1-Math.pow(1-x,3);camera.position.lerpVectors(transition.a,transition.b,x);controls.target.lerpVectors(transition.ta,transition.tb,x);camera.fov=THREE.MathUtils.lerp(transition.fa,transition.fb,x);camera.updateProjectionMatrix();if(x>=1)transition=null}
+
+function resize(){renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.35:1.8)*state.scale);renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();scaleEl.textContent=Math.round(state.scale*100)+'%'}
+addEventListener('resize',resize,{passive:true});
+
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{state.tour=false;setButton('tour',false);goView(b.dataset.view)});
+$('gi').onclick=()=>{state.gi=!state.gi;setButton('gi',state.gi);applyPipeline()};$('ao').onclick=()=>{state.ao=!state.ao;setButton('ao',state.ao);applyPipeline()};$('taa').onclick=()=>{state.taa=!state.taa;setButton('taa',state.taa);applyPipeline()};$('bloom').onclick=()=>{state.bloom=!state.bloom;setButton('bloom',state.bloom);applyPipeline()};$('tour').onclick=()=>{state.tour=!state.tour;setButton('tour',state.tour);tourAt=performance.now()+2500};$('collapse').onclick=()=>{$('hud').classList.toggle('min');$('collapse').textContent=$('hud').classList.contains('min')?'+':'−'};
+
+function loop(t){const start=performance.now();updateTransition(t);controls.update();if(state.tour&&!transition&&t>tourAt){const names=['hero','center','arcade','balcony','side','wide'];tourI=(tourI+1)%names.length;goView(names[tourI]);tourAt=t+4200}pipeline.render();frames++;perf+=performance.now()-start;perfN++;if(t-fpsStart>900){fpsEl.textContent=Math.round(frames*1000/(t-fpsStart))+' fps';frames=0;fpsStart=t}if(perfN>=100){const avg=perf/perfN,old=state.scale;if(avg>23&&state.scale>state.min)state.scale=Math.max(state.min,state.scale-.05);else if(avg<14&&state.scale<state.max)state.scale=Math.min(state.max,state.scale+.04);perf=0;perfN=0;if(old!==state.scale)resize()}}
+
+init();
+</script>
+</body></html>
