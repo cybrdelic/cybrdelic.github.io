@@ -4,26 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#03060b">
-<title>Ferrari Hybrid Night Run</title>
+<title>Hybrid Driver v6</title>
 <style>
-:root{--sl:max(14px,env(safe-area-inset-left));--sr:max(14px,env(safe-area-inset-right));--sb:max(14px,env(safe-area-inset-bottom));--st:max(10px,env(safe-area-inset-top))}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03060b;color:#eef5ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
-#hud{position:fixed;z-index:20;left:var(--sl);right:var(--sr);top:var(--st);pointer-events:none}#panel{display:inline-block;max-width:min(720px,95vw);padding:8px 10px;border:1px solid rgba(255,255,255,.13);border-radius:11px;background:rgba(3,6,11,.6);backdrop-filter:blur(9px);font-size:10px}#row{display:flex;justify-content:space-between;gap:16px;font-size:12px;font-weight:900}#sub,#asset,#sensor{opacity:.8;margin-top:3px}
-#controls{position:fixed;z-index:30;inset:0;pointer-events:none}.btn{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.18);background:rgba(5,9,15,.7);color:#fff;border-radius:10px;padding:9px 11px;font-weight:850}#reset{left:var(--sl);top:82px}#gyro{right:var(--sr);top:82px}.pedal{pointer-events:auto;position:absolute;bottom:var(--sb);width:94px;height:94px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);background:rgba(5,10,17,.42);backdrop-filter:blur(8px);font-weight:900;user-select:none}#brake{left:var(--sl)}#gas{right:var(--sr)}#toast{position:fixed;z-index:60;display:none;left:50%;top:50%;transform:translate(-50%,-50%);max-width:82vw;padding:12px 15px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(2,5,9,.92);text-align:center;font-size:12px}@media(orientation:landscape){#reset,#gyro{top:64px}.pedal{width:86px;height:86px}}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03060b;color:#eef5ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}#hud{position:fixed;z-index:20;left:max(12px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));pointer-events:none}#panel{display:inline-block;max-width:min(760px,96vw);padding:8px 10px;border:1px solid rgba(255,255,255,.13);border-radius:11px;background:rgba(3,6,11,.66);backdrop-filter:blur(9px);font-size:10px}#row{display:flex;justify-content:space-between;gap:16px;font-size:12px;font-weight:900}#sub,#asset,#car,#sensor{opacity:.8;margin-top:3px}#controls{position:fixed;z-index:30;inset:0;pointer-events:none}.btn{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.18);background:rgba(5,9,15,.7);color:#fff;border-radius:10px;padding:9px 11px;font-weight:850}#reset{left:max(14px,env(safe-area-inset-left));top:86px}#gyro{right:max(14px,env(safe-area-inset-right));top:86px}.pedal{pointer-events:auto;position:absolute;bottom:max(14px,env(safe-area-inset-bottom));width:94px;height:94px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);background:rgba(5,10,17,.42);backdrop-filter:blur(8px);font-weight:900;user-select:none}#brake{left:max(14px,env(safe-area-inset-left))}#gas{right:max(14px,env(safe-area-inset-right))}#toast{position:fixed;z-index:60;display:none;left:50%;top:50%;transform:translate(-50%,-50%);max-width:82vw;padding:12px 15px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(2,5,9,.92);text-align:center;font-size:12px}@media(orientation:landscape){#reset,#gyro{top:70px}.pedal{width:86px;height:86px}}
 </style>
-<script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}
-</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="hud"><div id="panel">
-<div id="row"><span>FERRARI HYBRID NIGHT RUN</span><span id="speed">0 MPH</span></div>
-<div id="sub"><span id="backend">initializing…</span> · <span id="hybrid">PBR</span> · <span id="quality">-- DPR</span> · <span id="fps">-- FPS</span></div>
-<div id="asset">Ferrari: queued</div>
-<div id="sensor">gyro OFF</div>
-</div></div>
-<div id="controls"><button id="reset" class="btn">RESET</button><button id="gyro" class="btn">ENABLE GYRO</button><div id="brake" class="pedal">BRAKE</div><div id="gas" class="pedal">GAS</div></div>
-<div id="toast"></div>
-<script type="module" src="./app-v5.js"></script>
+<div id="hud"><div id="panel"><div id="row"><span>AUTHORED CITY NIGHT RUN v6</span><span id="speed">0 MPH</span></div><div id="sub"><span id="backend">initializing…</span> · <span id="hybrid">PBR</span> · <span id="fps">-- FPS</span></div><div id="asset">Authored city: queued</div><div id="car">Ferrari: queued</div><div id="sensor">gyro OFF</div></div></div>
+<div id="controls"><button id="reset" class="btn">RESET</button><button id="gyro" class="btn">ENABLE GYRO</button><div id="brake" class="pedal">BRAKE</div><div id="gas" class="pedal">GAS</div></div><div id="toast"></div>
+<script type="module" src="./app-v6.js?v=6"></script>
 </body>
 </html>
