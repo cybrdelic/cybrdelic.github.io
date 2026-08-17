@@ -6,13 +6,102 @@
 <meta name="theme-color" content="#03060b">
 <title>Hybrid Driver v6</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03060b;color:#eef5ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}#hud{position:fixed;z-index:20;left:max(12px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));pointer-events:none}#panel{display:inline-block;max-width:min(760px,96vw);padding:8px 10px;border:1px solid rgba(255,255,255,.13);border-radius:11px;background:rgba(3,6,11,.66);backdrop-filter:blur(9px);font-size:10px}#row{display:flex;justify-content:space-between;gap:16px;font-size:12px;font-weight:900}#sub,#asset,#car,#sensor{opacity:.8;margin-top:3px}#controls{position:fixed;z-index:30;inset:0;pointer-events:none}.btn{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.18);background:rgba(5,9,15,.7);color:#fff;border-radius:10px;padding:9px 11px;font-weight:850}#reset{left:max(14px,env(safe-area-inset-left));top:86px}#gyro{right:max(14px,env(safe-area-inset-right));top:86px}.pedal{pointer-events:auto;position:absolute;bottom:max(14px,env(safe-area-inset-bottom));width:94px;height:94px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);background:rgba(5,10,17,.42);backdrop-filter:blur(8px);font-weight:900;user-select:none}#brake{left:max(14px,env(safe-area-inset-left))}#gas{right:max(14px,env(safe-area-inset-right))}#toast{position:fixed;z-index:60;display:none;left:50%;top:50%;transform:translate(-50%,-50%);max-width:82vw;padding:12px 15px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(2,5,9,.92);text-align:center;font-size:12px}@media(orientation:landscape){#reset,#gyro{top:70px}.pedal{width:86px;height:86px}}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03060b;color:#eef5ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}#hud{position:fixed;z-index:20;left:max(12px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));pointer-events:none}#panel{display:inline-block;max-width:min(760px,96vw);padding:8px 10px;border:1px solid rgba(255,255,255,.13);border-radius:11px;background:rgba(3,6,11,.66);backdrop-filter:blur(9px);font-size:10px}#row{display:flex;justify-content:space-between;gap:16px;font-size:12px;font-weight:900}#sub,#asset,#car,#sensor{opacity:.8;margin-top:3px}#controls{position:fixed;z-index:30;inset:0;pointer-events:none}.btn{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.18);background:rgba(5,9,15,.7);color:#fff;border-radius:10px;padding:9px 11px;font-weight:850}#reset{left:max(14px,env(safe-area-inset-left));top:86px}#gyro{right:max(14px,env(safe-area-inset-right));top:86px}.pedal{pointer-events:auto;position:absolute;bottom:max(14px,env(safe-area-inset-bottom));width:94px;height:94px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);background:rgba(5,10,17,.42);backdrop-filter:blur(8px);font-weight:900;user-select:none;-webkit-user-select:none;touch-action:none}.pedal:active,.steer-btn.active{background:rgba(255,255,255,.18);transform:scale(.96)}#brake{left:max(14px,env(safe-area-inset-left))}#gas{right:max(14px,env(safe-area-inset-right))}.steer-btn{pointer-events:auto;position:absolute;bottom:max(24px,calc(env(safe-area-inset-bottom) + 10px));width:72px;height:64px;border-radius:18px;border:1px solid rgba(255,255,255,.2);background:rgba(5,10,17,.48);color:white;font-size:28px;font-weight:900;backdrop-filter:blur(8px);touch-action:none;user-select:none;-webkit-user-select:none}#left{left:calc(50% - 82px)}#right{right:calc(50% - 82px)}#controlhint{position:absolute;left:50%;bottom:max(96px,calc(env(safe-area-inset-bottom) + 82px));transform:translateX(-50%);font-size:10px;opacity:.7;white-space:nowrap;pointer-events:none}#toast{position:fixed;z-index:60;display:none;left:50%;top:50%;transform:translate(-50%,-50%);max-width:82vw;padding:12px 15px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(2,5,9,.92);text-align:center;font-size:12px}@media(orientation:landscape){#reset,#gyro{top:70px}.pedal{width:86px;height:86px}.steer-btn{width:68px;height:58px;bottom:max(20px,env(safe-area-inset-bottom))}#controlhint{bottom:max(84px,calc(env(safe-area-inset-bottom) + 68px))}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
 </head>
 <body>
 <div id="hud"><div id="panel"><div id="row"><span>AUTHORED CITY NIGHT RUN v6</span><span id="speed">0 MPH</span></div><div id="sub"><span id="backend">initializing…</span> · <span id="hybrid">PBR</span> · <span id="fps">-- FPS</span></div><div id="asset">Authored city: queued</div><div id="car">Ferrari: queued</div><div id="sensor">gyro OFF</div></div></div>
-<div id="controls"><button id="reset" class="btn">RESET</button><button id="gyro" class="btn">ENABLE GYRO</button><div id="brake" class="pedal">BRAKE</div><div id="gas" class="pedal">GAS</div></div><div id="toast"></div>
+<div id="controls">
+  <button id="reset" class="btn">RESET</button>
+  <button id="gyro" class="btn">ENABLE GYRO</button>
+  <div id="brake" class="pedal">BRAKE</div>
+  <div id="gas" class="pedal">GAS</div>
+  <button id="left" class="steer-btn" aria-label="Steer left">◀</button>
+  <button id="right" class="steer-btn" aria-label="Steer right">▶</button>
+  <div id="controlhint">Touch arrows · drag screen · WASD / arrow keys · gyro optional</div>
+</div>
+<div id="toast"></div>
 <script type="module" src="./app-v6.js?v=6"></script>
+<script>
+(() => {
+  const state = { left:false, right:false, gas:false, brake:false, x:0, timer:null };
+  const canvas = () => document.querySelector('canvas');
+  const pointerId = 777;
+
+  function dispatch(type, x, y) {
+    const c = canvas();
+    if (!c) return;
+    c.dispatchEvent(new PointerEvent(type, {
+      bubbles:true,
+      cancelable:true,
+      pointerId,
+      pointerType:'touch',
+      isPrimary:true,
+      clientX:x,
+      clientY:y,
+      buttons:type === 'pointerup' ? 0 : 1
+    }));
+  }
+
+  function beginSteer(dir) {
+    const c = canvas();
+    if (!c) return;
+    state.x = innerWidth * .5;
+    state[dir < 0 ? 'left' : 'right'] = true;
+    dispatch('pointerdown', state.x, Math.min(innerHeight * .35, 220));
+    clearInterval(state.timer);
+    state.timer = setInterval(() => {
+      const activeDir = state.left ? -1 : state.right ? 1 : 0;
+      if (!activeDir) return;
+      state.x += activeDir * 9;
+      dispatch('pointermove', state.x, Math.min(innerHeight * .35, 220));
+    }, 16);
+  }
+
+  function endSteer(dir) {
+    state[dir < 0 ? 'left' : 'right'] = false;
+    if (!state.left && !state.right) {
+      clearInterval(state.timer);
+      state.timer = null;
+      dispatch('pointerup', state.x, Math.min(innerHeight * .35, 220));
+    }
+  }
+
+  function bindSteer(id, dir) {
+    const el = document.getElementById(id);
+    const down = e => { e.preventDefault(); el.classList.add('active'); beginSteer(dir); };
+    const up = e => { e.preventDefault(); el.classList.remove('active'); endSteer(dir); };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointerleave', e => { if (e.buttons === 0) up(e); });
+  }
+  bindSteer('left', -1);
+  bindSteer('right', 1);
+
+  const gas = document.getElementById('gas');
+  const brake = document.getElementById('brake');
+  function pedal(el, down) {
+    el.dispatchEvent(new PointerEvent(down ? 'pointerdown' : 'pointerup', { bubbles:true, cancelable:true, pointerId:down?991:992, pointerType:'touch', isPrimary:true }));
+  }
+
+  addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft') beginSteer(-1);
+    if (k === 'd' || k === 'arrowright') beginSteer(1);
+    if (k === 'w' || k === 'arrowup') pedal(gas, true);
+    if (k === 's' || k === 'arrowdown') pedal(brake, true);
+  });
+  addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft') endSteer(-1);
+    if (k === 'd' || k === 'arrowright') endSteer(1);
+    if (k === 'w' || k === 'arrowup') pedal(gas, false);
+    if (k === 's' || k === 'arrowdown') pedal(brake, false);
+  });
+})();
+</script>
 </body>
 </html>
