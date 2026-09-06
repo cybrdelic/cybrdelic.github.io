@@ -2,7 +2,7 @@ name: Build CYBR WATER II
 on:
   push:
     branches: [cybr-water-v2-20260906]
-    paths: ['water-v2-source/source.zip']
+    paths: ['water-v2-source/source.tar.xz']
 permissions:
   contents: write
 jobs:
@@ -20,7 +20,7 @@ jobs:
       - name: Unpack new engine without replacing original demo
         run: |
           mkdir -p /tmp/cybr-water-v2
-          unzip -q water-v2-source/source.zip -d /tmp/cybr-water-v2
+          tar -xJf water-v2-source/source.tar.xz -C /tmp/cybr-water-v2
           mkdir -p /tmp/cybr-water-v2/public/vendor /tmp/cybr-water-v2/public/assets
           cp -r water/vendor/. /tmp/cybr-water-v2/public/vendor/
           cp water/assets/micro.png /tmp/cybr-water-v2/public/assets/
