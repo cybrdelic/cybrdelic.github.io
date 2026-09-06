@@ -1,0 +1,13 @@
+{
+  "skies": {
+    "width": 2048,
+    "height": 1024,
+    "format": "RGBA16F little-endian",
+    "names": [
+      "dawn",
+      "blue",
+      "storm"
+    ]
+  },
+  "origin": "Original procedural radiance fields and texture noise. No generated-image model or water image assets."
+}

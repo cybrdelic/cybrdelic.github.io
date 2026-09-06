@@ -1,0 +1,188 @@
+
+> cybr-water@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: FFT complex round-trip N=2
+ok 1 - FFT complex round-trip N=2
+  ---
+  duration_ms: 1.437482
+  type: 'test'
+  ...
+# Subtest: FFT complex round-trip N=4
+ok 2 - FFT complex round-trip N=4
+  ---
+  duration_ms: 0.349439
+  type: 'test'
+  ...
+# Subtest: FFT complex round-trip N=8
+ok 3 - FFT complex round-trip N=8
+  ---
+  duration_ms: 0.168573
+  type: 'test'
+  ...
+# Subtest: FFT complex round-trip N=16
+ok 4 - FFT complex round-trip N=16
+  ---
+  duration_ms: 0.189733
+  type: 'test'
+  ...
+# Subtest: FFT complex round-trip N=64
+ok 5 - FFT complex round-trip N=64
+  ---
+  duration_ms: 1.110845
+  type: 'test'
+  ...
+# Subtest: FFT complex round-trip N=128
+ok 6 - FFT complex round-trip N=128
+  ---
+  duration_ms: 0.467609
+  type: 'test'
+  ...
+# Subtest: FFT agrees with independent direct DFT
+ok 7 - FFT agrees with independent direct DFT
+  ---
+  duration_ms: 0.350682
+  type: 'test'
+  ...
+# Subtest: 2D FFT normalized impulse becomes constant 1/N²
+ok 8 - 2D FFT normalized impulse becomes constant 1/N²
+  ---
+  duration_ms: 1.068748
+  type: 'test'
+  ...
+# Subtest: FFT rejects non-power-of-two sizes and malformed 2D buffers
+ok 9 - FFT rejects non-power-of-two sizes and malformed 2D buffers
+  ---
+  duration_ms: 0.676278
+  type: 'test'
+  ...
+# Subtest: Gravity-wave deep-water dispersion limit
+ok 10 - Gravity-wave deep-water dispersion limit
+  ---
+  duration_ms: 0.448434
+  type: 'test'
+  ...
+# Subtest: Gravity-wave shallow-water dispersion limit
+ok 11 - Gravity-wave shallow-water dispersion limit
+  ---
+  duration_ms: 0.194171
+  type: 'test'
+  ...
+# Subtest: Group velocity agrees with finite-difference dω/dk
+ok 12 - Group velocity agrees with finite-difference dω/dk
+  ---
+  duration_ms: 0.196836
+  type: 'test'
+  ...
+# Subtest: Dielectric Fresnel: normal incidence, grazing, total internal reflection
+ok 13 - Dielectric Fresnel: normal incidence, grazing, total internal reflection
+  ---
+  duration_ms: 0.269872
+  type: 'test'
+  ...
+# Subtest: Camera view matrix maps eye to origin
+ok 14 - Camera view matrix maps eye to origin
+  ---
+  duration_ms: 0.2693
+  type: 'test'
+  ...
+# Subtest: Ocean mesh indices are valid and finite at the centre/horizon
+ok 15 - Ocean mesh indices are valid and finite at the centre/horizon
+  ---
+  duration_ms: 1.775822
+  type: 'test'
+  ...
+# Subtest: Seeded spectral realization is reproducible
+ok 16 - Seeded spectral realization is reproducible
+  ---
+  duration_ms: 48.30813
+  type: 'test'
+  ...
+# Subtest: Ocean Hs normalization is correct in expectation
+ok 17 - Ocean Hs normalization is correct in expectation
+  ---
+  duration_ms: 58.81191
+  type: 'test'
+  ...
+# Subtest: Cascade spectral supports do not overlap
+ok 18 - Cascade spectral supports do not overlap
+  ---
+  duration_ms: 43.821178
+  type: 'test'
+  ...
+# Subtest: All presets remain finite; zero DC height; near-real inverse FFT
+ok 19 - All presets remain finite; zero DC height; near-real inverse FFT
+  ---
+  duration_ms: 635.463649
+  type: 'test'
+  ...
+# Subtest: Phase evolution is continuous for a small time increment
+ok 20 - Phase evolution is continuous for a small time increment
+  ---
+  duration_ms: 22.518989
+  type: 'test'
+  ...
+# Subtest: Periodic bilinear cascade sampling wraps exactly
+ok 21 - Periodic bilinear cascade sampling wraps exactly
+  ---
+  duration_ms: 17.58173
+  type: 'test'
+  ...
+# Subtest: Foam follows exponential decay when births and drift are disabled
+ok 22 - Foam follows exponential decay when births and drift are disabled
+  ---
+  duration_ms: 5.369284
+  type: 'test'
+  ...
+# Subtest: Local impulse is neutral in total height volume
+ok 23 - Local impulse is neutral in total height volume
+  ---
+  duration_ms: 2.574357
+  type: 'test'
+  ...
+# Subtest: Closed periodic shallow-water patch preserves zero mass for 20 s
+ok 24 - Closed periodic shallow-water patch preserves zero mass for 20 s
+  ---
+  duration_ms: 54.029899
+  type: 'test'
+  ...
+# Subtest: Shallow-water energy remains bounded without a sponge
+ok 25 - Shallow-water energy remains bounded without a sponge
+  ---
+  duration_ms: 36.707982
+  type: 'test'
+  ...
+# Subtest: Sponge intentionally dissipates outgoing wave energy
+ok 26 - Sponge intentionally dissipates outgoing wave energy
+  ---
+  duration_ms: 106.137894
+  type: 'test'
+  ...
+# Subtest: CFL bound subdivides a large requested time step
+ok 27 - CFL bound subdivides a large requested time step
+  ---
+  duration_ms: 0.988909
+  type: 'test'
+  ...
+# Subtest: Exact submerged sphere cap: empty, hemisphere, full
+ok 28 - Exact submerged sphere cap: empty, hemisphere, full
+  ---
+  duration_ms: 0.142575
+  type: 'test'
+  ...
+# Subtest: Buoy settles close to Archimedean equilibrium
+ok 29 - Buoy settles close to Archimedean equilibrium
+  ---
+  duration_ms: 2.938037
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1141.5971
