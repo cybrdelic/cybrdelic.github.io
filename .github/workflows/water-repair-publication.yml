@@ -1,0 +1,79 @@
+name: Water repair - public site verification
+on:
+  push:
+    branches: [master]
+    paths: ['water/repair/**', '.github/workflows/water-repair-publication.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Wait for matching public release bytes and verify all text entry points
+        run: |
+          python - <<'PY'
+          import urllib.request,time,hashlib,json,pathlib
+          root=pathlib.Path('water/repair');base='https://cybrdelic.github.io/water/repair/'
+          expected=(root/'RELEASE-HASHES.json').read_bytes()
+          for attempt in range(60):
+              try:
+                  actual=urllib.request.urlopen(base+'RELEASE-HASHES.json?release='+str(time.time()),timeout=35).read()
+                  if actual==expected:break
+                  print('Waiting for current Pages deployment',flush=True)
+              except Exception as e:print(type(e).__name__,str(e),flush=True)
+              time.sleep(10)
+          else:raise RuntimeError('The public deployment does not match this release')
+          checked=[]
+          paths=['index.html','films/index.html','VALIDATION.json','BUGFIXES.md','src/app.js','src/engine.js','src/water-shaders.js','src/ray-scene.js','src/sim-fields.js','vendor/three.module.js','assets/foam.png']
+          for path in paths:
+              got=urllib.request.urlopen(base+path,timeout=45).read();want=(root/path).read_bytes();assert got==want,path
+              checked.append({'path':path,'sha256':hashlib.sha256(got).hexdigest(),'bytes':len(got)})
+          for path in ['films/00-Before-and-After.mp4','films/CYBR-WATER-2.1-Complete.mp4','SOURCE.zip']:
+              req=urllib.request.Request(base+path,method='HEAD');response=urllib.request.urlopen(req,timeout=40)
+              assert int(response.headers['Content-Length'])==(root/path).stat().st_size,path
+              checked.append({'path':path,'contentLength':int(response.headers['Content-Length']),'contentType':response.headers.get('Content-Type')})
+          pathlib.Path('public-check.json').write_text(json.dumps({'url':base,'passed':True,'checked':checked},indent=2))
+          print('PUBLIC CONTENT VERIFIED',base)
+          PY
+      - name: Prepare real public-browser check
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Load and render the public site, not a local substitute
+        env:
+          LP_NUM_THREADS: '3'
+        run: |
+          cat > /tmp/public_browser.py <<'PY'
+          import shutil,json,pathlib
+          from playwright.sync_api import sync_playwright
+          errors=[];failed=[]
+          with sync_playwright() as pw:
+              exe=next((shutil.which(n) for n in ['chromium','google-chrome','google-chrome-stable'] if shutil.which(n)),None)
+              kw=dict(headless=True,args=['--no-sandbox','--use-gl=angle','--use-angle=gl','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--disable-dev-shm-usage'])
+              if exe:kw['executable_path']=exe
+              browser=pw.chromium.launch(**kw);page=browser.new_page(viewport={'width':1280,'height':720});page.set_default_timeout(240000)
+              page.on('pageerror',lambda e:errors.append(str(e)));page.on('requestfailed',lambda r:failed.append({'url':r.url,'error':r.failure}))
+              page.on('console',lambda m:errors.append(m.text) if m.type=='error' else None)
+              url='https://cybrdelic.github.io/water/repair/?capture=1&scene=blue&width=1280&height=720'
+              page.goto(url,wait_until='domcontentloaded',timeout=240000);page.wait_for_function('window.__READY__||window.__ERROR__');assert not page.evaluate('window.__ERROR__'),page.evaluate('window.__ERROR__')
+              for i in range(12):page.evaluate('app.frame(1/24)')
+              page.screenshot(path='public-browser.png');d=page.evaluate('app.diagnostics(true)');assert d['surface']['finite'] and d['interaction']['finite'];assert not errors,errors;assert not failed,failed
+              pathlib.Path('public-browser.json').write_text(json.dumps({'url':url,'passed':True,'errors':errors,'failedRequests':failed,'diagnostics':d},indent=2));browser.close()
+          PY
+          xvfb-run -a -s '-screen 0 1920x1080x24' python /tmp/public_browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-repair-public-verification
+          path: |
+            public-check.json
+            public-browser.json
+            public-browser.png
+          retention-days: 7
