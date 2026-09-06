@@ -6,6 +6,9 @@ on:
 permissions:
   contents: write
   actions: read
+concurrency:
+  group: water-repair-packaging
+  cancel-in-progress: true
 jobs:
   package:
     runs-on: ubuntu-latest
@@ -36,8 +39,6 @@ jobs:
               time.sleep(10)
           else:raise RuntimeError('Not every final native recording completed')
           for name in ['build','controls']:assert next(j for j in jobs if j['name']==name)['conclusion']=='success',name
-          # The capture itself succeeds; tee opens an absent directory first.
-          # Do not ignore arbitrary job failures: inspect the official logs.
           audits=[]
           for job in captures:
               req=urllib.request.Request('https://api.github.com/repos/cybrdelic/cybrdelic.github.io/actions/jobs/'+str(job['id'])+'/logs',headers=headers)
@@ -82,7 +83,7 @@ jobs:
           github-token: ${{ github.token }}
           run-id: 34041087283
           path: /tmp/water-repair/CYBR-WATER-II/docs
-      - name: Fix future logging setup and assemble only fully validated final media
+      - name: Assemble only fully validated final media
         run: |
           python -m pip install pillow
           sudo apt-get update -qq
@@ -90,20 +91,20 @@ jobs:
           cp /tmp/capture-harness-audit.json /tmp/water-repair/CYBR-WATER-II/docs/
           python - <<'PY'
           from pathlib import Path
-          p=Path('.github/workflows/water-repair-final.yml');s=p.read_text();old="          set -euo pipefail\n          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py";assert old in s;p.write_text(s.replace(old,"          set -euo pipefail\n          mkdir -p renders\n          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py",1))
-          p=Path('water-repair-source/release.py');s=p.read_text();assert "'59 numerical implementation tests'" in s;p.write_text(s.replace("'59 numerical implementation tests'","'66 numerical implementation tests'"))
-          root=Path('/tmp/water-repair/CYBR-WATER-II');(root/'docs/capture-harness-note.md').write_text('# Capture harness correction\n\nEvery final native frame was rendered and the graphics checks passed. The shell logging process tried to open an empty directory before the Python renderer created it, so the original CI jobs returned failure after successful recording. The final packaging job examines all thirty original job logs, requires complete frame counts and clean browser reports, and then assembles the retained frames. The workflow now creates the directory before starting its logger. No shaders, wave state, video frames or test assertions were changed for this packaging correction.\n')
+          p=Path('water-repair-source/release.py');s=p.read_text();p.write_text(s.replace("'59 numerical implementation tests'","'66 numerical implementation tests'"))
+          root=Path('/tmp/water-repair/CYBR-WATER-II');(root/'docs/capture-harness-note.md').write_text('# Capture harness correction\n\nEvery final native frame was rendered and the graphics checks passed. The shell logging process tried to open an empty directory before the Python renderer created it, so the original CI jobs returned failure after successful recording. The final packaging job examines all thirty original job logs, requires complete frame counts and clean browser reports, and then assembles the retained frames. Future shell invocations must run `mkdir -p renders` before starting `tee renders/filename.log`. No shaders, wave state, video frames or test assertions were changed for this packaging correction.\n')
           PY
           python water-repair-source/release.py assemble
       - name: Commit isolated final release and preserve unrelated pages
         run: |
+          git restore water-repair-source/release.py
           git pull --ff-only origin cybr-water-repair-20260906
           if [ -d water/repair ]; then mv water/repair /tmp/earlier-water-repair; fi
           mkdir -p water/repair
           cp -r /tmp/water-repair/CYBR-WATER-II/public/. water/repair/
           git config user.name 'CYBR WATER build'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A water/repair .github/workflows/water-repair-final.yml water-repair-source/release.py
+          git add -A water/repair
           git commit -m 'Deliver repaired water with thirty final native recordings, six matched comparisons and 66 tested numerical checks'
           git push origin HEAD:cybr-water-repair-20260906
           git rev-parse HEAD > water/repair/RELEASE-COMMIT.txt
