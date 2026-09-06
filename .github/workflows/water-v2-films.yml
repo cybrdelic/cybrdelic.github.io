@@ -1,0 +1,189 @@
+name: CYBR WATER II - thirty-shot release
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['water-v2-source/manifest.json']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Decode and verify the original source
+        run: |
+          python - <<'PY'
+          import pathlib,base64,lzma,json,hashlib,shutil
+          root=pathlib.Path('/tmp/cybr-water-v2');root.mkdir(exist_ok=True)
+          encoded=''.join(pathlib.Path(f'water-v2-source/part{i}.b64').read_text() for i in range(4))
+          raw=base64.b64decode(encoded)
+          expected=json.loads(pathlib.Path('water-v2-source/manifest.json').read_text())['sha256']
+          assert hashlib.sha256(raw).hexdigest()==expected, 'Source transport hash mismatch'
+          for name,text in json.loads(lzma.decompress(raw)).items():
+              path=(root/name).resolve();assert path.is_relative_to(root)
+              path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text)
+          shutil.copytree('water/vendor',root/'public/vendor',dirs_exist_ok=True)
+          (root/'public/assets').mkdir(exist_ok=True,parents=True)
+          for name in ['micro.png','storm.rgba16f']:
+              shutil.copyfile('water/assets/'+name,root/'public/assets'/name)
+          (root/'docs').mkdir(exist_ok=True)
+          (root/'renders').mkdir(exist_ok=True)
+          print('SOURCE SHA256 VERIFIED',expected)
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-v2-CC0-HDRI
+          github-token: ${{ github.token }}
+          run-id: 34030630107
+          path: /tmp/cybr-water-v2/hdr
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-v2-CC0-materials
+          github-token: ${{ github.token }}
+          run-id: 34031321902
+          path: /tmp/cybr-water-v2/materials
+      - name: Prepare licensed lighting and materials, test numerics, build browser bundle
+        working-directory: /tmp/cybr-water-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install numpy scipy pillow opencv-python-headless
+          python tools/prepare_hdr.py
+          python tools/materials.py
+          python tools/foam_texture.py
+          npm test | tee docs/numerics.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('public');manifest={p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}
+          Path('docs/build-hashes.json').write_text(json.dumps(manifest,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-runtime
+          path: |
+            /tmp/cybr-water-v2/public
+            /tmp/cybr-water-v2/capture
+            /tmp/cybr-water-v2/tools
+            /tmp/cybr-water-v2/tests
+            /tmp/cybr-water-v2/docs
+            /tmp/cybr-water-v2/*.md
+            /tmp/cybr-water-v2/LICENSE
+            /tmp/cybr-water-v2/package.json
+          retention-days: 7
+  capture:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shot: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-v2-runtime
+          path: /tmp/cybr-water-v2
+      - name: Prepare actual browser renderer and video encoder
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Render original native-resolution frames
+        working-directory: /tmp/cybr-water-v2
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p renders
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --shot ${{ matrix.shot }} --width 1920 --height 1080 --fps 24 2>&1 | tee renders/runner-${{ matrix.shot }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-v2-shot-${{ matrix.shot }}
+          path: /tmp/cybr-water-v2/renders
+          retention-days: 7
+  assemble:
+    needs: [build,capture]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-v2-runtime
+          path: /tmp/cybr-water-v2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-v2-shot-*
+          merge-multiple: true
+          path: /tmp/cybr-water-v2/renders
+      - name: Validate all frames and assemble films without resizing or interpolation
+        working-directory: /tmp/cybr-water-v2
+        run: |
+          python -m pip install pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python capture/compose.py
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess,shutil,zipfile,json
+          root=Path('.');public=root/'public';films=public/'films'
+          # GitHub limits individual files to 100 MiB. Retain native resolution
+          # and frame rate if the complete film needs a smaller encoding.
+          p=films/'CYBR-WATER-II-Complete.mp4'
+          if p.stat().st_size>94*1024**2:
+              temp=films/'complete-small.mp4'
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',str(p),'-c:v','libx264','-preset','slow','-crf','23','-maxrate','3900k','-bufsize','7800k','-pix_fmt','yuv420p','-an','-movflags','+faststart',str(temp)],check=True)
+              temp.replace(p)
+          for name in ['README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE']:
+              shutil.copyfile(root/name,public/name)
+          shutil.copytree(root/'docs',public/'docs',dirs_exist_ok=True)
+          with zipfile.ZipFile(public/'SOURCE.zip','w',zipfile.ZIP_DEFLATED,compresslevel=7) as z:
+              for folder in ['public/src','public/assets','public/vendor','capture','tools','tests','docs']:
+                  for file in (root/folder).rglob('*'):
+                      if file.is_file():z.write(file,'CYBR-WATER-II/'+file.as_posix())
+              for name in ['public/index.html','README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE','package.json']:
+                  z.write(root/name,'CYBR-WATER-II/'+name)
+          summary={'capture':'Thirty shots, native 1920x1080, 24 fps playback, fixed 60Hz physics; offline rendering.','tests':'See numerics.tap, GPU verification and film-validation.json.','scope':'GPU spectral ocean plus local depth-averaged perturbation field; not a volumetric FLIP/Navier-Stokes simulation. Same-backend replay, not networking or cross-GPU bitwise determinism.'}
+          (public/'VALIDATION.json').write_text(json.dumps(summary,indent=2))
+          for file in public.rglob('*'):
+              if file.is_file():assert file.stat().st_size<99*1024**2, str(file)+' exceeds GitHub blob limit'
+          PY
+      - name: Stage release in isolated V2 path for review
+        run: |
+          mkdir -p water/v2
+          cp -r /tmp/cybr-water-v2/public/. water/v2/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water/v2
+          git commit -m 'Release CYBR WATER II: GPU simulation, scene optics, thirty native 1080p shots and validation'
+          git push origin HEAD:cybr-water-v2
+          git rev-parse HEAD > /tmp/cybr-water-v2/public/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-v2-release
+          path: /tmp/cybr-water-v2/public
+          retention-days: 7
