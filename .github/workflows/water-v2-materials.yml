@@ -1,0 +1,31 @@
+name: Water V2 material assets
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['.github/workflows/water-v2-materials.yml']
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Resolve and download licensed surface textures
+        run: |
+          mkdir -p maps
+          python - <<'PY'
+          import urllib.request,json,pathlib
+          out=pathlib.Path('maps')
+          for asset in ['rock_face','damp_sand']:
+              data=json.load(urllib.request.urlopen('https://api.polyhaven.com/files/'+asset))
+              (out/(asset+'-source.json')).write_text(json.dumps(data,indent=2))
+              for key in ['diff','nor_gl','rough']:
+                  entry=data[key]['2k']['jpg']
+                  urllib.request.urlretrieve(entry['url'],out/(asset+'_'+key+'.jpg'))
+          (out/'ATTRIBUTION.txt').write_text('All material maps are CC0, Poly Haven: https://polyhaven.com/a/rock_face and https://polyhaven.com/a/damp_sand. Original water simulation code is independent of these surface textures.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-CC0-materials
+          path: maps/
+          retention-days: 7
