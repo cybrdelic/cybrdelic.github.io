@@ -1,0 +1,22 @@
+{
+  "blue": {
+    "source": "blue.hdr",
+    "sun": [
+      -0.3059247094681465,
+      0.7419804117208311,
+      -0.5965527141497358
+    ],
+    "exposureScale": 0.37,
+    "azimuthRotationDegrees": -151.339153125
+  },
+  "dawn": {
+    "source": "dawn.hdr",
+    "sun": [
+      -0.7215476372512444,
+      0.03527423889821395,
+      -0.6914656428538574
+    ],
+    "exposureScale": 0.16,
+    "azimuthRotationDegrees": -173.924678125
+  }
+}

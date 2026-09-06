@@ -1,0 +1,110 @@
+{
+  "shot": {
+    "id": 17,
+    "scene": "rain",
+    "title": "18 / Rain at water level",
+    "caption": "Contact-driven gravity-capillary packets \u00b7 fine surface normals",
+    "eye": [
+      0,
+      1.7,
+      5
+    ],
+    "eyeEnd": [
+      1,
+      1.3,
+      3
+    ],
+    "target": [
+      -4.5,
+      0,
+      -0.8
+    ],
+    "targetEnd": [
+      -3.5,
+      0,
+      -2.8
+    ],
+    "fov": 52,
+    "preroll": 2.4,
+    "group": "Interactions",
+    "duration": 6,
+    "follow": false,
+    "debug": 0,
+    "events": []
+  },
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "telemetry": [
+    {
+      "build": "CYBR WATER 2.0",
+      "backend": "Three.js r180",
+      "renderer": "ANGLE (Mesa, llvmpipe (LLVM 20.1.2 256 bits), OpenGL 4.5)",
+      "scene": "rain",
+      "time": 60.9,
+      "tick": 234,
+      "seed": 91317,
+      "fixedStep": 0.016666666666666666,
+      "spectrum": "GPU atlas IFFT, three disjoint JONSWAP bands",
+      "grid": 128,
+      "resolution": [
+        1920,
+        1080
+      ],
+      "waterTriangles": 286720,
+      "programs": 18,
+      "particles": {
+        "spray": 0,
+        "bubbles": 77
+      },
+      "rainImpacts": 7439,
+      "resolvedRainRings": 1024,
+      "underwater": false,
+      "bodyStates": [],
+      "flags": {
+        "foam": true,
+        "spray": true,
+        "rain": true,
+        "caustics": true,
+        "reflections": true,
+        "taa": true
+      },
+      "camera": {
+        "eye": [
+          0.5,
+          1.5,
+          4
+        ],
+        "target": [
+          -4,
+          -0.0,
+          -1.7999999999999998
+        ],
+        "fov": 52
+      },
+      "surface": {
+        "minimumSampledCombinedJacobian": 0.9394875168800354,
+        "maxSampledHeight": 0.08123372495174408,
+        "meanProbeHeight": -0.0001764465487212874,
+        "finite": true,
+        "samples": 96
+      },
+      "interaction": {
+        "grid": 256,
+        "size": 128,
+        "volumeResidual": -0.34416369339289754,
+        "maxHeight": 0.003843276761472225,
+        "energy": 0.04634716720743081,
+        "finite": true,
+        "appliedHorizontalImpulse": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "frameHashes": [],
+  "errors": [],
+  "warnings": [],
+  "elapsed": 11.462512032999996
+}

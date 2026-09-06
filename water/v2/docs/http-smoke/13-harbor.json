@@ -1,0 +1,133 @@
+{
+  "shot": {
+    "id": 13,
+    "scene": "harbor",
+    "title": "14 / Following the stern",
+    "caption": "Persistent wake foam \u00b7 water response \u00b7 secondary spray",
+    "eye": [
+      -11,
+      3.4,
+      5
+    ],
+    "eyeEnd": [
+      -10,
+      3.0,
+      4
+    ],
+    "target": [
+      -2,
+      0.1,
+      0
+    ],
+    "targetEnd": [
+      -2,
+      0.1,
+      0
+    ],
+    "fov": 52,
+    "preroll": 3.5,
+    "group": "Interactions",
+    "duration": 6,
+    "follow": true,
+    "debug": 0,
+    "events": []
+  },
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "telemetry": [
+    {
+      "build": "CYBR WATER 2.0",
+      "backend": "Three.js r180",
+      "renderer": "ANGLE (Mesa, llvmpipe (LLVM 20.1.2 256 bits), OpenGL 4.5)",
+      "scene": "harbor",
+      "time": 62,
+      "tick": 300,
+      "seed": 91317,
+      "fixedStep": 0.016666666666666666,
+      "spectrum": "GPU atlas IFFT, three disjoint JONSWAP bands",
+      "grid": 128,
+      "resolution": [
+        1920,
+        1080
+      ],
+      "waterTriangles": 286720,
+      "programs": 16,
+      "particles": {
+        "spray": 24,
+        "bubbles": 155
+      },
+      "rainImpacts": 0,
+      "resolvedRainRings": 0,
+      "underwater": false,
+      "bodyStates": [
+        {
+          "position": [
+            4.4006511141697935,
+            0.10849248232634053,
+            6.59338147322827
+          ],
+          "velocity": [
+            4.235050097337115,
+            0.0788656927345143,
+            0.8135397079992425
+          ],
+          "angularVelocity": [
+            -0.014470859677890708,
+            -0.04157027352284896,
+            -0.024992308083007952
+          ],
+          "wetVolume": 1.6238210737968148,
+          "horizontalReactionImpulse": [
+            61.68389677475548,
+            6.903242442600707
+          ]
+        }
+      ],
+      "flags": {
+        "foam": true,
+        "spray": true,
+        "rain": true,
+        "caustics": true,
+        "reflections": true,
+        "taa": true
+      },
+      "camera": {
+        "eye": [
+          -6.0993488858302065,
+          3.308492482326341,
+          11.09338147322827
+        ],
+        "target": [
+          2.4006511141697935,
+          0.20849248232634054,
+          6.59338147322827
+        ],
+        "fov": 52
+      },
+      "surface": {
+        "minimumSampledCombinedJacobian": 0.9345975518226624,
+        "maxSampledHeight": 0.2253461629152298,
+        "meanProbeHeight": -0.00522702895978,
+        "finite": true,
+        "samples": 96
+      },
+      "interaction": {
+        "grid": 256,
+        "size": 128,
+        "volumeResidual": 0.1280738090335067,
+        "maxHeight": 0.18327921628952026,
+        "energy": 8.994922566366942,
+        "finite": true,
+        "appliedHorizontalImpulse": [
+          16848.414253124276,
+          372.32235515444654
+        ]
+      }
+    }
+  ],
+  "frameHashes": [],
+  "errors": [],
+  "warnings": [],
+  "elapsed": 15.478258831999995
+}

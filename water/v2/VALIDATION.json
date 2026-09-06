@@ -1,0 +1,6 @@
+{
+  "capture": "Thirty shots, native 1920x1080, 24 fps playback, fixed 60Hz physics; offline rendering.",
+  "tests": "41 numerical tests plus GPU field, impulse-transfer and same-backend replay checks. See docs.",
+  "scope": "GPU spectral ocean plus local depth-averaged perturbation field; not a volumetric FLIP/Navier-Stokes simulation. No networking or cross-GPU determinism claim.",
+  "packagingFix": "Missing favicon fixed; fresh HTTP smoke test passed; original rendered frames retained."
+}

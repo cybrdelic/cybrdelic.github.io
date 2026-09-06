@@ -1,0 +1,110 @@
+{
+  "shot": {
+    "id": 20,
+    "scene": "clear",
+    "title": "21 / Snell window",
+    "caption": "Below-surface Fresnel reflection and total internal reflection",
+    "eye": [
+      -1,
+      -2,
+      4
+    ],
+    "eyeEnd": [
+      -1,
+      -2.2,
+      4
+    ],
+    "target": [
+      0,
+      6,
+      3
+    ],
+    "targetEnd": [
+      0,
+      6,
+      3
+    ],
+    "fov": 102,
+    "preroll": 1,
+    "group": "Details",
+    "duration": 6,
+    "follow": false,
+    "debug": 0,
+    "events": []
+  },
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "telemetry": [
+    {
+      "build": "CYBR WATER 2.0",
+      "backend": "Three.js r180",
+      "renderer": "ANGLE (Mesa, llvmpipe (LLVM 20.1.2 256 bits), OpenGL 4.5)",
+      "scene": "clear",
+      "time": 59.5,
+      "tick": 150,
+      "seed": 91317,
+      "fixedStep": 0.016666666666666666,
+      "spectrum": "GPU atlas IFFT, three disjoint JONSWAP bands",
+      "grid": 128,
+      "resolution": [
+        1920,
+        1080
+      ],
+      "waterTriangles": 286720,
+      "programs": 18,
+      "particles": {
+        "spray": 0,
+        "bubbles": 49
+      },
+      "rainImpacts": 0,
+      "resolvedRainRings": 0,
+      "underwater": true,
+      "bodyStates": [],
+      "flags": {
+        "foam": true,
+        "spray": true,
+        "rain": true,
+        "caustics": true,
+        "reflections": true,
+        "taa": true
+      },
+      "camera": {
+        "eye": [
+          -1,
+          -2.1,
+          4
+        ],
+        "target": [
+          -0.0,
+          6,
+          3
+        ],
+        "fov": 102
+      },
+      "surface": {
+        "minimumSampledCombinedJacobian": 0.9458338022232056,
+        "maxSampledHeight": 0.09415336698293686,
+        "meanProbeHeight": -0.0023476627175114118,
+        "finite": true,
+        "samples": 96
+      },
+      "interaction": {
+        "grid": 256,
+        "size": 128,
+        "volumeResidual": 0,
+        "maxHeight": 0,
+        "energy": 0,
+        "finite": true,
+        "appliedHorizontalImpulse": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "frameHashes": [],
+  "errors": [],
+  "warnings": [],
+  "elapsed": 7.850648250000006
+}
