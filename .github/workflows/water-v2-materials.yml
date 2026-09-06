@@ -10,20 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Resolve and download licensed surface textures
+      - name: Download published CC0 surface textures
         run: |
+          set -euo pipefail
           mkdir -p maps
-          python - <<'PY'
-          import urllib.request,json,pathlib
-          out=pathlib.Path('maps')
-          for asset in ['rock_face','damp_sand']:
-              data=json.load(urllib.request.urlopen('https://api.polyhaven.com/files/'+asset))
-              (out/(asset+'-source.json')).write_text(json.dumps(data,indent=2))
-              for key in ['diff','nor_gl','rough']:
-                  entry=data[key]['2k']['jpg']
-                  urllib.request.urlretrieve(entry['url'],out/(asset+'_'+key+'.jpg'))
-          (out/'ATTRIBUTION.txt').write_text('All material maps are CC0, Poly Haven: https://polyhaven.com/a/rock_face and https://polyhaven.com/a/damp_sand. Original water simulation code is independent of these surface textures.')
-          PY
+          for asset in rock_face damp_sand; do
+            for channel in diff nor_gl; do
+              curl --retry 3 --fail --location "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/${asset}/${asset}_${channel}_2k.jpg" -o "maps/${asset}_${channel}.jpg"
+            done
+          done
+          printf '%s\n' 'CC0 Poly Haven: rock_face by Dario Barresi and Greg Zaal, https://polyhaven.com/a/rock_face' 'CC0 Poly Haven: damp_sand by eye-candy.xyz, https://polyhaven.com/a/damp_sand' > maps/ATTRIBUTION.txt
+          sha256sum maps/*.jpg > maps/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: water-v2-CC0-materials
