@@ -1,0 +1,260 @@
+
+> cybr-water-v2@2.0.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: IFFT 4: comparison with independent direct DFT
+ok 1 - IFFT 4: comparison with independent direct DFT
+  ---
+  duration_ms: 1.750647
+  type: 'test'
+  ...
+# Subtest: IFFT 8: comparison with independent direct DFT
+ok 2 - IFFT 8: comparison with independent direct DFT
+  ---
+  duration_ms: 0.342728
+  type: 'test'
+  ...
+# Subtest: IFFT 16: comparison with independent direct DFT
+ok 3 - IFFT 16: comparison with independent direct DFT
+  ---
+  duration_ms: 0.281975
+  type: 'test'
+  ...
+# Subtest: IFFT 32: comparison with independent direct DFT
+ok 4 - IFFT 32: comparison with independent direct DFT
+  ---
+  duration_ms: 0.605046
+  type: 'test'
+  ...
+# Subtest: Complex 2D FFT roundtrip and normalization
+ok 5 - Complex 2D FFT roundtrip and normalization
+  ---
+  duration_ms: 2.44513
+  type: 'test'
+  ...
+# Subtest: Invalid FFT dimension is rejected
+ok 6 - Invalid FFT dimension is rejected
+  ---
+  duration_ms: 0.443265
+  type: 'test'
+  ...
+# Subtest: FFT input buffer size is validated
+ok 7 - FFT input buffer size is validated
+  ---
+  duration_ms: 0.250236
+  type: 'test'
+  ...
+# Subtest: Deep-water gravity dispersion
+ok 8 - Deep-water gravity dispersion
+  ---
+  duration_ms: 0.159617
+  type: 'test'
+  ...
+# Subtest: Shallow-water phase speed limit
+ok 9 - Shallow-water phase speed limit
+  ---
+  duration_ms: 0.332679
+  type: 'test'
+  ...
+# Subtest: Deep-water group velocity is half phase velocity
+ok 10 - Deep-water group velocity is half phase velocity
+  ---
+  duration_ms: 0.451711
+  type: 'test'
+  ...
+# Subtest: Group velocity matches numerical dispersion derivative
+ok 11 - Group velocity matches numerical dispersion derivative
+  ---
+  duration_ms: 0.222715
+  type: 'test'
+  ...
+# Subtest: Normal-incidence dielectric Fresnel
+ok 12 - Normal-incidence dielectric Fresnel
+  ---
+  duration_ms: 0.205312
+  type: 'test'
+  ...
+# Subtest: Grazing dielectric reflection tends to one
+ok 13 - Grazing dielectric reflection tends to one
+  ---
+  duration_ms: 0.106819
+  type: 'test'
+  ...
+# Subtest: Below-water total internal reflection
+ok 14 - Below-water total internal reflection
+  ---
+  duration_ms: 0.129
+  type: 'test'
+  ...
+# Subtest: Fresnel stays within physical bounds
+ok 15 - Fresnel stays within physical bounds
+  ---
+  duration_ms: 0.184494
+  type: 'test'
+  ...
+# Subtest: Beer extinction composes over distance
+ok 16 - Beer extinction composes over distance
+  ---
+  duration_ms: 0.127848
+  type: 'test'
+  ...
+# Subtest: Increased water thickness reduces transmission
+ok 17 - Increased water thickness reduces transmission
+  ---
+  duration_ms: 0.11825
+  type: 'test'
+  ...
+# Subtest: Clear and turbid scenes use identical waves and bathymetry
+ok 18 - Clear and turbid scenes use identical waves and bathymetry
+  ---
+  duration_ms: 0.781094
+  type: 'test'
+  ...
+# Subtest: The turbid preset has higher RGB extinction
+ok 19 - The turbid preset has higher RGB extinction
+  ---
+  duration_ms: 0.113351
+  type: 'test'
+  ...
+# Subtest: Gravity-capillary packet group speed matches derivative
+ok 20 - Gravity-capillary packet group speed matches derivative
+  ---
+  duration_ms: 0.133398
+  type: 'test'
+  ...
+# Subtest: Seeded spectrum reproducibility: dawn
+ok 21 - Seeded spectrum reproducibility: dawn
+  ---
+  duration_ms: 14.716236
+  type: 'test'
+  ...
+# Subtest: Seeded spectrum reproducibility: storm
+ok 22 - Seeded spectrum reproducibility: storm
+  ---
+  duration_ms: 10.212856
+  type: 'test'
+  ...
+# Subtest: Seeded spectrum reproducibility: lagoon
+ok 23 - Seeded spectrum reproducibility: lagoon
+  ---
+  duration_ms: 7.741376
+  type: 'test'
+  ...
+# Subtest: Different seeds produce different initial phases
+ok 24 - Different seeds produce different initial phases
+  ---
+  duration_ms: 4.460851
+  type: 'test'
+  ...
+# Subtest: Ensemble spectral variance matches target Hs
+ok 25 - Ensemble spectral variance matches target Hs
+  ---
+  duration_ms: 2.428339
+  type: 'test'
+  ...
+# Subtest: Spectral bands are disjoint in wavelength
+ok 26 - Spectral bands are disjoint in wavelength
+  ---
+  duration_ms: 0.10759
+  type: 'test'
+  ...
+# Subtest: Zero DC and Nyquist axes avoid unpaired real derivatives
+ok 27 - Zero DC and Nyquist axes avoid unpaired real derivatives
+  ---
+  duration_ms: 2.265296
+  type: 'test'
+  ...
+# Subtest: Inverse spectrum 0: finite and effectively real fields
+ok 28 - Inverse spectrum 0: finite and effectively real fields
+  ---
+  duration_ms: 13.020841
+  type: 'test'
+  ...
+# Subtest: Inverse spectrum 1: finite and effectively real fields
+ok 29 - Inverse spectrum 1: finite and effectively real fields
+  ---
+  duration_ms: 5.649103
+  type: 'test'
+  ...
+# Subtest: Inverse spectrum 2: finite and effectively real fields
+ok 30 - Inverse spectrum 2: finite and effectively real fields
+  ---
+  duration_ms: 4.877016
+  type: 'test'
+  ...
+# Subtest: Exact temporal derivatives match finite-time validation
+ok 31 - Exact temporal derivatives match finite-time validation
+  ---
+  duration_ms: 8.749572
+  type: 'test'
+  ...
+# Subtest: Combined Jacobian is not the minimum of per-band Jacobians
+ok 32 - Combined Jacobian is not the minimum of per-band Jacobians
+  ---
+  duration_ms: 0.186206
+  type: 'test'
+  ...
+# Subtest: Interaction timestep meets configured linear CFL bound
+ok 33 - Interaction timestep meets configured linear CFL bound
+  ---
+  duration_ms: 0.09694
+  type: 'test'
+  ...
+# Subtest: Distributed body buoyancy balances gravity at equilibrium
+ok 34 - Distributed body buoyancy balances gravity at equilibrium
+  ---
+  duration_ms: 5.277121
+  type: 'test'
+  ...
+# Subtest: Horizontal drag reaction opposes the body impulse
+ok 35 - Horizontal drag reaction opposes the body impulse
+  ---
+  duration_ms: 0.479442
+  type: 'test'
+  ...
+# Subtest: Relative-flow drag vanishes for a comoving body
+ok 36 - Relative-flow drag vanishes for a comoving body
+  ---
+  duration_ms: 0.245918
+  type: 'test'
+  ...
+# Subtest: Replay serializes and restores ordered fixed-tick events
+ok 37 - Replay serializes and restores ordered fixed-tick events
+  ---
+  duration_ms: 0.648547
+  type: 'test'
+  ...
+# Subtest: Replay preserves insertion order within a tick
+ok 38 - Replay preserves insertion order within a tick
+  ---
+  duration_ms: 0.164106
+  type: 'test'
+  ...
+# Subtest: Replay rejects invalid numerical input
+ok 39 - Replay rejects invalid numerical input
+  ---
+  duration_ms: 0.182951
+  type: 'test'
+  ...
+# Subtest: Replay rejects unsupported command types
+ok 40 - Replay rejects unsupported command types
+  ---
+  duration_ms: 0.122809
+  type: 'test'
+  ...
+# Subtest: Replay rejects incompatible seed or timestep
+ok 41 - Replay rejects incompatible seed or timestep
+  ---
+  duration_ms: 0.164466
+  type: 'test'
+  ...
+1..41
+# tests 41
+# suites 0
+# pass 41
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 214.160517

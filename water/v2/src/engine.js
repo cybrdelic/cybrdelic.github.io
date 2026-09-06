@@ -1,71 +1,545 @@
-import {THREE,Pass,target,uniform as U} from './gpu.js';
-import {GPUOcean} from './gpu-ocean.js';
-import {InteractionField,WhitewaterField} from './sim-fields.js';
-import {World} from './world.js';
-import {WorldShadows} from './shadows.js';
-import {Caustics} from './caustics.js';
-import {PostProcessor} from './post.js';
-import {Dynamics} from './dynamics.js';
-import {RainRipples} from './rain-ripples.js';
-import {SecondaryParticles,Rain} from './particles.js';
-import {sharedEnvironment,loadEnvironment} from './environment.js';
-import {waterVertex,waterFragment} from './water-shaders.js';
-import {ReplayJournal} from './replay.js';
-import {PRESETS,FIXED_DT,SEED} from './config.js';
-function radialGeometry(radial=250,angular=480,radius=14000){const vertices=new Float32Array((radial+1)*(angular+1)*3),indices=new Uint32Array(radial*angular*6);const base=11,log=Math.log1p(radius/base);let k=0;for(let j=0;j<=radial;j++){const r=base*Math.expm1(log*j/radial);for(let i=0;i<=angular;i++){const a=i/angular*2*Math.PI,idx=(j*(angular+1)+i)*3;vertices[idx]=r*Math.cos(a);vertices[idx+2]=r*Math.sin(a);}}for(let j=0;j<radial;j++)for(let i=0;i<angular;i++){const a=j*(angular+1)+i,b=a+angular+1;indices[k++]=a;indices[k++]=a+1;indices[k++]=b;indices[k++]=b;indices[k++]=a+1;indices[k++]=b+1;}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(vertices,3));g.setIndex(new THREE.BufferAttribute(indices,1));return g;}
+import { THREE, Pass, target, uniform as U } from "./gpu.js";
+import { GPUOcean } from "./gpu-ocean.js";
+import { InteractionField, WhitewaterField } from "./sim-fields.js";
+import { World } from "./world.js";
+import { WorldShadows } from "./shadows.js";
+import { Caustics } from "./caustics.js";
+import { PostProcessor } from "./post.js";
+import { Dynamics } from "./dynamics.js";
+import { RainRipples } from "./rain-ripples.js";
+import { SecondaryParticles, Rain } from "./particles.js";
+import { sharedEnvironment, loadEnvironment } from "./environment.js";
+import { waterVertex, waterFragment } from "./water-shaders.js";
+import { ReplayJournal } from "./replay.js";
+import { PRESETS, FIXED_DT, SEED } from "./config.js";
+function radialGeometry(radial = 250, angular = 480, radius = 14000) {
+  const vertices = new Float32Array((radial + 1) * (angular + 1) * 3),
+    indices = new Uint32Array(radial * angular * 6);
+  const base = 11,
+    log = Math.log1p(radius / base);
+  let k = 0;
+  for (let j = 0; j <= radial; j++) {
+    const r = base * Math.expm1((log * j) / radial);
+    for (let i = 0; i <= angular; i++) {
+      const a = (i / angular) * 2 * Math.PI,
+        idx = (j * (angular + 1) + i) * 3;
+      vertices[idx] = r * Math.cos(a);
+      vertices[idx + 2] = r * Math.sin(a);
+    }
+  }
+  for (let j = 0; j < radial; j++)
+    for (let i = 0; i < angular; i++) {
+      const a = j * (angular + 1) + i,
+        b = a + angular + 1;
+      indices[k++] = a;
+      indices[k++] = a + 1;
+      indices[k++] = b;
+      indices[k++] = b;
+      indices[k++] = a + 1;
+      indices[k++] = b + 1;
+    }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  g.setIndex(new THREE.BufferAttribute(indices, 1));
+  return g;
+}
 export class WaterEngine {
- constructor(canvas,width,height,{grid=128,high=true}={}){
-  this.canvas=canvas;this.width=width;this.height=height;this.grid=grid;this.high=high;this.renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});this.renderer.autoClear=false;this.renderer.setPixelRatio(1);this.renderer.setSize(width,height,false);this.renderer.outputColorSpace=THREE.LinearSRGBColorSpace;this.renderer.toneMapping=THREE.NoToneMapping;
-  if(!this.renderer.extensions.has('EXT_color_buffer_float'))throw new Error('Floating-point render targets are required');
-  this.camera=new THREE.PerspectiveCamera(52,width/height,.075,35000);this.reflectionCamera=this.camera.clone();this.vp=new THREE.Matrix4();this.cameraTarget=new THREE.Vector3();this.time=57;this.tick=0;this.filmTime=0;this.accumulator=0;this.frameCount=0;this.debug=0;this.sceneKey='lagoon';this.underwater=0;this.flags={foam:true,spray:true,rain:true,caustics:true,reflections:true,taa:true};this.lastGPUReports=null;this.journal=new ReplayJournal(SEED);
- }
- async initialize(){
-  console.log("INIT assets");this.assets=await loadEnvironment();console.log("INIT assets ready");this.shared=sharedEnvironment(this.assets);Object.assign(this.shared,{uClip:U(0),uCausticEnable:U(0),uCaustics:U(null),uCausticSize:U(96),uUnderwater:U(0),uShadowDepth:U(null),uShadowMatrix:U(new THREE.Matrix4())});
-  console.log("INIT GPU");this.ocean=new GPUOcean(this.renderer,this.grid);this.patch=new InteractionField(this.renderer);this.whitewater=new WhitewaterField(this.renderer,this.ocean,this.patch,this.high?512:256,192);console.log("INIT world");this.world=new World(this.shared);console.log("INIT world ready");this.shadows=new WorldShadows(this.renderer,this.world,this.shared);this.caustics=new Caustics(this.renderer,this.ocean,this.shared,this.high?256:128);this.shared.uCaustics.value=this.caustics.target.texture;this.particles=new SecondaryParticles(this.shared);this.rain=new Rain(this.shared);this.rainRipples=new RainRipples(this.renderer);this.dynamics=new Dynamics(this.world);
-  console.log("INIT targets");this.sceneRT=target(this.width,this.height,{type:THREE.HalfFloatType,linear:true,depth:true});this.mainRT=target(this.width,this.height,{count:2,type:THREE.HalfFloatType,linear:true,depth:true});this.reflectionRT=target(Math.max(256,Math.floor(this.width*.6)),Math.max(256,Math.floor(this.height*.6)),{type:THREE.HalfFloatType,linear:true,depth:true});
-  // World-space floor radiance supplies coherent off-screen refraction.
-  this.floorRT=target(1024,1024,{type:THREE.HalfFloatType,linear:true});
-  this.floorCamera=new THREE.OrthographicCamera(-170,170,170,-170,.1,420);this.floorCamera.position.set(0,180,0);this.floorCamera.up.set(0,0,-1);this.floorCamera.lookAt(0,0,0);this.floorCamera.updateMatrixWorld();
-  this.floorScene=new THREE.Scene();this.floorMesh=new THREE.Mesh(this.world.ground.geometry,this.world.sand);this.floorScene.add(this.floorMesh);this.floorMatrix=new THREE.Matrix4().multiplyMatrices(this.floorCamera.projectionMatrix,this.floorCamera.matrixWorldInverse);
-  this.waterUniforms={...this.shared,uFloorRadiance:U(this.floorRT.texture),uFloorMatrix:U(this.floorMatrix),uRainRing:U(this.rainRipples.target.texture),uRainRingSize:U(this.rainRipples.size),uRainEnable:U(0),...this.ocean.uniforms,uMicro:U(this.assets.foam),uViewProjection:U(this.vp),uInverseViewProjection:U(new THREE.Matrix4()),uViewMatrix:U(new THREE.Matrix4()),uReflectionMatrix:U(new THREE.Matrix4()),uHullInverse:U(new THREE.Matrix4()),uResolution:U(new THREE.Vector2(this.width,this.height)),uSceneColor:U(this.sceneRT.texture),uSceneDepth:U(this.sceneRT.depthTexture),uReflection:U(this.reflectionRT.texture),uInteraction:U(this.patch.texture),uWhitewater:U(this.whitewater.texture),uPatchSize:U(this.patch.size),uFoamSize:U(this.whitewater.size),uRoughness:U(.05),uWind:U(5),uTerrain:U(1),uObjects:U(1),uBoat:U(0),uDebug:U(0),uFoamEnable:U(1),uSprayEnable:U(1),uReflections:U(1)};
-  this.waterMaterial=new THREE.RawShaderMaterial({glslVersion:THREE.GLSL3,vertexShader:waterVertex,fragmentShader:waterFragment,uniforms:this.waterUniforms,side:THREE.DoubleSide,depthTest:true,depthWrite:true});
-  this.waterMesh=new THREE.Mesh(radialGeometry(this.high?280:200,this.high?512:320),this.waterMaterial);this.waterMesh.frustumCulled=false;this.waterScene=new THREE.Scene();this.waterScene.add(this.waterMesh);
-  this.copy=new Pass(`precision highp float;in vec2 vUv;layout(location=0) out vec4 fragColor;layout(location=1) out vec4 motion;uniform sampler2D uColor,uDepth;void main(){fragColor=texture(uColor,vUv);motion=vec4(0.);gl_FragDepth=texture(uDepth,vUv).r;}`,{uColor:U(this.sceneRT.texture),uDepth:U(this.sceneRT.depthTexture)});this.copy.material.depthWrite=true;this.copy.material.depthTest=true;this.copy.material.depthFunc=THREE.AlwaysDepth;
-  console.log("INIT post");this.post=new PostProcessor(this.renderer,this.shared,this.width,this.height);console.log("INIT preset");this.setPreset(this.sceneKey);console.log("INIT preset ready");this.setCamera({eye:[17,7,23],target:[-9,-.3,-14],fov:50});console.log("INIT render");this.render();console.log("INIT done");return this;
- }
- setPreset(key,{warm=true}={}){
-  if(!PRESETS[key])throw new Error('Unknown preset '+key);this.sceneKey=key;this.journal.reset(key);this.preset={...PRESETS[key]};const p=this.preset;this.time=57;this.tick=0;this.filmTime=0;this.accumulator=0;
-  this.ocean.reset(p,SEED);this.patch.reset();this.whitewater.reset();this.particles.reset();this.rain.reset();this.rainRipples.reset();this.world.configure(p);this.dynamics.reset(p);this.shared.uSky.value=this.assets.skies[p.sky];this.shared.uSun.value.fromArray(p.sun).normalize();this.shared.uSunColor.value.fromArray(p.sunColor);this.shared.uExposure.value=p.exposure;this.shared.uAbsorption.value.fromArray(p.absorption);this.shared.uScattering.value.fromArray(p.scattering);this.shared.uWaterLight.value.fromArray(p.waterLight);this.shared.uBed.value.fromArray(p.bed);
-  if(warm){for(let i=0;i<18;i++){this.ocean.step(52.5+(i+1)*.25);this.whitewater.step(.25,p);}}
-  this.ocean.step(this.time);this.shadows.render();this.caustics.render();this.post?.reset();this.historyReset=true;
- }
- setCamera({eye,target,fov=52,up=[0,1,0]}){this.camera.position.fromArray(eye);this.camera.up.fromArray(up);this.cameraTarget.fromArray(target);this.camera.fov=fov;this.camera.aspect=this.width/this.height;this.camera.updateProjectionMatrix();this.camera.lookAt(this.cameraTarget);this.camera.updateMatrixWorld();this.currentCamera={eye:eye.slice(),target:target.slice(),fov};}
- command(type,payload){return this.journal.enqueue(this.tick+1,type,payload);}
- applyEvent(event){const p=event.payload;if(event.type==='impulse')this.patch.impulse(p.x,p.z,p.height,p.radius,p.foam);if(event.type==='flag')this.flags[p.name]=p.value;if(event.type==='extinction'){this.shared.uAbsorption.value.fromArray(this.preset.absorption).multiplyScalar(p.scale);this.shared.uScattering.value.fromArray(this.preset.scattering).multiplyScalar(p.scale);}}
- loadReplay(doc){if(!PRESETS[doc.scene])throw new TypeError('Unknown replay scene');this.setPreset(doc.scene);this.journal.load(doc);}
- pickWater(ndcX,ndcY){const origin=this.camera.position.clone(),point=new THREE.Vector3(ndcX,ndcY,.5).unproject(this.camera),ray=point.sub(origin).normalize();if(ray.y>=-.015)return null;let t=-origin.y/ray.y;for(let i=0;i<5;i++){const p=origin.clone().addScaledVector(ray,t),sample=this.ocean.query([[p.x,p.z]],this.patch.texture,this.patch.size)[0];t=(sample.height-origin.y)/ray.y;}const p=origin.addScaledVector(ray,t);return t>0&&Math.abs(p.x)<this.patch.size*.45&&Math.abs(p.z)<this.patch.size*.45?p:null;}
- fixedStep(){
-  const dt=FIXED_DT;this.tick++;this.journal.consume(this.tick,e=>this.applyEvent(e));this.time=57+this.tick*dt;this.ocean.step(this.time);this.dynamics.sampleAndStep(dt,this.tick*dt,this.ocean,this.patch,this.particles,this.preset);
-  if(this.flags.rain)this.rain.step(dt,this.patch,this.preset,this.rainRipples,this.tick*dt);
-  this.patch.step(dt);this.whitewater.step(dt,this.preset);this.particles.step(dt,this.time,this.preset);
- }
- advance(delta=1/24){this.accumulator+=delta;let steps=0;while(this.accumulator>=FIXED_DT-1e-10){this.fixedStep();this.accumulator-=FIXED_DT;steps++;if(steps>240)throw new Error('Step budget exceeded');}this.filmTime+=delta;}
- render(){
-  const r=this.renderer,p=this.preset,u=this.waterUniforms,s=this.shared,c=this.camera;
-  s.uTime.value=this.time;s.uCausticEnable.value=p.caustics&&this.flags.caustics?1:0;this.particles.material.uniforms.uPointScale.value=this.height*1.2;
-  if(p.boat||p.buoys)this.shadows.render();
-  if(p.caustics&&this.flags.caustics)this.caustics.render();if(p.rain&&this.flags.rain)this.rainRipples.render(this.tick*FIXED_DT);u.uRainEnable.value=p.rain&&this.flags.rain?1:0;
-  const eyeProbe=this.ocean.query([[c.position.x,c.position.z]],this.patch.texture,this.patch.size)[0];this.cameraSurfaceHeight=eyeProbe.height;this.underwater=c.position.y<eyeProbe.height?1:0;s.uUnderwater.value=this.underwater;
-  if((p.terrain||p.boat||p.buoys)&&this.flags.reflections&&!this.underwater){const mirror=this.reflectionCamera;mirror.fov=c.fov;mirror.aspect=c.aspect;mirror.near=c.near;mirror.far=c.far;mirror.updateProjectionMatrix();mirror.position.set(c.position.x,-c.position.y,c.position.z);mirror.up.set(0,-1,0);mirror.lookAt(this.cameraTarget.x,-this.cameraTarget.y,this.cameraTarget.z);mirror.updateMatrixWorld();u.uReflectionMatrix.value.multiplyMatrices(mirror.projectionMatrix,mirror.matrixWorldInverse);s.uEye.value.copy(mirror.position);s.uClip.value=1;r.setRenderTarget(this.reflectionRT);r.setClearColor(0,0);r.clear();r.render(this.world.scene,mirror);}
-  s.uClip.value=0;s.uEye.value.copy(c.position);if(p.terrain){r.setRenderTarget(this.floorRT);r.setClearColor(0,0);r.clear();r.render(this.floorScene,this.floorCamera);}c.updateMatrixWorld();this.vp.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse);u.uInverseViewProjection.value.copy(this.vp).invert();u.uViewMatrix.value.copy(c.matrixWorldInverse);
-  u.uInteraction.value=this.patch.texture;u.uWhitewater.value=this.whitewater.texture;u.uRoughness.value=p.roughness;u.uWind.value=p.wind;u.uTerrain.value=p.terrain?1:0;u.uObjects.value=p.terrain||p.boat||p.buoys?1:0;u.uBoat.value=p.boat?1:0;u.uDebug.value=this.debug;u.uFoamEnable.value=this.flags.foam?1:0;u.uReflections.value=this.flags.reflections?1:0;
-  if(p.boat)u.uHullInverse.value.copy(this.world.boat.matrixWorld).invert();
-  r.setRenderTarget(this.sceneRT);r.setClearColor(0,0);r.clear();r.render(this.world.scene,c);
-  r.setRenderTarget(this.mainRT);r.setClearColor(0,0);r.clear();this.copy.run(r,this.mainRT);r.render(this.waterScene,c);
-  if(this.flags.spray)r.render(this.particles.scene,c);if(p.rain&&this.flags.rain)r.render(this.rain.scene,c);
-  this.post.uniforms.uTAA.value=this.flags.taa?1:0;this.post.render(this.mainRT,this.vp,this.underwater,this.time);this.frameCount++;this.renderer.setRenderTarget(null);
- }
- resize(w,h){this.width=w;this.height=h;this.renderer.setSize(w,h,false);for(const rt of [this.sceneRT,this.mainRT])rt.setSize(w,h);this.reflectionRT.setSize(Math.max(256,Math.floor(w*.6)),Math.max(256,Math.floor(h*.6)));this.post.resize(w,h);this.waterUniforms.uResolution.value.set(w,h);if(this.currentCamera)this.setCamera(this.currentCamera);}
- diagnosticSamples(){const q=[];for(let z=0;z<8;z++)for(let x=0;x<12;x++)q.push([(x/11-.5)*100,(z/7-.5)*100]);const samples=this.ocean.query(q,this.patch.texture,this.patch.size);let lo=Infinity,hi=-Infinity,sum=0,finite=true;for(const s of samples){lo=Math.min(lo,s.jacobian);hi=Math.max(hi,s.height);sum+=s.height;finite=finite&&Number.isFinite(s.height)&&Number.isFinite(s.jacobian);}return {minimumSampledCombinedJacobian:lo,maxSampledHeight:hi,meanProbeHeight:sum/samples.length,finite,samples:samples.length};}
- diagnostics(deep=false){const gl=this.renderer.getContext(),ex=gl.getExtension('WEBGL_debug_renderer_info');const d={build:'CYBR WATER 2.0',backend:'Three.js r'+THREE.REVISION,renderer:ex?gl.getParameter(ex.UNMASKED_RENDERER_WEBGL):'undisclosed',scene:this.sceneKey,time:this.time,tick:this.tick,seed:SEED,fixedStep:FIXED_DT,spectrum:'GPU atlas IFFT, three disjoint JONSWAP bands',grid:this.grid,resolution:[this.width,this.height],waterTriangles:this.waterMesh.geometry.index.count/3,programs:this.renderer.info.programs.length,particles:this.particles.counts,rainImpacts:this.rain.impacts,resolvedRainRings:this.rainRipples.events.length,underwater:!!this.underwater,bodyStates:this.dynamics.lastReports||[],flags:{...this.flags},camera:this.currentCamera};if(deep){d.surface=this.diagnosticSamples();d.interaction=this.patch.diagnostics();}return d;}
+  constructor(canvas, width, height, { grid = 128, high = true } = {}) {
+    this.canvas = canvas;
+    this.width = width;
+    this.height = height;
+    this.grid = grid;
+    this.high = high;
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+    });
+    this.renderer.autoClear = false;
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(width, height, false);
+    this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    if (!this.renderer.extensions.has("EXT_color_buffer_float"))
+      throw new Error("Floating-point render targets are required");
+    this.camera = new THREE.PerspectiveCamera(52, width / height, 0.075, 35000);
+    this.reflectionCamera = this.camera.clone();
+    this.vp = new THREE.Matrix4();
+    this.cameraTarget = new THREE.Vector3();
+    this.time = 57;
+    this.tick = 0;
+    this.filmTime = 0;
+    this.accumulator = 0;
+    this.frameCount = 0;
+    this.debug = 0;
+    this.sceneKey = "lagoon";
+    this.underwater = 0;
+    this.flags = {
+      foam: true,
+      spray: true,
+      rain: true,
+      caustics: true,
+      reflections: true,
+      taa: true,
+    };
+    this.lastGPUReports = null;
+    this.journal = new ReplayJournal(SEED);
+  }
+  async initialize() {
+    console.log("INIT assets");
+    this.assets = await loadEnvironment();
+    console.log("INIT assets ready");
+    this.shared = sharedEnvironment(this.assets);
+    Object.assign(this.shared, {
+      uClip: U(0),
+      uCausticEnable: U(0),
+      uCaustics: U(null),
+      uCausticSize: U(96),
+      uUnderwater: U(0),
+      uShadowDepth: U(null),
+      uShadowMatrix: U(new THREE.Matrix4()),
+    });
+    console.log("INIT GPU");
+    this.ocean = new GPUOcean(this.renderer, this.grid);
+    this.patch = new InteractionField(this.renderer);
+    this.whitewater = new WhitewaterField(
+      this.renderer,
+      this.ocean,
+      this.patch,
+      this.high ? 512 : 256,
+      192,
+    );
+    console.log("INIT world");
+    this.world = new World(this.shared);
+    console.log("INIT world ready");
+    this.shadows = new WorldShadows(this.renderer, this.world, this.shared);
+    this.caustics = new Caustics(
+      this.renderer,
+      this.ocean,
+      this.shared,
+      this.high ? 256 : 128,
+    );
+    this.shared.uCaustics.value = this.caustics.target.texture;
+    this.particles = new SecondaryParticles(this.shared);
+    this.rain = new Rain(this.shared);
+    this.rainRipples = new RainRipples(this.renderer);
+    this.dynamics = new Dynamics(this.world);
+    console.log("INIT targets");
+    this.sceneRT = target(this.width, this.height, {
+      type: THREE.HalfFloatType,
+      linear: true,
+      depth: true,
+    });
+    this.mainRT = target(this.width, this.height, {
+      count: 2,
+      type: THREE.HalfFloatType,
+      linear: true,
+      depth: true,
+    });
+    this.reflectionRT = target(
+      Math.max(256, Math.floor(this.width * 0.6)),
+      Math.max(256, Math.floor(this.height * 0.6)),
+      { type: THREE.HalfFloatType, linear: true, depth: true },
+    );
+    // World-space floor radiance supplies coherent off-screen refraction.
+    this.floorRT = target(1024, 1024, {
+      type: THREE.HalfFloatType,
+      linear: true,
+    });
+    this.floorCamera = new THREE.OrthographicCamera(
+      -170,
+      170,
+      170,
+      -170,
+      0.1,
+      420,
+    );
+    this.floorCamera.position.set(0, 180, 0);
+    this.floorCamera.up.set(0, 0, -1);
+    this.floorCamera.lookAt(0, 0, 0);
+    this.floorCamera.updateMatrixWorld();
+    this.floorScene = new THREE.Scene();
+    this.floorMesh = new THREE.Mesh(
+      this.world.ground.geometry,
+      this.world.sand,
+    );
+    this.floorScene.add(this.floorMesh);
+    this.floorMatrix = new THREE.Matrix4().multiplyMatrices(
+      this.floorCamera.projectionMatrix,
+      this.floorCamera.matrixWorldInverse,
+    );
+    this.waterUniforms = {
+      ...this.shared,
+      uFloorRadiance: U(this.floorRT.texture),
+      uFloorMatrix: U(this.floorMatrix),
+      uRainRing: U(this.rainRipples.target.texture),
+      uRainRingSize: U(this.rainRipples.size),
+      uRainEnable: U(0),
+      ...this.ocean.uniforms,
+      uMicro: U(this.assets.foam),
+      uViewProjection: U(this.vp),
+      uInverseViewProjection: U(new THREE.Matrix4()),
+      uViewMatrix: U(new THREE.Matrix4()),
+      uReflectionMatrix: U(new THREE.Matrix4()),
+      uHullInverse: U(new THREE.Matrix4()),
+      uResolution: U(new THREE.Vector2(this.width, this.height)),
+      uSceneColor: U(this.sceneRT.texture),
+      uSceneDepth: U(this.sceneRT.depthTexture),
+      uReflection: U(this.reflectionRT.texture),
+      uInteraction: U(this.patch.texture),
+      uWhitewater: U(this.whitewater.texture),
+      uPatchSize: U(this.patch.size),
+      uFoamSize: U(this.whitewater.size),
+      uRoughness: U(0.05),
+      uWind: U(5),
+      uTerrain: U(1),
+      uObjects: U(1),
+      uBoat: U(0),
+      uDebug: U(0),
+      uFoamEnable: U(1),
+      uSprayEnable: U(1),
+      uReflections: U(1),
+    };
+    this.waterMaterial = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      vertexShader: waterVertex,
+      fragmentShader: waterFragment,
+      uniforms: this.waterUniforms,
+      side: THREE.DoubleSide,
+      depthTest: true,
+      depthWrite: true,
+    });
+    this.waterMesh = new THREE.Mesh(
+      radialGeometry(this.high ? 280 : 200, this.high ? 512 : 320),
+      this.waterMaterial,
+    );
+    this.waterMesh.frustumCulled = false;
+    this.waterScene = new THREE.Scene();
+    this.waterScene.add(this.waterMesh);
+    this.copy = new Pass(
+      `precision highp float;in vec2 vUv;layout(location=0) out vec4 fragColor;layout(location=1) out vec4 motion;uniform sampler2D uColor,uDepth;void main(){fragColor=texture(uColor,vUv);motion=vec4(0.);gl_FragDepth=texture(uDepth,vUv).r;}`,
+      { uColor: U(this.sceneRT.texture), uDepth: U(this.sceneRT.depthTexture) },
+    );
+    this.copy.material.depthWrite = true;
+    this.copy.material.depthTest = true;
+    this.copy.material.depthFunc = THREE.AlwaysDepth;
+    console.log("INIT post");
+    this.post = new PostProcessor(
+      this.renderer,
+      this.shared,
+      this.width,
+      this.height,
+    );
+    console.log("INIT preset");
+    this.setPreset(this.sceneKey);
+    console.log("INIT preset ready");
+    this.setCamera({ eye: [17, 7, 23], target: [-9, -0.3, -14], fov: 50 });
+    console.log("INIT render");
+    this.render();
+    console.log("INIT done");
+    return this;
+  }
+  setPreset(key, { warm = true } = {}) {
+    if (!PRESETS[key]) throw new Error("Unknown preset " + key);
+    this.sceneKey = key;
+    this.journal.reset(key);
+    this.flags = {
+      foam: true,
+      spray: true,
+      rain: true,
+      caustics: true,
+      reflections: true,
+      taa: true,
+    };
+    this.debug = 0;
+    this.preset = { ...PRESETS[key] };
+    const p = this.preset;
+    this.time = 57;
+    this.tick = 0;
+    this.filmTime = 0;
+    this.accumulator = 0;
+    this.ocean.reset(p, SEED);
+    this.patch.reset();
+    this.whitewater.reset();
+    this.particles.reset();
+    this.rain.reset();
+    this.rainRipples.reset();
+    this.world.configure(p);
+    this.dynamics.reset(p);
+    this.shared.uSky.value = this.assets.skies[p.sky];
+    this.shared.uSun.value.fromArray(p.sun).normalize();
+    this.shared.uSunColor.value.fromArray(p.sunColor);
+    this.shared.uExposure.value = p.exposure;
+    this.shared.uAbsorption.value.fromArray(p.absorption);
+    this.shared.uScattering.value.fromArray(p.scattering);
+    this.shared.uWaterLight.value.fromArray(p.waterLight);
+    this.shared.uBed.value.fromArray(p.bed);
+    if (warm) {
+      for (let i = 0; i < 18; i++) {
+        this.ocean.step(52.5 + (i + 1) * 0.25);
+        this.whitewater.step(0.25, p);
+      }
+    }
+    this.ocean.step(this.time);
+    this.shadows.render();
+    this.caustics.render();
+    this.post?.reset();
+    this.historyReset = true;
+  }
+  setCamera({ eye, target, fov = 52, up = [0, 1, 0] }) {
+    this.camera.position.fromArray(eye);
+    this.camera.up.fromArray(up);
+    this.cameraTarget.fromArray(target);
+    this.camera.fov = fov;
+    this.camera.aspect = this.width / this.height;
+    this.camera.updateProjectionMatrix();
+    this.camera.lookAt(this.cameraTarget);
+    this.camera.updateMatrixWorld();
+    this.currentCamera = { eye: eye.slice(), target: target.slice(), fov };
+  }
+  command(type, payload) {
+    return this.journal.enqueue(this.tick + 1, type, payload);
+  }
+  applyEvent(event) {
+    const p = event.payload;
+    if (event.type === "impulse")
+      this.patch.impulse(p.x, p.z, p.height, p.radius, p.foam);
+    if (event.type === "flag") this.flags[p.name] = p.value;
+    if (event.type === "extinction") {
+      this.shared.uAbsorption.value
+        .fromArray(this.preset.absorption)
+        .multiplyScalar(p.scale);
+      this.shared.uScattering.value
+        .fromArray(this.preset.scattering)
+        .multiplyScalar(p.scale);
+    }
+  }
+  loadReplay(doc) {
+    if (!PRESETS[doc.scene]) throw new TypeError("Unknown replay scene");
+    this.setPreset(doc.scene);
+    this.journal.load(doc);
+  }
+  pickWater(ndcX, ndcY) {
+    const origin = this.camera.position.clone(),
+      point = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(this.camera),
+      ray = point.sub(origin).normalize();
+    if (ray.y >= -0.015) return null;
+    let t = -origin.y / ray.y;
+    for (let i = 0; i < 5; i++) {
+      const p = origin.clone().addScaledVector(ray, t),
+        sample = this.ocean.query(
+          [[p.x, p.z]],
+          this.patch.texture,
+          this.patch.size,
+        )[0];
+      t = (sample.height - origin.y) / ray.y;
+    }
+    const p = origin.addScaledVector(ray, t);
+    return t > 0 &&
+      Math.abs(p.x) < this.patch.size * 0.45 &&
+      Math.abs(p.z) < this.patch.size * 0.45
+      ? p
+      : null;
+  }
+  fixedStep() {
+    const dt = FIXED_DT;
+    this.tick++;
+    this.journal.consume(this.tick, (e) => this.applyEvent(e));
+    this.time = 57 + this.tick * dt;
+    this.ocean.step(this.time);
+    this.dynamics.sampleAndStep(
+      dt,
+      this.tick * dt,
+      this.ocean,
+      this.patch,
+      this.particles,
+      this.preset,
+    );
+    if (this.flags.rain)
+      this.rain.step(
+        dt,
+        this.patch,
+        this.preset,
+        this.rainRipples,
+        this.tick * dt,
+      );
+    this.patch.step(dt);
+    this.whitewater.step(dt, this.preset);
+    this.particles.step(dt, this.time, this.preset);
+  }
+  advance(delta = 1 / 24) {
+    this.accumulator += delta;
+    let steps = 0;
+    while (this.accumulator >= FIXED_DT - 1e-10) {
+      this.fixedStep();
+      this.accumulator -= FIXED_DT;
+      steps++;
+      if (steps > 240) throw new Error("Step budget exceeded");
+    }
+    this.filmTime += delta;
+  }
+  render() {
+    const r = this.renderer,
+      p = this.preset,
+      u = this.waterUniforms,
+      s = this.shared,
+      c = this.camera;
+    s.uTime.value = this.time;
+    s.uCausticEnable.value = p.caustics && this.flags.caustics ? 1 : 0;
+    this.particles.material.uniforms.uPointScale.value = this.height * 1.2;
+    if (p.boat || p.buoys) this.shadows.render();
+    if (p.caustics && this.flags.caustics) this.caustics.render();
+    if (p.rain && this.flags.rain)
+      this.rainRipples.render(this.tick * FIXED_DT);
+    u.uRainEnable.value = p.rain && this.flags.rain ? 1 : 0;
+    const eyeProbe = this.ocean.query(
+      [[c.position.x, c.position.z]],
+      this.patch.texture,
+      this.patch.size,
+    )[0];
+    this.cameraSurfaceHeight = eyeProbe.height;
+    this.underwater = c.position.y < eyeProbe.height ? 1 : 0;
+    s.uUnderwater.value = this.underwater;
+    if (
+      (p.terrain || p.boat || p.buoys) &&
+      this.flags.reflections &&
+      !this.underwater
+    ) {
+      const mirror = this.reflectionCamera;
+      mirror.fov = c.fov;
+      mirror.aspect = c.aspect;
+      mirror.near = c.near;
+      mirror.far = c.far;
+      mirror.updateProjectionMatrix();
+      mirror.position.set(c.position.x, -c.position.y, c.position.z);
+      mirror.up.set(0, -1, 0);
+      mirror.lookAt(
+        this.cameraTarget.x,
+        -this.cameraTarget.y,
+        this.cameraTarget.z,
+      );
+      mirror.updateMatrixWorld();
+      u.uReflectionMatrix.value.multiplyMatrices(
+        mirror.projectionMatrix,
+        mirror.matrixWorldInverse,
+      );
+      s.uEye.value.copy(mirror.position);
+      s.uClip.value = 1;
+      r.setRenderTarget(this.reflectionRT);
+      r.setClearColor(0, 0);
+      r.clear();
+      r.render(this.world.scene, mirror);
+    }
+    s.uClip.value = 0;
+    s.uEye.value.copy(c.position);
+    if (p.terrain) {
+      r.setRenderTarget(this.floorRT);
+      r.setClearColor(0, 0);
+      r.clear();
+      r.render(this.floorScene, this.floorCamera);
+    }
+    c.updateMatrixWorld();
+    this.vp.multiplyMatrices(c.projectionMatrix, c.matrixWorldInverse);
+    u.uInverseViewProjection.value.copy(this.vp).invert();
+    u.uViewMatrix.value.copy(c.matrixWorldInverse);
+    u.uInteraction.value = this.patch.texture;
+    u.uWhitewater.value = this.whitewater.texture;
+    u.uRoughness.value = p.roughness;
+    u.uWind.value = p.wind;
+    u.uTerrain.value = p.terrain ? 1 : 0;
+    u.uObjects.value = p.terrain || p.boat || p.buoys ? 1 : 0;
+    u.uBoat.value = p.boat ? 1 : 0;
+    u.uDebug.value = this.debug;
+    u.uFoamEnable.value = this.flags.foam ? 1 : 0;
+    u.uReflections.value = this.flags.reflections ? 1 : 0;
+    if (p.boat) u.uHullInverse.value.copy(this.world.boat.matrixWorld).invert();
+    r.setRenderTarget(this.sceneRT);
+    r.setClearColor(0, 0);
+    r.clear();
+    r.render(this.world.scene, c);
+    r.setRenderTarget(this.mainRT);
+    r.setClearColor(0, 0);
+    r.clear();
+    this.copy.run(r, this.mainRT);
+    r.render(this.waterScene, c);
+    if (this.flags.spray) r.render(this.particles.scene, c);
+    if (p.rain && this.flags.rain) r.render(this.rain.scene, c);
+    this.post.uniforms.uTAA.value = this.flags.taa ? 1 : 0;
+    this.post.render(this.mainRT, this.vp, this.underwater, this.time);
+    this.frameCount++;
+    this.renderer.setRenderTarget(null);
+  }
+  resize(w, h) {
+    this.width = w;
+    this.height = h;
+    this.renderer.setSize(w, h, false);
+    for (const rt of [this.sceneRT, this.mainRT]) rt.setSize(w, h);
+    this.reflectionRT.setSize(
+      Math.max(256, Math.floor(w * 0.6)),
+      Math.max(256, Math.floor(h * 0.6)),
+    );
+    this.post.resize(w, h);
+    this.waterUniforms.uResolution.value.set(w, h);
+    if (this.currentCamera) this.setCamera(this.currentCamera);
+  }
+  diagnosticSamples() {
+    const q = [];
+    for (let z = 0; z < 8; z++)
+      for (let x = 0; x < 12; x++)
+        q.push([(x / 11 - 0.5) * 100, (z / 7 - 0.5) * 100]);
+    const samples = this.ocean.query(q, this.patch.texture, this.patch.size);
+    let lo = Infinity,
+      hi = -Infinity,
+      sum = 0,
+      finite = true;
+    for (const s of samples) {
+      lo = Math.min(lo, s.jacobian);
+      hi = Math.max(hi, s.height);
+      sum += s.height;
+      finite =
+        finite && Number.isFinite(s.height) && Number.isFinite(s.jacobian);
+    }
+    return {
+      minimumSampledCombinedJacobian: lo,
+      maxSampledHeight: hi,
+      meanProbeHeight: sum / samples.length,
+      finite,
+      samples: samples.length,
+    };
+  }
+  diagnostics(deep = false) {
+    const gl = this.renderer.getContext(),
+      ex = gl.getExtension("WEBGL_debug_renderer_info");
+    const d = {
+      build: "CYBR WATER 2.0",
+      backend: "Three.js r" + THREE.REVISION,
+      renderer: ex
+        ? gl.getParameter(ex.UNMASKED_RENDERER_WEBGL)
+        : "undisclosed",
+      scene: this.sceneKey,
+      time: this.time,
+      tick: this.tick,
+      seed: SEED,
+      fixedStep: FIXED_DT,
+      spectrum: "GPU atlas IFFT, three disjoint JONSWAP bands",
+      grid: this.grid,
+      resolution: [this.width, this.height],
+      waterTriangles: this.waterMesh.geometry.index.count / 3,
+      programs: this.renderer.info.programs.length,
+      particles: this.particles.counts,
+      rainImpacts: this.rain.impacts,
+      resolvedRainRings: this.rainRipples.events.length,
+      underwater: !!this.underwater,
+      bodyStates: this.dynamics.lastReports || [],
+      flags: { ...this.flags },
+      camera: this.currentCamera,
+    };
+    if (deep) {
+      d.surface = this.diagnosticSamples();
+      d.interaction = this.patch.diagnostics();
+    }
+    return d;
+  }
 }

@@ -1,0 +1,58 @@
+{
+  "journal": {
+    "format": "cybr-water-replay",
+    "version": 1,
+    "seed": 91317,
+    "scene": "rain",
+    "step": 0.016666666666666666,
+    "events": [
+      {
+        "tick": 1,
+        "sequence": 0,
+        "type": "flag",
+        "payload": {
+          "name": "rain",
+          "value": false
+        }
+      },
+      {
+        "tick": 1,
+        "sequence": 1,
+        "type": "extinction",
+        "payload": {
+          "scale": 2
+        }
+      }
+    ]
+  },
+  "first": {
+    "rain": false,
+    "absorption": [
+      0.38,
+      0.094,
+      0.042
+    ],
+    "tick": 1
+  },
+  "second": {
+    "rain": false,
+    "absorption": [
+      0.38,
+      0.094,
+      0.042
+    ],
+    "tick": 1
+  },
+  "resetFlags": {
+    "foam": true,
+    "spray": true,
+    "rain": true,
+    "caustics": true,
+    "reflections": true,
+    "taa": true
+  },
+  "replayedScene": "rain",
+  "browserErrors": [],
+  "browserWarnings": [],
+  "passed": true
+}

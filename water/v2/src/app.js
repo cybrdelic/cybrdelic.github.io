@@ -1,34 +1,320 @@
-import {WaterEngine} from './engine.js';
-import {PRESETS} from './config.js';
-import {validateGPU} from './validation.js';
-import {clamp} from './math.js';
-const $=s=>document.querySelector(s),params=new URLSearchParams(window.__QUERY__||location.search),capture=params.has('capture');
-const width=capture?+(params.get('width')||1920):Math.round(innerWidth*Math.min(devicePixelRatio,1.25));const height=capture?+(params.get('height')||1080):Math.round(innerHeight*Math.min(devicePixelRatio,1.25));
-let paused=false,viewMode='film',yaw=.65,elevation=11,radius=38,last=0,clock=0;
-try{
- const engine=window.engine=new WaterEngine($('#water'),width,height,{grid:128,high:params.get('quality')!=='low'});await engine.initialize();const key=params.get('scene')||'lagoon';engine.setPreset(PRESETS[key]?key:'lagoon');
- for(const [key,p] of Object.entries(PRESETS)){$('#scene').add(new Option(p.name,key));}$('#scene').value=engine.sceneKey;
- function labels(){const p=engine.preset;$('#scene-title').textContent=p.name;$('#description').textContent=p.description;$('#extinction').value=1;$('#extinction-value').textContent='1.00×';}
- function preset(k){engine.setPreset(k);clock=0;labels();$('#scene').value=k;}
- function camera(t){const p=engine.preset;
-  if(viewMode==='under'){engine.setCamera({eye:[8,-2.2,12],target:[-12,-.15,-17],fov:66});return;}
-  if(viewMode==='top'){engine.setCamera({eye:[1,42,8],target:[0,0,-8],fov:54});return;}
-  if(viewMode==='orbit'){engine.setCamera({eye:[Math.sin(yaw)*radius,elevation,Math.cos(yaw)*radius],target:[0,-.3,-9],fov:52});return;}
-  const phase=Math.sin(t*.045);if(p.boat){const b=engine.dynamics.bodies[0],x=b?.position.x||0,z=b?.position.z||0;engine.setCamera({eye:[x+13,5.5,z+17],target:[x,0,z],fov:49});}
-  else if(p.buoys)engine.setCamera({eye:[11+phase*6,6,16],target:[0,.2,-5],fov:45});
-  else if(p.terrain)engine.setCamera({eye:[17+phase*7,7.4+Math.sin(t*.07),24-t%24*.18],target:[-10,-.4,-17],fov:51});
-  else engine.setCamera({eye:[14-t%32*.24,p.wind>15?7.8:4.5,25-t%32*.22],target:[-46,-.1,-68],fov:54});
- }
- $('#scene').onchange=e=>preset(e.target.value);$('#view').onchange=e=>{viewMode=e.target.value;engine.post.reset();};$('#pause').onclick=()=>{paused=!paused;$('#pause').textContent=paused?'Play':'Pause';};$('#reset').onclick=()=>preset(engine.sceneKey);$('#impulse').onclick=()=>engine.command('impulse',{x:0,z:-5,height:.75,radius:1.4,foam:.5});$('#inspect').onclick=()=>{$('#diagnostics').classList.toggle('open');$('#report').textContent=JSON.stringify(engine.diagnostics(true),null,2);};
- for(const box of document.querySelectorAll('[data-flag]'))box.onchange=()=>{engine.flags[box.dataset.flag]=box.checked;engine.post.reset();};
- $('#extinction').oninput=e=>{const scale=+e.target.value;engine.shared.uAbsorption.value.fromArray(engine.preset.absorption).multiplyScalar(scale);engine.shared.uScattering.value.fromArray(engine.preset.scattering).multiplyScalar(scale);$('#extinction-value').textContent=scale.toFixed(2)+'×';engine.post.reset();};
- let drag=null;$('#water').addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];$('#water').setPointerCapture(e.pointerId);});$('#water').addEventListener('pointermove',e=>{if(!drag)return;viewMode='orbit';$('#view').value='orbit';yaw+=(e.clientX-drag[0])*.004;elevation=clamp(elevation+(e.clientY-drag[1])*.06,-5,65);drag=[e.clientX,e.clientY];});$('#water').addEventListener('pointerup',()=>drag=null);$('#water').addEventListener('wheel',e=>{e.preventDefault();radius=clamp(radius*Math.exp(e.deltaY*.001),5,180);viewMode='orbit';$('#view').value='orbit';},{passive:false});$('#water').addEventListener('dblclick',e=>{const rect=$('#water').getBoundingClientRect(),p=engine.pickWater((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2);if(p)engine.command('impulse',{x:p.x,z:p.z,height:.7,radius:1.4,foam:.4});});
- document.addEventListener('keydown',e=>{if(['INPUT','SELECT'].includes(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();$('#pause').click();}if(e.key.toLowerCase()==='h')document.body.classList.toggle('hidden-ui');if(e.key.toLowerCase()==='n'){engine.debug=(engine.debug+1)%7;engine.post.reset();}if(e.key.toLowerCase()==='u'){viewMode=viewMode==='under'?'film':'under';$('#view').value=viewMode;engine.post.reset();}});
- $('#journal').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(engine.journal.export(),null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='cybr-water-replay.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
- $('#record').onclick=()=>{const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(s=>MediaRecorder.isTypeSupported(s));if(!mime){alert('Recording is not supported by this browser');return;}const stream=$('#water').captureStream(30),rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:24000000}),chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=()=>{const u=URL.createObjectURL(new Blob(chunks,{type:mime})),a=document.createElement('a');a.href=u;a.download='cybr-water-II-'+engine.sceneKey+'.webm';a.click();setTimeout(()=>URL.revokeObjectURL(u),30000);$('#record').textContent='Record 20 s';};rec.start();$('#record').textContent='Recording…';setTimeout(()=>rec.stop(),20000);};
- function tick(ms){const dt=last?Math.min(.1,(ms-last)/1000):1/60;last=ms;if(!paused){engine.advance(dt);clock+=dt;}camera(clock);engine.render();if(engine.frameCount%30===0){$('#backend').textContent='THREE.JS r180 / GPU FFT';$('#stats').textContent=`${width} × ${height} · ${engine.tick} physical ticks · ${engine.particles.counts.spray} spray / ${engine.particles.counts.bubbles} bubbles · ${engine.rain.impacts} rain impacts`;if($('#diagnostics').classList.contains('open'))$('#report').textContent=JSON.stringify(engine.diagnostics(),null,2);}requestAnimationFrame(tick);}
- window.app={engine,exportReplay:()=>engine.journal.export(),loadReplay:doc=>engine.loadReplay(doc),setPreset:preset,frame:(dt=1/24)=>{engine.advance(dt);engine.render();},setCamera:c=>engine.setCamera(c),render:()=>engine.render(),diagnostics:deep=>engine.diagnostics(deep),verifyGPU:()=>validateGPU(engine),label:(title,caption,num='CYBR / WATER II')=>{$('#shot-title').textContent=title;$('#shot-caption').textContent=caption;$('#shot-number').textContent=num;},setDebug:v=>{engine.debug=v;engine.post.reset();}};
- labels();camera(0);engine.render();$('#loading').remove();$('#backend').textContent='THREE.JS r180 / GPU FFT';if(capture)document.body.classList.add('capture');window.__READY__=true;if(!capture)requestAnimationFrame(tick);
- window.addEventListener('resize',()=>{if(!capture){engine.resize(Math.round(innerWidth*Math.min(devicePixelRatio,1.25)),Math.round(innerHeight*Math.min(devicePixelRatio,1.25)));}});
- $('#water').addEventListener('webglcontextlost',e=>{e.preventDefault();paused=true;$('#error').hidden=false;$('#error').textContent='The graphics context was lost. Reload to restart.';});
-}catch(e){window.__ERROR__=String(e);console.error(e);$('#error').textContent=e.stack||String(e);$('#error').hidden=false;$('#loading')?.remove();}
+import { WaterEngine } from "./engine.js";
+import { PRESETS } from "./config.js";
+import { validateGPU } from "./validation.js";
+import { clamp } from "./math.js";
+const $ = (s) => document.querySelector(s),
+  params = new URLSearchParams(window.__QUERY__ || location.search),
+  capture = params.has("capture");
+const width = capture
+  ? +(params.get("width") || 1920)
+  : Math.round(innerWidth * Math.min(devicePixelRatio, 1.25));
+const height = capture
+  ? +(params.get("height") || 1080)
+  : Math.round(innerHeight * Math.min(devicePixelRatio, 1.25));
+let paused = false,
+  viewMode = "film",
+  yaw = 0.65,
+  elevation = 11,
+  radius = 38,
+  last = 0,
+  clock = 0;
+try {
+  const engine = (window.engine = new WaterEngine($("#water"), width, height, {
+    grid: 128,
+    high: params.get("quality") !== "low",
+  }));
+  await engine.initialize();
+  const key = params.get("scene") || "lagoon";
+  engine.setPreset(PRESETS[key] ? key : "lagoon");
+  for (const [key, p] of Object.entries(PRESETS)) {
+    $("#scene").add(new Option(p.name, key));
+  }
+  $("#scene").value = engine.sceneKey;
+  function labels() {
+    const p = engine.preset;
+    $("#scene-title").textContent = p.name;
+    $("#description").textContent = p.description;
+    $("#extinction").value = 1;
+    $("#extinction-value").textContent = "1.00×";
+  }
+  function preset(k) {
+    engine.setPreset(k);
+    clock = 0;
+    labels();
+    $("#scene").value = k;
+    for (const box of document.querySelectorAll("[data-flag]"))
+      box.checked = engine.flags[box.dataset.flag];
+  }
+  function camera(t) {
+    const p = engine.preset;
+    if (viewMode === "under") {
+      engine.setCamera({
+        eye: [8, -2.2, 12],
+        target: [-12, -0.15, -17],
+        fov: 66,
+      });
+      return;
+    }
+    if (viewMode === "top") {
+      engine.setCamera({ eye: [1, 42, 8], target: [0, 0, -8], fov: 54 });
+      return;
+    }
+    if (viewMode === "orbit") {
+      engine.setCamera({
+        eye: [Math.sin(yaw) * radius, elevation, Math.cos(yaw) * radius],
+        target: [0, -0.3, -9],
+        fov: 52,
+      });
+      return;
+    }
+    const phase = Math.sin(t * 0.045);
+    if (p.boat) {
+      const b = engine.dynamics.bodies[0],
+        x = b?.position.x || 0,
+        z = b?.position.z || 0;
+      engine.setCamera({
+        eye: [x + 13, 5.5, z + 17],
+        target: [x, 0, z],
+        fov: 49,
+      });
+    } else if (p.buoys)
+      engine.setCamera({
+        eye: [11 + phase * 6, 6, 16],
+        target: [0, 0.2, -5],
+        fov: 45,
+      });
+    else if (p.terrain)
+      engine.setCamera({
+        eye: [17 + phase * 7, 7.4 + Math.sin(t * 0.07), 24 - (t % 24) * 0.18],
+        target: [-10, -0.4, -17],
+        fov: 51,
+      });
+    else
+      engine.setCamera({
+        eye: [
+          14 - (t % 32) * 0.24,
+          p.wind > 15 ? 7.8 : 4.5,
+          25 - (t % 32) * 0.22,
+        ],
+        target: [-46, -0.1, -68],
+        fov: 54,
+      });
+  }
+  $("#scene").onchange = (e) => preset(e.target.value);
+  $("#view").onchange = (e) => {
+    viewMode = e.target.value;
+    engine.post.reset();
+  };
+  $("#pause").onclick = () => {
+    paused = !paused;
+    $("#pause").textContent = paused ? "Play" : "Pause";
+  };
+  $("#reset").onclick = () => preset(engine.sceneKey);
+  $("#impulse").onclick = () =>
+    engine.command("impulse", {
+      x: 0,
+      z: -5,
+      height: 0.75,
+      radius: 1.4,
+      foam: 0.5,
+    });
+  $("#inspect").onclick = () => {
+    $("#diagnostics").classList.toggle("open");
+    $("#report").textContent = JSON.stringify(
+      engine.diagnostics(true),
+      null,
+      2,
+    );
+  };
+  for (const box of document.querySelectorAll("[data-flag]"))
+    box.onchange = () => {
+      engine.command("flag", { name: box.dataset.flag, value: box.checked });
+      engine.post.reset();
+    };
+  $("#extinction").oninput = (e) => {
+    const scale = +e.target.value;
+    engine.command("extinction", { scale });
+    $("#extinction-value").textContent = scale.toFixed(2) + "×";
+    engine.post.reset();
+  };
+  let drag = null;
+  $("#water").addEventListener("pointerdown", (e) => {
+    drag = [e.clientX, e.clientY];
+    $("#water").setPointerCapture(e.pointerId);
+  });
+  $("#water").addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    viewMode = "orbit";
+    $("#view").value = "orbit";
+    yaw += (e.clientX - drag[0]) * 0.004;
+    elevation = clamp(elevation + (e.clientY - drag[1]) * 0.06, -5, 65);
+    drag = [e.clientX, e.clientY];
+  });
+  $("#water").addEventListener("pointerup", () => (drag = null));
+  $("#water").addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      radius = clamp(radius * Math.exp(e.deltaY * 0.001), 5, 180);
+      viewMode = "orbit";
+      $("#view").value = "orbit";
+    },
+    { passive: false },
+  );
+  $("#water").addEventListener("dblclick", (e) => {
+    const rect = $("#water").getBoundingClientRect(),
+      p = engine.pickWater(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((e.clientY - rect.top) / rect.height) * 2,
+      );
+    if (p)
+      engine.command("impulse", {
+        x: p.x,
+        z: p.z,
+        height: 0.7,
+        radius: 1.4,
+        foam: 0.4,
+      });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (["INPUT", "SELECT"].includes(e.target.tagName)) return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      $("#pause").click();
+    }
+    if (e.key.toLowerCase() === "h")
+      document.body.classList.toggle("hidden-ui");
+    if (e.key.toLowerCase() === "n") {
+      engine.debug = (engine.debug + 1) % 7;
+      engine.post.reset();
+    }
+    if (e.key.toLowerCase() === "u") {
+      viewMode = viewMode === "under" ? "film" : "under";
+      $("#view").value = viewMode;
+      engine.post.reset();
+    }
+  });
+  $("#journal").onclick = () => {
+    const url = URL.createObjectURL(
+        new Blob([JSON.stringify(engine.journal.export(), null, 2)], {
+          type: "application/json",
+        }),
+      ),
+      a = document.createElement("a");
+    a.href = url;
+    a.download = "cybr-water-replay.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  $("#record").onclick = () => {
+    const mime = [
+      "video/webm;codecs=vp9",
+      "video/webm;codecs=vp8",
+      "video/webm",
+    ].find((s) => MediaRecorder.isTypeSupported(s));
+    if (!mime) {
+      alert("Recording is not supported by this browser");
+      return;
+    }
+    const stream = $("#water").captureStream(30),
+      rec = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: 24000000,
+      }),
+      chunks = [];
+    rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.onstop = () => {
+      const u = URL.createObjectURL(new Blob(chunks, { type: mime })),
+        a = document.createElement("a");
+      a.href = u;
+      a.download = "cybr-water-II-" + engine.sceneKey + ".webm";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(u), 30000);
+      $("#record").textContent = "Record 20 s";
+    };
+    rec.start();
+    $("#record").textContent = "Recording…";
+    setTimeout(() => rec.stop(), 20000);
+  };
+  function tick(ms) {
+    const dt = last ? Math.min(0.1, (ms - last) / 1000) : 1 / 60;
+    last = ms;
+    if (!paused) {
+      engine.advance(dt);
+      clock += dt;
+    }
+    camera(clock);
+    engine.render();
+    if (engine.frameCount % 30 === 0) {
+      $("#backend").textContent = "THREE.JS r180 / GPU FFT";
+      $("#stats").textContent =
+        `${width} × ${height} · ${engine.tick} physical ticks · ${engine.particles.counts.spray} spray / ${engine.particles.counts.bubbles} bubbles · ${engine.rain.impacts} rain impacts`;
+      if ($("#diagnostics").classList.contains("open"))
+        $("#report").textContent = JSON.stringify(
+          engine.diagnostics(),
+          null,
+          2,
+        );
+    }
+    requestAnimationFrame(tick);
+  }
+  window.app = {
+    engine,
+    exportReplay: () => engine.journal.export(),
+    loadReplay: (doc) => {
+      engine.loadReplay(doc);
+      clock = 0;
+      labels();
+      $("#scene").value = engine.sceneKey;
+      for (const box of document.querySelectorAll("[data-flag]"))
+        box.checked = engine.flags[box.dataset.flag];
+    },
+    setPreset: preset,
+    frame: (dt = 1 / 24) => {
+      engine.advance(dt);
+      engine.render();
+    },
+    setCamera: (c) => engine.setCamera(c),
+    render: () => engine.render(),
+    diagnostics: (deep) => engine.diagnostics(deep),
+    verifyGPU: () => validateGPU(engine),
+    label: (title, caption, num = "CYBR / WATER II") => {
+      $("#shot-title").textContent = title;
+      $("#shot-caption").textContent = caption;
+      $("#shot-number").textContent = num;
+    },
+    setDebug: (v) => {
+      engine.debug = v;
+      engine.post.reset();
+    },
+  };
+  labels();
+  camera(0);
+  engine.render();
+  $("#loading").remove();
+  $("#backend").textContent = "THREE.JS r180 / GPU FFT";
+  if (capture) document.body.classList.add("capture");
+  window.__READY__ = true;
+  if (!capture) requestAnimationFrame(tick);
+  window.addEventListener("resize", () => {
+    if (!capture) {
+      engine.resize(
+        Math.round(innerWidth * Math.min(devicePixelRatio, 1.25)),
+        Math.round(innerHeight * Math.min(devicePixelRatio, 1.25)),
+      );
+    }
+  });
+  $("#water").addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    paused = true;
+    $("#error").hidden = false;
+    $("#error").textContent =
+      "The graphics context was lost. Reload to restart.";
+  });
+} catch (e) {
+  window.__ERROR__ = String(e);
+  console.error(e);
+  $("#error").textContent = e.stack || String(e);
+  $("#error").hidden = false;
+  $("#loading")?.remove();
+}

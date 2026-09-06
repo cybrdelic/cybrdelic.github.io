@@ -1,7 +1,9 @@
-import {THREE,Pass,target,dataTexture,uniform as U} from './gpu.js';
-import {Spectrum,BANDS} from './spectrum.js';
-const header=`precision highp float;precision highp int;in vec2 vUv;out vec4 fragColor;`;
-const evolveFragment=header+`
+import { THREE, Pass, target, dataTexture, uniform as U } from "./gpu.js";
+import { Spectrum, BANDS } from "./spectrum.js";
+const header = `precision highp float;precision highp int;in vec2 vUv;out vec4 fragColor;`;
+const evolveFragment =
+  header +
+  `
 uniform sampler2D uInitial;uniform int uN;uniform float uTime,uChop;
 vec2 timesI(vec2 a,float b){return vec2(-a.y,a.x)*b;}
 void main(){ivec2 p=ivec2(gl_FragCoord.xy);int band=p.x/uN,field=p.y/uN;ivec2 c=ivec2(p.x%uN,p.y%uN),mirror=(ivec2(uN)-c)%uN;
@@ -17,7 +19,9 @@ void main(){ivec2 p=ivec2(gl_FragCoord.xy);int band=p.x/uN,field=p.y/uN;ivec2 c=
  else{f0=timesI(ht,k.x*cp)+timesI(ht,1.);f1=timesI(ht,k.y*cp);}
  fragColor=vec4(f0,f1)*float(uN*uN);
 }`;
-const fftFragment=header+`
+const fftFragment =
+  header +
+  `
 uniform sampler2D uInput;uniform int uN,uStage,uAxis;
 int reverseBitsN(int a){int r=0;for(int j=1;j<1024;j*=2){if(j>=uN)break;r=r*2+(a&1);a>>=1;}return r;}
 vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
@@ -28,12 +32,12 @@ void main(){ivec2 p=ivec2(gl_FragCoord.xy),tile=(p/uN)*uN,c=p%uN;
  vec4 a=texelFetch(uInput,pa,0),b=texelFetch(uInput,pb,0);float angle=6.28318530718*float(j%halfSpan)/float(span);vec2 w=vec2(cos(angle),sin(angle));
  vec4 rotated=vec4(cmul(b.xy,w),cmul(b.zw,w));fragColor=a+(j<halfSpan?rotated:-rotated);if(span==uN)fragColor/=float(uN);
 }`;
-const packFragment=`precision highp float;precision highp int;in vec2 vUv;
+const packFragment = `precision highp float;precision highp int;in vec2 vUv;
 layout(location=0) out vec4 disp;layout(location=1) out vec4 dx;layout(location=2) out vec4 dz;
 uniform sampler2D uInput;uniform int uN,uBand;
 vec4 readField(ivec2 p,int field){return texelFetch(uInput,ivec2(uBand*uN+p.x,field*uN+p.y),0);}
 void main(){ivec2 p=ivec2(gl_FragCoord.xy);vec4 a=readField(p,0),b=readField(p,1),c=readField(p,2);disp=vec4(a.y,a.x,a.z,c.y);dx=vec4(b.y,a.w,b.z,c.x);dz=vec4(b.z,b.x,b.w,c.z);}`;
-export const waveDeclarations=`
+export const waveDeclarations = `
 precision highp sampler2DArray;
 uniform sampler2DArray uDisplacement,uDerivativeX,uDerivativeZ;
 uniform float uN,uWaveScale;
@@ -47,7 +51,10 @@ void waveAt(vec2 q,vec3 lod,out vec3 d,out vec3 tx,out vec3 tz,out vec3 velocity
 void wave(vec2 q,out vec3 d,out vec3 tx,out vec3 tz,out vec3 velocity){waveAt(q,vec3(0.),d,tx,tz,velocity);}
 vec3 displace(vec2 q){vec2 o=vec2(.5/uN);return (textureLod(uDisplacement,vec3(q/768.+o,float(0)),0.).xyz+textureLod(uDisplacement,vec3(q/96.+o,float(1)),0.).xyz+textureLod(uDisplacement,vec3(q/12.+o,float(2)),0.).xyz)*uWaveScale;}
 `;
-const queryFragment=header+waveDeclarations+`
+const queryFragment =
+  header +
+  waveDeclarations +
+  `
 uniform sampler2D uPositions,uInteraction;uniform float uPatchSize;
 void main(){int id=int(gl_FragCoord.x);vec2 point=texelFetch(uPositions,ivec2(id,0),0).xz,q=point;
  for(int j=0;j<5;j++)q=point-displace(q).xz;
@@ -60,54 +67,218 @@ void main(){int id=int(gl_FragCoord.x);vec2 point=texelFetch(uPositions,ivec2(id
  * No dynamic spectrum or derivative texture uploads during ordinary wave updates.
  */
 export class GPUOcean {
- constructor(renderer,n=128){
-  if(!Number.isInteger(n)||n<16||n>512||(n&(n-1)))throw new RangeError('FFT resolution must be a power of two from 16 to 512');
-  this.renderer=renderer;this.n=n;this.steps=Math.log2(n);this.time=0;this.uniforms={uN:U(n),uWaveScale:U(1)};
-  this.a=target(3*n,3*n);this.b=target(3*n,3*n);
-  // Three array textures, with one independently wrapping layer per wave band.
-  // MRT packing writes displacement + two derivative/velocity textures in one draw.
-  // This reduces fragment texture bindings from nine to three without tile seams.
-  this.fieldArray=new THREE.WebGLArrayRenderTarget(n,n,3,{count:3,type:THREE.FloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearMipmapLinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false,generateMipmaps:true});
-  for(let i=1;i<3;i++)this.fieldArray.textures[i]=this.fieldArray.texture.clone();
-  for(let i=0;i<3;i++){const t=this.fieldArray.textures[i];t.isRenderTargetTexture=true;t.renderTarget=this.fieldArray;t.colorSpace=THREE.NoColorSpace;t.generateMipmaps=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;this.uniforms[['uDisplacement','uDerivativeX','uDerivativeZ'][i]]=U(t);}
-  this.fields=[this.fieldArray];
-  this.evolve=new Pass(evolveFragment,{uInitial:U(null),uN:U(n),uTime:U(0),uChop:U(1)});
-  this.fft=new Pass(fftFragment,{uInput:U(null),uN:U(n),uStage:U(0),uAxis:U(0)});
-  this.pack=new Pass(packFragment,{uInput:U(null),uN:U(n),uBand:U(0)});
-  this.queryPositions=new Float32Array(128*4);this.queryTexture=dataTexture(this.queryPositions,128,1);this.queryTarget=target(128,2);
-  this.queryPass=new Pass(queryFragment,{...this.uniforms,uPositions:U(this.queryTexture),uInteraction:U(null),uPatchSize:U(128)});this.queryBuffer=new Float32Array(128*2*4);
- }
- reset(preset,seed=91317){
-  this.preset=preset;this.spectrum=new Spectrum(this.n,preset,seed);const n=this.n,data=new Float32Array(3*n*n*4);
-  for(let b=0;b<3;b++)for(let y=0;y<n;y++)data.set(this.spectrum.bands[b].h0.subarray(y*n*4,(y+1)*n*4),(y*3*n+b*n)*4);
-  if(this.initial)this.initial.dispose();this.initial=dataTexture(data,3*n,n);this.evolve.uniforms.uInitial.value=this.initial;this.evolve.uniforms.uChop.value=preset.chop;
-  this.step(0);
- }
- step(time){
-  this.time=time;this.evolve.uniforms.uTime.value=time;this.evolve.run(this.renderer,this.a);let src=this.a,dst=this.b;
-  for(let axis=0;axis<2;axis++)for(let stage=0;stage<this.steps;stage++){
-   this.fft.uniforms.uInput.value=src.texture;this.fft.uniforms.uStage.value=stage;this.fft.uniforms.uAxis.value=axis;this.fft.run(this.renderer,dst);[src,dst]=[dst,src];
+  constructor(renderer, n = 128) {
+    if (!Number.isInteger(n) || n < 16 || n > 512 || n & (n - 1))
+      throw new RangeError(
+        "FFT resolution must be a power of two from 16 to 512",
+      );
+    this.renderer = renderer;
+    this.n = n;
+    this.steps = Math.log2(n);
+    this.time = 0;
+    this.uniforms = { uN: U(n), uWaveScale: U(1) };
+    this.a = target(3 * n, 3 * n);
+    this.b = target(3 * n, 3 * n);
+    // Three array textures, with one independently wrapping layer per wave band.
+    // MRT packing writes displacement + two derivative/velocity textures in one draw.
+    // This reduces fragment texture bindings from nine to three without tile seams.
+    this.fieldArray = new THREE.WebGLArrayRenderTarget(n, n, 3, {
+      count: 3,
+      type: THREE.FloatType,
+      format: THREE.RGBAFormat,
+      minFilter: THREE.LinearMipmapLinearFilter,
+      magFilter: THREE.LinearFilter,
+      depthBuffer: false,
+      stencilBuffer: false,
+      generateMipmaps: true,
+    });
+    for (let i = 1; i < 3; i++)
+      this.fieldArray.textures[i] = this.fieldArray.texture.clone();
+    for (let i = 0; i < 3; i++) {
+      const t = this.fieldArray.textures[i];
+      t.isRenderTargetTexture = true;
+      t.renderTarget = this.fieldArray;
+      t.colorSpace = THREE.NoColorSpace;
+      t.generateMipmaps = true;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      this.uniforms[["uDisplacement", "uDerivativeX", "uDerivativeZ"][i]] =
+        U(t);
+    }
+    this.fields = [this.fieldArray];
+    this.evolve = new Pass(evolveFragment, {
+      uInitial: U(null),
+      uN: U(n),
+      uTime: U(0),
+      uChop: U(1),
+    });
+    this.fft = new Pass(fftFragment, {
+      uInput: U(null),
+      uN: U(n),
+      uStage: U(0),
+      uAxis: U(0),
+    });
+    this.pack = new Pass(packFragment, {
+      uInput: U(null),
+      uN: U(n),
+      uBand: U(0),
+    });
+    this.queryPositions = new Float32Array(128 * 4);
+    this.queryTexture = dataTexture(this.queryPositions, 128, 1);
+    this.queryTarget = target(128, 2);
+    this.queryPass = new Pass(queryFragment, {
+      ...this.uniforms,
+      uPositions: U(this.queryTexture),
+      uInteraction: U(null),
+      uPatchSize: U(128),
+    });
+    this.queryBuffer = new Float32Array(128 * 2 * 4);
   }
-  this.pack.uniforms.uInput.value=src.texture;for(let band=0;band<3;band++){this.pack.uniforms.uBand.value=band;for(const t of this.fieldArray.textures)t.generateMipmaps=band===2;this.pack.run(this.renderer,this.fieldArray,band);}
-  this.renderer.setRenderTarget(null);
- }
- query(points,interaction,patchSize=128){
-  if(points.length>128)throw new RangeError('At most 128 surface probes per batch');
-  for(let i=0;i<points.length;i++){this.queryPositions[4*i]=points[i][0];this.queryPositions[4*i+2]=points[i][1];}
-  this.queryTexture.needsUpdate=true;this.queryPass.uniforms.uInteraction.value=interaction;this.queryPass.uniforms.uPatchSize.value=patchSize;
-  this.queryPass.run(this.renderer,this.queryTarget);this.renderer.readRenderTargetPixels(this.queryTarget,0,0,128,2,this.queryBuffer);this.renderer.setRenderTarget(null);
-  return points.map((p,i)=>{const a=i*4,b=512+a;return {height:this.queryBuffer[a],normal:[this.queryBuffer[a+1],this.queryBuffer[b+3],this.queryBuffer[a+2]],jacobian:this.queryBuffer[a+3],velocity:Array.from(this.queryBuffer.subarray(b,b+3))};});
- }
- verify(time=13.27){
-  this.step(time);const reports=[];for(let band=0;band<3;band++){
-   const ref=this.spectrum.reference(time,band),n=this.n,buffer=new Float32Array(n*n*4);this.renderer.setRenderTarget(this.fieldArray,band);this.renderer.readRenderTargetPixels(this.fieldArray,0,0,n,n,buffer,0);
-   let max=0,ss=0;for(let i=0;i<n*n;i++){const e=buffer[i*4+1]-ref.h.r[i];max=Math.max(max,Math.abs(e));ss+=e*e;}
-   const fieldErrors={};for(let attachment=0;attachment<3;attachment++){
-    this.renderer.setRenderTarget(this.fieldArray,band);this.renderer.readRenderTargetPixels(this.fieldArray,0,0,n,n,buffer,0,attachment);
-    const names=[['x','h','z','vy'],['xx','hx','xz','vx'],['xz','hz','zz','vz']][attachment];
-    for(let channel=0;channel<4;channel++){let m=0,sum=0;for(let i=0;i<n*n;i++){const e=buffer[i*4+channel]-ref[names[channel]].r[i];m=Math.max(m,Math.abs(e));sum+=e*e;}fieldErrors[names[channel]]={max:m,rms:Math.sqrt(sum/(n*n))};}
-   }reports.push({band,maxHeightError:max,rmsHeightError:Math.sqrt(ss/(n*n)),resolution:n,fieldErrors});
-  }return reports;
- }
- dispose(){for(const r of [this.a,this.b,this.queryTarget,...this.fields])r.dispose();for(const p of [this.evolve,this.fft,this.pack,this.queryPass])p.dispose();this.initial?.dispose();this.queryTexture.dispose();}
+  reset(preset, seed = 91317) {
+    this.preset = preset;
+    this.spectrum = new Spectrum(this.n, preset, seed);
+    const n = this.n,
+      data = new Float32Array(3 * n * n * 4);
+    for (let b = 0; b < 3; b++)
+      for (let y = 0; y < n; y++)
+        data.set(
+          this.spectrum.bands[b].h0.subarray(y * n * 4, (y + 1) * n * 4),
+          (y * 3 * n + b * n) * 4,
+        );
+    if (this.initial) this.initial.dispose();
+    this.initial = dataTexture(data, 3 * n, n);
+    this.evolve.uniforms.uInitial.value = this.initial;
+    this.evolve.uniforms.uChop.value = preset.chop;
+    this.step(0);
+  }
+  step(time) {
+    this.time = time;
+    this.evolve.uniforms.uTime.value = time;
+    this.evolve.run(this.renderer, this.a);
+    let src = this.a,
+      dst = this.b;
+    for (let axis = 0; axis < 2; axis++)
+      for (let stage = 0; stage < this.steps; stage++) {
+        this.fft.uniforms.uInput.value = src.texture;
+        this.fft.uniforms.uStage.value = stage;
+        this.fft.uniforms.uAxis.value = axis;
+        this.fft.run(this.renderer, dst);
+        [src, dst] = [dst, src];
+      }
+    this.pack.uniforms.uInput.value = src.texture;
+    for (let band = 0; band < 3; band++) {
+      this.pack.uniforms.uBand.value = band;
+      for (const t of this.fieldArray.textures) t.generateMipmaps = band === 2;
+      this.pack.run(this.renderer, this.fieldArray, band);
+    }
+    this.renderer.setRenderTarget(null);
+  }
+  query(points, interaction, patchSize = 128) {
+    if (points.length > 128)
+      throw new RangeError("At most 128 surface probes per batch");
+    for (let i = 0; i < points.length; i++) {
+      this.queryPositions[4 * i] = points[i][0];
+      this.queryPositions[4 * i + 2] = points[i][1];
+    }
+    this.queryTexture.needsUpdate = true;
+    this.queryPass.uniforms.uInteraction.value = interaction;
+    this.queryPass.uniforms.uPatchSize.value = patchSize;
+    this.queryPass.run(this.renderer, this.queryTarget);
+    this.renderer.readRenderTargetPixels(
+      this.queryTarget,
+      0,
+      0,
+      128,
+      2,
+      this.queryBuffer,
+    );
+    this.renderer.setRenderTarget(null);
+    return points.map((p, i) => {
+      const a = i * 4,
+        b = 512 + a;
+      return {
+        height: this.queryBuffer[a],
+        normal: [
+          this.queryBuffer[a + 1],
+          this.queryBuffer[b + 3],
+          this.queryBuffer[a + 2],
+        ],
+        jacobian: this.queryBuffer[a + 3],
+        velocity: Array.from(this.queryBuffer.subarray(b, b + 3)),
+      };
+    });
+  }
+  verify(time = 13.27) {
+    this.step(time);
+    const reports = [];
+    for (let band = 0; band < 3; band++) {
+      const ref = this.spectrum.reference(time, band),
+        n = this.n,
+        buffer = new Float32Array(n * n * 4);
+      this.renderer.setRenderTarget(this.fieldArray, band);
+      this.renderer.readRenderTargetPixels(
+        this.fieldArray,
+        0,
+        0,
+        n,
+        n,
+        buffer,
+        0,
+      );
+      let max = 0,
+        ss = 0;
+      for (let i = 0; i < n * n; i++) {
+        const e = buffer[i * 4 + 1] - ref.h.r[i];
+        max = Math.max(max, Math.abs(e));
+        ss += e * e;
+      }
+      const fieldErrors = {};
+      for (let attachment = 0; attachment < 3; attachment++) {
+        this.renderer.setRenderTarget(this.fieldArray, band);
+        this.renderer.readRenderTargetPixels(
+          this.fieldArray,
+          0,
+          0,
+          n,
+          n,
+          buffer,
+          0,
+          attachment,
+        );
+        const names = [
+          ["x", "h", "z", "vy"],
+          ["xx", "hx", "xz", "vx"],
+          ["xz", "hz", "zz", "vz"],
+        ][attachment];
+        for (let channel = 0; channel < 4; channel++) {
+          let m = 0,
+            sum = 0;
+          for (let i = 0; i < n * n; i++) {
+            const e = buffer[i * 4 + channel] - ref[names[channel]].r[i];
+            m = Math.max(m, Math.abs(e));
+            sum += e * e;
+          }
+          fieldErrors[names[channel]] = {
+            max: m,
+            rms: Math.sqrt(sum / (n * n)),
+          };
+        }
+      }
+      reports.push({
+        band,
+        maxHeightError: max,
+        rmsHeightError: Math.sqrt(ss / (n * n)),
+        resolution: n,
+        fieldErrors,
+      });
+    }
+    return reports;
+  }
+  dispose() {
+    for (const r of [this.a, this.b, this.queryTarget, ...this.fields])
+      r.dispose();
+    for (const p of [this.evolve, this.fft, this.pack, this.queryPass])
+      p.dispose();
+    this.initial?.dispose();
+    this.queryTexture.dispose();
+  }
 }

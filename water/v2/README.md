@@ -102,3 +102,7 @@ warnings. `--smoke --ids 0,6,12` renders a quick selected-scene gauntlet.
 Project code: MIT. Three.js: its included MIT license. Photographic skies and
 rock/sand material maps: CC0, credited in ATTRIBUTION.md. These inputs are lighting
 and surface textures; the water, its motion and all footage are rendered by code.
+
+## Input replay details
+
+Feature checkboxes and the extinction slider enqueue versioned events on the next physical tick, as do interactive impulses. These inputs are included in the exported journal. Paused inputs remain queued until simulation resumes. A preset/reset restores the baseline flags before loading any recorded events. Camera movement and pause durations are not recorded; the journal reproduces the simulation state, not the entire UI/video timeline.

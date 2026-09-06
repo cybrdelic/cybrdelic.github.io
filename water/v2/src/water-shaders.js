@@ -1,11 +1,11 @@
-import {environmentGLSL} from './environment.js';
-import {waveDeclarations} from './gpu-ocean.js';
-export const waterVertex=`precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix;uniform mat4 uViewProjection;uniform float uPatchSize;uniform sampler2D uInteraction;out vec3 vWorld;out vec2 vQ;
+import { environmentGLSL } from "./environment.js";
+import { waveDeclarations } from "./gpu-ocean.js";
+export const waterVertex = `precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix;uniform mat4 uViewProjection;uniform float uPatchSize;uniform sampler2D uInteraction;out vec3 vWorld;out vec2 vQ;
 ${environmentGLSL}
 ${waveDeclarations}
 void main(){vec2 q=position.xz+uEye.xz;vec3 d=displace(q);vec2 uv=q/uPatchSize+.5;if(all(greaterThan(uv,vec2(.003)))&&all(lessThan(uv,vec2(.997))))d.y+=texture(uInteraction,uv).x;
  vec3 p=vec3(q.x,0.,q.y)+d;float r=length(position.xz);p.y-=r*r/(2.*6371000.);vWorld=p;vQ=q;gl_Position=uViewProjection*vec4(p,1.);}`;
-export const waterFragment=`precision highp float;precision highp int;in vec3 vWorld;in vec2 vQ;layout(location=0) out vec4 fragColor;layout(location=1) out vec4 motion;
+export const waterFragment = `precision highp float;precision highp int;in vec3 vWorld;in vec2 vQ;layout(location=0) out vec4 fragColor;layout(location=1) out vec4 motion;
 ${environmentGLSL}
 ${waveDeclarations}
 uniform sampler2D uSceneColor,uSceneDepth,uReflection,uInteraction,uWhitewater,uFloorRadiance;uniform mat4 uFloorMatrix;
@@ -93,11 +93,11 @@ void main(){
  if(uDebug==6)color=vec3(.03,.12,.2)+vec3(max(0.,response.x)*2.,response.w*.8,max(0.,-response.x)*2.);
  fragColor=vec4(max(color,vec3(0.)),1.);motion=vec4(velocity+vec3(response.y,0.,response.z),1.);
 }`;
-export const skyVertex=`precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix;out vec3 vWorld;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-export const skyFragment=`precision highp float;in vec3 vWorld;out vec4 fragColor;${environmentGLSL}
+export const skyVertex = `precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix;out vec3 vWorld;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+export const skyFragment = `precision highp float;in vec3 vWorld;out vec4 fragColor;${environmentGLSL}
 void main(){vec3 d=normalize(vWorld-uEye);vec3 c=environment(d);float angle=acos(clamp(dot(d,uSun),-1.,1.));float disk=1.-smoothstep(.0041,.005,angle);c+=uSunColor*disk*18.*solarVisibility();c+=uSunColor*.018*exp(-angle*23.);fragColor=vec4(c,0.);}`;
-export const objectVertex=`precision highp float;in vec3 position,normal;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix,viewMatrix;uniform mat3 normalMatrix;out vec3 vWorld,vNormal;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;vNormal=normalize(mat3(transpose(viewMatrix))*normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-export const objectFragment=`precision highp float;in vec3 vWorld,vNormal;out vec4 fragColor;${environmentGLSL}
+export const objectVertex = `precision highp float;in vec3 position,normal;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix,viewMatrix;uniform mat3 normalMatrix;out vec3 vWorld,vNormal;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;vNormal=normalize(mat3(transpose(viewMatrix))*normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+export const objectFragment = `precision highp float;in vec3 vWorld,vNormal;out vec4 fragColor;${environmentGLSL}
 uniform sampler2D uRockDiffuse,uRockNormal,uSandDiffuse,uSandNormal;uniform vec3 uAlbedo;uniform float uKind,uClip,uCausticEnable,uUnderwater;uniform sampler2D uCaustics,uShadowDepth;uniform mat4 uShadowMatrix;uniform float uCausticSize;
 float sunlightVisibility(vec3 p,vec3 n){vec4 sc=uShadowMatrix*vec4(p+n*.025,1.);vec3 q=sc.xyz/sc.w*.5+.5;if(any(lessThan(q,vec3(.001)))||any(greaterThan(q,vec3(.999))))return 1.;float visibility=0.;for(int i=0;i<4;i++){vec2 off=vec2((i%2)==0?-.7:.7,i<2?-.7:.7)/1536.;float depth=texture(uShadowDepth,q.xy+off).r;visibility+=q.z-.00045<depth?1.:0.;}return visibility*.25;}
 float rockNoise(vec3 p){vec3 w=pow(abs(normalize(vNormal)),vec3(4.));w/=w.x+w.y+w.z;return noise2(p.yz)*w.x+noise2(p.zx)*w.y+noise2(p.xy)*w.z;}
