@@ -1,0 +1,166 @@
+name: CYBR WATER II - final visual corrections
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['.github/workflows/water-v2-polish.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  reshoot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shot: [16,17,19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply reviewed corrections to original source
+        run: |
+          mkdir -p /tmp/water-polish
+          unzip -q water/v2/SOURCE.zip -d /tmp/water-polish
+          python water-v2-source/polish.py /tmp/water-polish/CYBR-WATER-II
+      - name: Prepare browser and encoder
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Capture the revised scene at native 1080p
+        working-directory: /tmp/water-polish/CYBR-WATER-II
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p renders
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --shot ${{ matrix.shot }} --width 1920 --height 1080 --fps 24 2>&1 | tee renders/review-${{ matrix.shot }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-polish-shot-${{ matrix.shot }}
+          path: /tmp/water-polish/CYBR-WATER-II/renders
+          retention-days: 7
+  finish:
+    needs: reshoot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Restore all twenty-seven unchanged original captures
+        run: |
+          mkdir -p /tmp/water-polish
+          unzip -q water/v2/SOURCE.zip -d /tmp/water-polish
+          python water-v2-source/polish.py /tmp/water-polish/CYBR-WATER-II
+          python - <<'PY'
+          from pathlib import Path
+          import json,shutil
+          root=Path('/tmp/water-polish/CYBR-WATER-II');renders=root/'renders';renders.mkdir(exist_ok=True)
+          old=json.loads(Path('water/v2/docs/film-validation.json').read_text())
+          for report in old['reports']:
+              s=report['shot']
+              if s['id'] in [16,17,19]:continue
+              key=f"{s['id']:02d}-{s['scene']}"
+              (renders/(key+'.json')).write_text(json.dumps(report,indent=2))
+              shutil.copyfile('water/v2/films/'+key+'.mp4',renders/(key+'.mp4'))
+              shutil.copyfile('water/v2/films/'+key+'.jpg',renders/(key+'-0072.jpg'))
+          p=root/'README.md';p.write_text(p.read_text().replace('among 12 sea/scene states','among 13 sea/scene states'))
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-polish-shot-*
+          merge-multiple: true
+          path: /tmp/water-polish/CYBR-WATER-II/renders
+      - name: Install verification dependencies
+        run: |
+          python -m pip install pillow playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Verify final source, UI replay, standalone rendering, and all encoded clips
+        working-directory: /tmp/water-polish/CYBR-WATER-II
+        env:
+          LP_NUM_THREADS: '3'
+        run: |
+          npx --yes prettier@3.6.2 --write 'public/src/*.js'
+          npm test > docs/numerics-polish.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+          xvfb-run -a -s '-screen 0 1920x1080x24' python tools/check_controls.py .
+          python capture/compose.py
+      - name: Package and commit the verified application and revised films
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil,json,zipfile,hashlib,subprocess
+          root=Path('/tmp/water-polish/CYBR-WATER-II');pub=Path('water/v2');p=root/'public/films/CYBR-WATER-II-Complete.mp4'
+          if p.stat().st_size>94*1024**2:
+              tmp=p.with_name('compressed.mp4')
+              subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(p),'-c:v','libx264','-preset','slow','-crf','20','-maxrate','4000k','-bufsize','8000k','-an','-pix_fmt','yuv420p','-movflags','+faststart',str(tmp)],check=True);tmp.replace(p)
+          for f in ['19-clear.jpg','19-clear.mp4']:(pub/'films'/f).unlink(missing_ok=True)
+          shutil.copytree(root/'public',pub,dirs_exist_ok=True)
+          shutil.copytree(root/'docs',pub/'docs',dirs_exist_ok=True)
+          for name in ['README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE']:shutil.copyfile(root/name,pub/name)
+          with zipfile.ZipFile(pub/'SOURCE.zip','w',zipfile.ZIP_DEFLATED,compresslevel=7) as z:
+              for folder in ['public/src','public/assets','public/vendor','capture','tools','tests','docs']:
+                  for f in (root/folder).rglob('*'):
+                      if f.is_file():z.write(f,'CYBR-WATER-II/'+f.relative_to(root).as_posix())
+              for name in ['public/index.html','README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE','package.json']:z.write(root/name,'CYBR-WATER-II/'+name)
+          summary=json.loads((pub/'VALIDATION.json').read_text());summary['visualCorrections']='Bubble source moved to open water in a dedicated preset. Rain coverage and reactive temporal masking improved. Shots 16,17,19 rerendered at native 1080p; other27 captures retained.';(pub/'VALIDATION.json').write_text(json.dumps(summary,indent=2))
+          manifests={f.relative_to(pub).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in pub.rglob('*') if f.is_file() and f.name!='RELEASE-HASHES.json'};(pub/'RELEASE-HASHES.json').write_text(json.dumps(manifests,indent=2))
+          for f in pub.rglob('*'):
+              if f.is_file():assert f.stat().st_size<99*1024**2,str(f)
+          print('RELEASE_BYTES',sum(f.stat().st_size for f in pub.rglob('*') if f.is_file()))
+          PY
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water/v2
+          git commit -m 'Correct bubble shot, resolve rain temporal detail, and deliver all thirty verified native views'
+          git push origin HEAD:cybr-water-v2
+          git rev-parse HEAD > water/v2/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-final-interactions
+          path: water/v2/films/03-Wakes-and-Weather.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-final-details
+          path: water/v2/films/04-Water-Details.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-final-complete
+          path: water/v2/films/CYBR-WATER-II-Complete.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-final-code-and-checks
+          path: |
+            water/v2/SOURCE.zip
+            water/v2/standalone.html
+            water/v2/README.md
+            water/v2/LIMITATIONS.md
+            water/v2/ATTRIBUTION.md
+            water/v2/VALIDATION.json
+            water/v2/RELEASE-COMMIT.txt
+            water/v2/RELEASE-HASHES.json
+            water/v2/docs
+            water/v2/films/*.jpg
+          retention-days: 7
