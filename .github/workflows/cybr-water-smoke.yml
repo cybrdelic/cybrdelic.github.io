@@ -1,0 +1,45 @@
+name: Verify published CYBR WATER
+on:
+  push:
+    branches: [master]
+    paths: ['water/**', '.github/workflows/cybr-water-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public deployment bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(sha256sum water/standalone.html | cut -d' ' -f1)
+          url=https://cybrdelic.github.io/water/standalone.html
+          matched=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --compressed --max-time 40 "$url" -o /tmp/water.html; then
+              actual=$(sha256sum /tmp/water.html | cut -d' ' -f1)
+              if [ "$actual" = "$expected" ]; then
+                echo "PUBLIC HTML VERIFIED: $url"
+                echo "SHA256: $actual"
+                matched=1
+                break
+              fi
+              echo 'Waiting for the newest Pages deployment.'
+            fi
+            sleep 10
+          done
+          test "$matched" = 1
+          for asset in index.html src/app.js vendor/three.module.js assets/micro.png; do
+            curl --fail --silent --show-error --compressed --max-time 40 "https://cybrdelic.github.io/water/$asset" -o /tmp/asset
+            cmp "water/$asset" /tmp/asset
+            echo "PUBLIC ASSET VERIFIED: $asset"
+          done
+          printf 'Verified public URL: %s\nBuild SHA: %s\nHTML SHA256: %s\n' "$url" "$GITHUB_SHA" "$expected" > publication-check.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cybr-water-publication-check
+          path: publication-check.txt
+          retention-days: 7
