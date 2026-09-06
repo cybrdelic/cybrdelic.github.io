@@ -1,0 +1,138 @@
+name: CYBR WATER II - verified film publication
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['.github/workflows/water-v2-release.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Wait for all thirty original native captures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import urllib.request,json,os,time
+          url='https://api.github.com/repos/cybrdelic/cybrdelic.github.io/actions/runs/34033027771/artifacts?per_page=100'
+          required={f'water-v2-shot-{i}' for i in range(30)}
+          for attempt in range(100):
+              req=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              data=json.load(urllib.request.urlopen(req));names={a['name'] for a in data['artifacts']}
+              print('Capture artifacts',len(required&names),'/ 30',flush=True)
+              if required<=names:break
+              time.sleep(10)
+          else:raise RuntimeError('Not all thirty captures are available; refusing a partial reel')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-v2-runtime
+          github-token: ${{ github.token }}
+          run-id: 34033027771
+          path: /tmp/cybr-water-v2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-v2-shot-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: 34033027771
+          path: /tmp/cybr-water-v2/renders
+      - name: Check complete recordings and fix the icon request, without changing rendered physics
+        working-directory: /tmp/cybr-water-v2
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          expected='BROWSER ERROR Failed to load resource: the server responded with a status of 404 (File not found)'
+          audit=[]
+          for i in range(30):
+              log=Path(f'renders/runner-{i}.log').read_text()
+              errors=[line for line in log.splitlines() if line.startswith('BROWSER ERROR')]
+              assert errors==[expected], (i,errors)
+              assert 'GET /favicon.ico HTTP/1.1\" 404' in log,(i,'unidentified missing resource')
+              assert f'DONE {i:02d}-' in log,(i,'capture did not finish')
+              audit.append({'shot':i,'initializationIssue':'Only favicon.ico returned HTTP 404; fixed before release.','completeFramesRetained':True})
+          Path('docs/capture-initialization-audit.json').write_text(json.dumps(audit,indent=2))
+          p=Path('public/index.html');text=p.read_text();assert '<head>' in text
+          text=text.replace('<head>','<head><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cpath fill=%27%2368bccc%27 d=%27M32 3C25 18 12 31 12 42a20 20 0 0040 0C52 31 39 18 32 3z%27/%3E%3C/svg%3E">',1);p.write_text(text)
+          p=Path('capture/render.py');text=p.read_text();needle=" print('BROWSER READY',page.evaluate('app.diagnostics().renderer'),flush=True)";assert needle in text
+          text=text.replace(needle,needle+"\n if errors:raise RuntimeError('Initialization errors: '+str(errors))",1);p.write_text(text)
+          Path('docs/release-fixes.md').write_text('# Release check\n\nThe first capture batch rendered every frame but its exit check caught a missing favicon.ico. The retained per-shot reports contain no rendering errors. The final HTML supplies an inline icon; a fresh HTTP browser smoke test below must have no initialization or rendering errors. No simulation or water shader was changed in this packaging fix.\n')
+          PY
+      - name: Install capture and assembly dependencies
+        run: |
+          python -m pip install pillow playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Recheck final HTTP app and GPU fields
+        working-directory: /tmp/cybr-water-v2
+        env:
+          LP_NUM_THREADS: '3'
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --smoke --ids 0,13,17,20 --width 1920 --height 1080 --output docs/http-smoke
+      - name: Assemble, validate and package all scenes
+        working-directory: /tmp/cybr-water-v2
+        run: |
+          python capture/compose.py
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess,shutil,zipfile,json,hashlib
+          root=Path('.');public=root/'public';films=public/'films'
+          encodings=[]
+          for p in films.glob('*.mp4'):
+              if p.stat().st_size<94*1024**2:continue
+              master=p.name=='CYBR-WATER-II-Complete.mp4'
+              temp=p.with_name('encode-'+p.name)
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',str(p),'-c:v','libx264','-preset','slow','-crf','20','-maxrate','4000k' if master else '18000k','-bufsize','8000k' if master else '36000k','-pix_fmt','yuv420p','-an','-movflags','+faststart',str(temp)],check=True)
+              temp.replace(p);encodings.append({'file':p.name,'reason':'GitHub per-file limit; same native resolution and frame count','maximumBitrateKbps':4000 if master else 18000})
+          Path('docs/hosting-encodings.json').write_text(json.dumps(encodings,indent=2))
+          for name in ['README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE']:
+              shutil.copyfile(root/name,public/name)
+          shutil.copytree(root/'docs',public/'docs',dirs_exist_ok=True)
+          with zipfile.ZipFile(public/'SOURCE.zip','w',zipfile.ZIP_DEFLATED,compresslevel=7) as z:
+              for folder in ['public/src','public/assets','public/vendor','capture','tools','tests','docs']:
+                  for f in (root/folder).rglob('*'):
+                      if f.is_file():z.write(f,'CYBR-WATER-II/'+f.as_posix())
+              for name in ['public/index.html','README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE','package.json']:
+                  z.write(root/name,'CYBR-WATER-II/'+name)
+          summary={'capture':'Thirty shots, native 1920x1080, 24 fps playback, fixed 60Hz physics; offline rendering.','tests':'41 numerical tests plus GPU field, impulse-transfer and same-backend replay checks. See docs.','scope':'GPU spectral ocean plus local depth-averaged perturbation field; not a volumetric FLIP/Navier-Stokes simulation. No networking or cross-GPU determinism claim.','packagingFix':'Missing favicon fixed; fresh HTTP smoke test passed; original rendered frames retained.'}
+          (public/'VALIDATION.json').write_text(json.dumps(summary,indent=2))
+          manifest={f.relative_to(public).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in public.rglob('*') if f.is_file()}
+          (public/'RELEASE-HASHES.json').write_text(json.dumps(manifest,indent=2))
+          for f in public.rglob('*'):
+              if f.is_file():assert f.stat().st_size<99*1024**2,str(f)+' exceeds individual blob limit'
+          PY
+      - name: Save isolated V2 release without modifying the original demo
+        run: |
+          mkdir -p water/v2
+          cp -r /tmp/cybr-water-v2/public/. water/v2/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water/v2
+          git commit -m 'Publish validated CYBR WATER II build with thirty native 1080p shots'
+          git push origin HEAD:cybr-water-v2
+          git rev-parse HEAD > /tmp/cybr-water-v2/public/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-v2-release
+          path: /tmp/cybr-water-v2/public
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-v2-release-checks
+          path: /tmp/cybr-water-v2/docs
+          retention-days: 7
