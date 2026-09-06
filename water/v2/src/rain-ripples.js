@@ -3,7 +3,7 @@ import { THREE, target, uniform as U } from "./gpu.js";
  * falling-drop contacts; the packet obeys gravity-capillary dispersion. It is
  * superposed on the coarse interaction solver, not a multiphase impact solve. */
 export class RainRipples {
-  constructor(renderer, n = 1024, size = 48, max = 1024) {
+  constructor(renderer, n = 1024, size = 48, max = 4096) {
     this.renderer = renderer;
     this.size = size;
     this.max = max;
@@ -36,7 +36,7 @@ export class RainRipples {
       blendSrcAlpha: THREE.OneFactor,
       blendDstAlpha: THREE.OneFactor,
       vertexShader: `precision highp float;in vec3 position;in float aAge;uniform float uN,uSize;out float vAge,vRadius;void main(){vAge=aAge;vRadius=.34*aAge+.28;gl_PointSize=vRadius*2.*uN/uSize;gl_Position=vec4(position.xz/uSize*2.,0.,1.);}`,
-      fragmentShader: `precision highp float;in float vAge,vRadius;out vec4 fragColor;void main(){vec2 p=(gl_PointCoord-.5)*2.*vRadius;p.y=-p.y;float r=length(p),k=28.55993321,w=sqrt(9.81*k+.000074*k*k*k),cg=(9.81+3.*.000074*k*k)/(2.*w),q=r-cg*vAge;float e=exp(-q*q/.009)*exp(-vAge*1.8)/sqrt(1.+12.*r);float phase=k*r-w*vAge,A=.0017*(1.-exp(-vAge*35.));float h=A*e*sin(phase),s=A*e*(k*cos(phase)+sin(phase)*(-2.*q/.009-6./(1.+12.*r)));fragColor=vec4(s*p/max(.01,r),h,0.);}`,
+      fragmentShader: `precision highp float;in float vAge,vRadius;out vec4 fragColor;void main(){vec2 p=(gl_PointCoord-.5)*2.*vRadius;p.y=-p.y;float r=length(p),k=28.55993321,w=sqrt(9.81*k+.000074*k*k*k),cg=(9.81+3.*.000074*k*k)/(2.*w),q=r-cg*vAge;float e=exp(-q*q/.009)*exp(-vAge*1.8)/sqrt(1.+12.*r);float phase=k*r-w*vAge,A=.0034*(1.-exp(-vAge*35.));float h=A*e*sin(phase),s=A*e*(k*cos(phase)+sin(phase)*(-2.*q/.009-6./(1.+12.*r)));fragColor=vec4(s*p/max(.01,r),h,0.);}`,
     });
     this.scene = new THREE.Scene();
     const points = new THREE.Points(g, this.material);

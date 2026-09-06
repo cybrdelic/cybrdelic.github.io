@@ -22,7 +22,7 @@ is required. Shader stages perform the numerical GPU work; this is not WebGPU.
 
 ## Controls and presets
 
-Choose among 12 sea/scene states. Orbit with drag, dolly with the wheel, or use
+Choose among 13 sea/scene states. Orbit with drag, dolly with the wheel, or use
 cinematic/underwater/overhead cameras. Double-click intersects the current water
 surface and injects a local impulse when inside the fixed 128 m interaction patch.
 Space pauses, H hides the interface, N cycles six diagnostic fields. Checkboxes

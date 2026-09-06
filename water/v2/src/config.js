@@ -208,3 +208,12 @@ export const PRESETS = {
 };
 export const FIXED_DT = 1 / 60;
 export const SEED = 91317;
+
+// A deliberate secondary-effects source positioned in open water, not inside a rock.
+PRESETS.bubbles = {
+  ...PRESETS.clear,
+  name: "Bubble field",
+  description:
+    "Secondary bubble particles • buoyant rise • underwater extinction",
+  bubbleEmitter: [-4, -3.6, -4],
+};

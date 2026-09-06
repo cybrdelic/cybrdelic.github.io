@@ -47,6 +47,14 @@ try {
   }
   function camera(t) {
     const p = engine.preset;
+    if (viewMode === "film" && p.bubbleEmitter) {
+      engine.setCamera({
+        eye: [0 + Math.sin(t * 0.08), -2.5, 1],
+        target: [-4, -2, -4],
+        fov: 58,
+      });
+      return;
+    }
     if (viewMode === "under") {
       engine.setCamera({
         eye: [8, -2.2, 12],

@@ -44,7 +44,8 @@ void main(){
   tx.y+=(texture(uInteraction,puv+vec2(eps,0.)).x-texture(uInteraction,puv-vec2(eps,0.)).x)/(2.*dx);
   tz.y+=(texture(uInteraction,puv+vec2(0.,eps)).x-texture(uInteraction,puv-vec2(0.,eps)).x)/(2.*dx);patchWindow=1.;
  }
- if(uRainEnable>.5){vec2 ruv=vWorld.xz/uRainRingSize+.5;if(inScreen(ruv)){vec4 rings=texture(uRainRing,ruv);tx.y+=rings.x;tz.y+=rings.y;}}
+ float rainReactive=0.;
+ if(uRainEnable>.5){vec2 ruv=vWorld.xz/uRainRingSize+.5;if(inScreen(ruv)){vec4 rings=texture(uRainRing,ruv);tx.y+=rings.x;tz.y+=rings.y;rainReactive=length(rings.xy);}}
  float dist=length(vWorld-uEye);float microFade=1.-smoothstep(4.,45.,dist);
  // Physical gravity-capillary dispersion for unresolved sub-millimetric detail.
  for(int i=0;i<5;i++){float fi=float(i),wl=.055+fi*.031,k=6.28318530718/wl;vec2 dir=vec2(cos(fi*2.399),sin(fi*2.399));float omega=sqrt(9.81*k+.000074*k*k*k);float a=.009*(.3+min(uWind/9.,1.))*cos(dot(dir,vQ)*k-uTime*omega)*microFade;tx.y+=dir.x*a;tz.y+=dir.y*a;}
@@ -91,7 +92,7 @@ void main(){
  if(uDebug==4)color=vec3(foam,clamp(white.g/15.,0.,1.)*foam,white.b*3.);
  if(uDebug==5)color=vec3(.2)+abs(velocity)*.14;
  if(uDebug==6)color=vec3(.03,.12,.2)+vec3(max(0.,response.x)*2.,response.w*.8,max(0.,-response.x)*2.);
- fragColor=vec4(max(color,vec3(0.)),1.);motion=vec4(velocity+vec3(response.y,0.,response.z),1.);
+ fragColor=vec4(max(color,vec3(0.)),rainReactive>.002?.5:1.);motion=vec4(velocity+vec3(response.y,0.,response.z),1.);
 }`;
 export const skyVertex = `precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix;out vec3 vWorld;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 export const skyFragment = `precision highp float;in vec3 vWorld;out vec4 fragColor;${environmentGLSL}

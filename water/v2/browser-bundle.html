@@ -4955,7 +4955,8 @@ void main(){
   tx.y+=(texture(uInteraction,puv+vec2(eps,0.)).x-texture(uInteraction,puv-vec2(eps,0.)).x)/(2.*dx);
   tz.y+=(texture(uInteraction,puv+vec2(0.,eps)).x-texture(uInteraction,puv-vec2(0.,eps)).x)/(2.*dx);patchWindow=1.;
  }
- if(uRainEnable>.5){vec2 ruv=vWorld.xz/uRainRingSize+.5;if(inScreen(ruv)){vec4 rings=texture(uRainRing,ruv);tx.y+=rings.x;tz.y+=rings.y;}}
+ float rainReactive=0.;
+ if(uRainEnable>.5){vec2 ruv=vWorld.xz/uRainRingSize+.5;if(inScreen(ruv)){vec4 rings=texture(uRainRing,ruv);tx.y+=rings.x;tz.y+=rings.y;rainReactive=length(rings.xy);}}
  float dist=length(vWorld-uEye);float microFade=1.-smoothstep(4.,45.,dist);
  // Physical gravity-capillary dispersion for unresolved sub-millimetric detail.
  for(int i=0;i<5;i++){float fi=float(i),wl=.055+fi*.031,k=6.28318530718/wl;vec2 dir=vec2(cos(fi*2.399),sin(fi*2.399));float omega=sqrt(9.81*k+.000074*k*k*k);float a=.009*(.3+min(uWind/9.,1.))*cos(dot(dir,vQ)*k-uTime*omega)*microFade;tx.y+=dir.x*a;tz.y+=dir.y*a;}
@@ -5002,7 +5003,7 @@ void main(){
  if(uDebug==4)color=vec3(foam,clamp(white.g/15.,0.,1.)*foam,white.b*3.);
  if(uDebug==5)color=vec3(.2)+abs(velocity)*.14;
  if(uDebug==6)color=vec3(.03,.12,.2)+vec3(max(0.,response.x)*2.,response.w*.8,max(0.,-response.x)*2.);
- fragColor=vec4(max(color,vec3(0.)),1.);motion=vec4(velocity+vec3(response.y,0.,response.z),1.);
+ fragColor=vec4(max(color,vec3(0.)),rainReactive>.002?.5:1.);motion=vec4(velocity+vec3(response.y,0.,response.z),1.);
 }`;
 const skyVertex = `precision highp float;in vec3 position;uniform mat4 projectionMatrix,modelViewMatrix,modelMatrix;out vec3 vWorld;void main(){vWorld=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const skyFragment = `precision highp float;in vec3 vWorld;out vec4 fragColor;${environmentGLSL}
@@ -5914,7 +5915,7 @@ const { THREE, target, uniform:U }=__M["src/gpu.js"];
  * falling-drop contacts; the packet obeys gravity-capillary dispersion. It is
  * superposed on the coarse interaction solver, not a multiphase impact solve. */
 class RainRipples {
-  constructor(renderer, n = 1024, size = 48, max = 1024) {
+  constructor(renderer, n = 1024, size = 48, max = 4096) {
     this.renderer = renderer;
     this.size = size;
     this.max = max;
@@ -5947,7 +5948,7 @@ class RainRipples {
       blendSrcAlpha: THREE.OneFactor,
       blendDstAlpha: THREE.OneFactor,
       vertexShader: `precision highp float;in vec3 position;in float aAge;uniform float uN,uSize;out float vAge,vRadius;void main(){vAge=aAge;vRadius=.34*aAge+.28;gl_PointSize=vRadius*2.*uN/uSize;gl_Position=vec4(position.xz/uSize*2.,0.,1.);}`,
-      fragmentShader: `precision highp float;in float vAge,vRadius;out vec4 fragColor;void main(){vec2 p=(gl_PointCoord-.5)*2.*vRadius;p.y=-p.y;float r=length(p),k=28.55993321,w=sqrt(9.81*k+.000074*k*k*k),cg=(9.81+3.*.000074*k*k)/(2.*w),q=r-cg*vAge;float e=exp(-q*q/.009)*exp(-vAge*1.8)/sqrt(1.+12.*r);float phase=k*r-w*vAge,A=.0017*(1.-exp(-vAge*35.));float h=A*e*sin(phase),s=A*e*(k*cos(phase)+sin(phase)*(-2.*q/.009-6./(1.+12.*r)));fragColor=vec4(s*p/max(.01,r),h,0.);}`,
+      fragmentShader: `precision highp float;in float vAge,vRadius;out vec4 fragColor;void main(){vec2 p=(gl_PointCoord-.5)*2.*vRadius;p.y=-p.y;float r=length(p),k=28.55993321,w=sqrt(9.81*k+.000074*k*k*k),cg=(9.81+3.*.000074*k*k)/(2.*w),q=r-cg*vAge;float e=exp(-q*q/.009)*exp(-vAge*1.8)/sqrt(1.+12.*r);float phase=k*r-w*vAge,A=.0034*(1.-exp(-vAge*35.));float h=A*e*sin(phase),s=A*e*(k*cos(phase)+sin(phase)*(-2.*q/.009-6./(1.+12.*r)));fragColor=vec4(s*p/max(.01,r),h,0.);}`,
     });
     this.scene = new THREE.Scene();
     const points = new THREE.Points(g, this.material);
@@ -6166,10 +6167,11 @@ class SecondaryParticles {
       this.counts[type < 1.5 ? "spray" : "bubbles"]++;
     }
     if (preset.terrain && Math.floor(time * 60) % 3 === 0) {
+      const origin = preset.bubbleEmitter || [-10, -3.6, -8];
       this.emitBubble([
-        -10 + (this.rng() - 0.5) * 2,
-        -3.6,
-        -8 + (this.rng() - 0.5) * 2,
+        origin[0] + (this.rng() - 0.5) * 2,
+        origin[1],
+        origin[2] + (this.rng() - 0.5) * 2,
       ]);
     }
     this.geometry.attributes.position.needsUpdate = true;
@@ -6214,7 +6216,7 @@ class Rain {
     this.impacts = 0;
     for (let i = 0; i < this.max; i++) {
       this.coords.set(
-        [(this.rng() - 0.5) * 92, this.rng() * 26, (this.rng() - 0.5) * 92],
+        [(this.rng() - 0.5) * 46, this.rng() * 26, (this.rng() - 0.5) * 46],
         i * 3,
       );
       this.velocity.set([0.45, -7 - this.rng() * 3, -0.25], i * 3);
@@ -6254,9 +6256,9 @@ class Rain {
           events++;
           this.impacts++;
         }
-        this.coords[k] = (this.rng() - 0.5) * 92;
+        this.coords[k] = (this.rng() - 0.5) * 46;
         this.coords[k + 1] = 22 + this.rng() * 4;
-        this.coords[k + 2] = (this.rng() - 0.5) * 92;
+        this.coords[k + 2] = (this.rng() - 0.5) * 46;
       }
     }
     this.pack();
@@ -6582,6 +6584,15 @@ const PRESETS = {
 };
 const FIXED_DT = 1 / 60;
 const SEED = 91317;
+
+// A deliberate secondary-effects source positioned in open water, not inside a rock.
+PRESETS.bubbles = {
+  ...PRESETS.clear,
+  name: "Bubble field",
+  description:
+    "Secondary bubble particles • buoyant rise • underwater extinction",
+  bubbleEmitter: [-4, -3.6, -4],
+};
 
 return {PRESETS,FIXED_DT,SEED};
 })();
@@ -7267,6 +7278,14 @@ try {
   }
   function camera(t) {
     const p = engine.preset;
+    if (viewMode === "film" && p.bubbleEmitter) {
+      engine.setCamera({
+        eye: [0 + Math.sin(t * 0.08), -2.5, 1],
+        target: [-4, -2, -4],
+        fov: 58,
+      });
+      return;
+    }
     if (viewMode === "under") {
       engine.setCamera({
         eye: [8, -2.2, 12],

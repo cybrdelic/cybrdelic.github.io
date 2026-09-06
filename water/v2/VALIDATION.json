@@ -4,5 +4,6 @@
   "scope": "GPU spectral ocean plus local depth-averaged perturbation field; not a volumetric FLIP/Navier-Stokes simulation. No networking or cross-GPU determinism claim.",
   "packagingFix": "Missing favicon fixed; fresh HTTP smoke test passed; original rendered frames retained.",
   "controls": "Checkbox and extinction-slider events are recorded and replayed; baseline flags reset on preset change. Actual browser test passed.",
-  "standalone": "Self-contained HTML rendered without asset, source-module or vendor network requests in the browser test."
+  "standalone": "Self-contained HTML rendered without asset, source-module or vendor network requests in the browser test.",
+  "visualCorrections": "Bubble source moved to open water in a dedicated preset. Rain coverage and reactive temporal masking improved. Shots 16,17,19 rerendered at native 1080p; other27 captures retained."
 }

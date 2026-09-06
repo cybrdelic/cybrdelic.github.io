@@ -173,10 +173,11 @@ export class SecondaryParticles {
       this.counts[type < 1.5 ? "spray" : "bubbles"]++;
     }
     if (preset.terrain && Math.floor(time * 60) % 3 === 0) {
+      const origin = preset.bubbleEmitter || [-10, -3.6, -8];
       this.emitBubble([
-        -10 + (this.rng() - 0.5) * 2,
-        -3.6,
-        -8 + (this.rng() - 0.5) * 2,
+        origin[0] + (this.rng() - 0.5) * 2,
+        origin[1],
+        origin[2] + (this.rng() - 0.5) * 2,
       ]);
     }
     this.geometry.attributes.position.needsUpdate = true;
@@ -221,7 +222,7 @@ export class Rain {
     this.impacts = 0;
     for (let i = 0; i < this.max; i++) {
       this.coords.set(
-        [(this.rng() - 0.5) * 92, this.rng() * 26, (this.rng() - 0.5) * 92],
+        [(this.rng() - 0.5) * 46, this.rng() * 26, (this.rng() - 0.5) * 46],
         i * 3,
       );
       this.velocity.set([0.45, -7 - this.rng() * 3, -0.25], i * 3);
@@ -261,9 +262,9 @@ export class Rain {
           events++;
           this.impacts++;
         }
-        this.coords[k] = (this.rng() - 0.5) * 92;
+        this.coords[k] = (this.rng() - 0.5) * 46;
         this.coords[k + 1] = 22 + this.rng() * 4;
-        this.coords[k + 2] = (this.rng() - 0.5) * 92;
+        this.coords[k + 2] = (this.rng() - 0.5) * 46;
       }
     }
     this.pack();
