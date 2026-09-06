@@ -1,0 +1,123 @@
+name: CYBR WATER II - final controls and deliverables
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['.github/workflows/water-v2-finalize.yml']
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Finalize replay input paths in the delivered source
+        run: |
+          mkdir -p /tmp/water-controls
+          unzip -q water/v2/SOURCE.zip -d /tmp/water-controls
+          python water-v2-source/finish_controls.py /tmp/water-controls/CYBR-WATER-II
+          cp water-v2-source/check_controls.py /tmp/water-controls/CYBR-WATER-II/tools/check_controls.py
+      - name: Format complete original source and rerun the numerical suite
+        working-directory: /tmp/water-controls/CYBR-WATER-II
+        run: |
+          npx --yes prettier@3.6.2 --write 'public/src/*.js' 'tests/*.mjs'
+          npm test > docs/numerics-final.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+      - name: Install browser test dependencies
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Verify actual UI replay and self-contained HTML
+        env:
+          LP_NUM_THREADS: '3'
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' python /tmp/water-controls/CYBR-WATER-II/tools/check_controls.py /tmp/water-controls/CYBR-WATER-II
+      - name: Repackage source and preserve all thirty original recordings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil,zipfile,hashlib,json
+          root=Path('/tmp/water-controls/CYBR-WATER-II');public=Path('water/v2')
+          shutil.copytree(root/'public',public,dirs_exist_ok=True)
+          shutil.copytree(root/'docs',public/'docs',dirs_exist_ok=True)
+          for name in ['README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE']:shutil.copyfile(root/name,public/name)
+          with zipfile.ZipFile(public/'SOURCE.zip','w',zipfile.ZIP_DEFLATED,compresslevel=7) as z:
+              for folder in ['public/src','public/assets','public/vendor','capture','tools','tests','docs']:
+                  for f in (root/folder).rglob('*'):
+                      if f.is_file():z.write(f,'CYBR-WATER-II/'+f.relative_to(root).as_posix())
+              for name in ['public/index.html','README.md','LIMITATIONS.md','ATTRIBUTION.md','LICENSE','package.json']:z.write(root/name,'CYBR-WATER-II/'+name)
+          report=json.loads((public/'VALIDATION.json').read_text());report['controls']='Checkbox and extinction-slider events are recorded and replayed; baseline flags reset on preset change. Actual browser test passed.';report['standalone']='Self-contained HTML rendered without asset, source-module or vendor network requests in the browser test.';(public/'VALIDATION.json').write_text(json.dumps(report,indent=2))
+          manifest={f.relative_to(public).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in public.rglob('*') if f.is_file() and f.name!='RELEASE-HASHES.json'};(public/'RELEASE-HASHES.json').write_text(json.dumps(manifest,indent=2))
+          print('Public release MiB:',sum(f.stat().st_size for f in public.rglob('*') if f.is_file())/1024**2)
+          print('Source JS lines:',sum(len(f.read_text().splitlines()) for f in (public/'src').glob('*.js')))
+          for f in (public/'films').glob('*.mp4'):print(f.name,round(f.stat().st_size/1024**2,2),'MiB')
+          PY
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water/v2
+          git commit -m 'Finalize readable water V2 source, UI replay and standalone browser validation'
+          git push origin HEAD:cybr-water-v2
+          git rev-parse HEAD > water/v2/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-complete
+          path: water/v2/films/CYBR-WATER-II-Complete.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-ocean
+          path: water/v2/films/01-Ocean-and-Whitewater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-optics
+          path: water/v2/films/02-Depth-and-Underwater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-interactions
+          path: water/v2/films/03-Wakes-and-Weather.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-details
+          path: water/v2/films/04-Water-Details.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-verification
+          path: water/v2/films/05-Verification-Reel.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-v2-code-and-checks
+          path: |
+            water/v2/SOURCE.zip
+            water/v2/standalone.html
+            water/v2/README.md
+            water/v2/LIMITATIONS.md
+            water/v2/ATTRIBUTION.md
+            water/v2/VALIDATION.json
+            water/v2/RELEASE-HASHES.json
+            water/v2/RELEASE-COMMIT.txt
+            water/v2/docs
+            water/v2/films/*.jpg
+          retention-days: 7
