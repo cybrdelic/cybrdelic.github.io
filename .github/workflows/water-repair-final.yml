@@ -1,0 +1,234 @@
+name: Water repair - final lighting and delivery
+on:
+  push:
+    branches: [cybr-water-repair-20260906]
+    paths: ['.github/workflows/water-repair-final.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-repair-runtime
+          github-token: ${{ github.token }}
+          run-id: 34039863221
+          path: /tmp/water-final
+      - name: Apply the final verified lighting patch; prove physics kernels unchanged
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,subprocess,json
+          root=Path('/tmp/water-final');patch=Path('water-repair-source/light-final.py')
+          assert hashlib.sha256(patch.read_bytes()).hexdigest()=='66df158c3c8b0862ceab5b417affe8ef82c5aa67df08d7c017e7f20fed9a8cb4'
+          files=['spectrum.js','gpu-ocean.js','sim-fields.js','interaction-kernel.js','dynamics.js','particles.js','rain-ripples.js','replay.js','engine.js']
+          before={n:hashlib.sha256((root/'public/src'/n).read_bytes()).hexdigest() for n in files}
+          subprocess.run(['python',str(patch),str(root)],check=True)
+          after={n:hashlib.sha256((root/'public/src'/n).read_bytes()).hexdigest() for n in files};assert before==after
+          (root/'docs/unchanged-physics-core.json').write_text(json.dumps({'equal':True,'hashes':after,'enduranceRun':34039863221,'note':'The four endurance traces remain applicable to these byte-identical state-update modules; final visual captures and browser tests are rerun.'},indent=2))
+          (root/'renders').mkdir(exist_ok=True)
+          PY
+      - name: Run all 66 CPU tests and regenerate both browser entry points
+        working-directory: /tmp/water-final
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes prettier@3.6.2 --write public/src/light-transport.js public/src/environment.js public/src/surface-shading.js public/src/water-shaders.js public/src/repair-validation.js tests/repair.test.mjs
+          npm test | tee docs/numerics-repair.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-final-runtime
+          path: /tmp/water-final/
+          retention-days: 7
+  capture:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 18
+      matrix:
+        shot: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-final-runtime
+          path: /tmp/water-final
+      - name: Prepare native renderer and encoder
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Render final native 1080p frames
+        working-directory: /tmp/water-final
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --shot ${{ matrix.shot }} --width 1920 --height 1080 --fps 24 2>&1 | tee renders/final-${{ matrix.shot }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-final-shot-${{ matrix.shot }}
+          path: /tmp/water-final/renders/
+          retention-days: 7
+  controls:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-final-runtime
+          path: /tmp/water-controls
+      - name: Prepare browser
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Exercise final replay controls and self-contained HTML
+        working-directory: /tmp/water-controls
+        env:
+          LP_NUM_THREADS: '3'
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' python tools/check_controls.py .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-final-controls
+          path: /tmp/water-controls/docs/*browser.json
+          retention-days: 7
+  release:
+    needs: [build,capture,controls]
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-repair-20260906
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-final-runtime
+          path: /tmp/water-repair/CYBR-WATER-II
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-final-shot-*
+          merge-multiple: true
+          path: /tmp/water-repair/CYBR-WATER-II/renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-baseline-shot-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: 34039863221
+          path: /tmp/water-repair/baseline-renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-endurance-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: 34039863221
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-final-controls
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - name: Assemble final feature reels, matched comparisons and full source
+        run: |
+          python -m pip install pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('water-repair-source/release.py');s=p.read_text();assert "'59 numerical implementation tests'" in s;p.write_text(s.replace("'59 numerical implementation tests'","'66 numerical implementation tests'"))
+          PY
+          python water-repair-source/release.py assemble
+      - name: Stage the final repaired release only
+        run: |
+          if [ -d water/repair ]; then mv water/repair /tmp/previous-repair-staging; fi
+          mkdir -p water/repair
+          cp -r /tmp/water-repair/CYBR-WATER-II/public/. water/repair/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A water/repair
+          git commit -m 'Finalize repaired water: geometry-shadowed sun, consistent beam attenuation, 66 tests and thirty rerendered views'
+          git push origin HEAD:cybr-water-repair-20260906
+          git rev-parse HEAD > water/repair/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-comparison
+          path: water/repair/films/00-Before-and-After.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-ocean
+          path: water/repair/films/01-Ocean-and-Whitewater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-optics
+          path: water/repair/films/02-Depth-and-Underwater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-interactions
+          path: water/repair/films/03-Wakes-and-Weather.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-details
+          path: water/repair/films/04-Water-Details.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-verification
+          path: water/repair/films/05-Verification-Reel.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-delivery-complete
+          path: water/repair/films/CYBR-WATER-2.1-Complete.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-delivery-code-and-checks
+          path: |
+            water/repair/SOURCE.zip
+            water/repair/standalone.html
+            water/repair/*.md
+            water/repair/*.json
+            water/repair/*.txt
+            water/repair/docs
+            water/repair/films/*.jpg
+          retention-days: 7
