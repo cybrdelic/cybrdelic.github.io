@@ -1,0 +1,263 @@
+name: Water repair - verified release
+on:
+  push:
+    branches: [cybr-water-repair-20260906]
+    paths: ['water-repair-source/manifest.json']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Restore exactly the previously delivered source and apply verified edits
+        run: |
+          curl --retry 3 --fail --location 'https://raw.githubusercontent.com/cybrdelic/cybrdelic.github.io/39c25d8adfda0e51564c07a0cb7e9c1ab40d5012/water/v2/SOURCE.zip' -o /tmp/water-baseline.zip
+          python water-repair-source/release.py apply
+      - name: Run CPU regressions and build both reproducible browser applications
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/water-repair/CYBR-WATER-II
+          npm test | tee docs/numerics-repair.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+          cd /tmp/water-repair/BASELINE
+          python tools/bundle.py --output public/browser-bundle.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-runtime
+          path: /tmp/water-repair/CYBR-WATER-II/
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-baseline-runtime
+          path: /tmp/water-repair/BASELINE/
+          retention-days: 7
+  capture:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 18
+      matrix:
+        version: [repair]
+        shot: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+        include:
+          - {version: baseline, shot: 0}
+          - {version: baseline, shot: 6}
+          - {version: baseline, shot: 8}
+          - {version: baseline, shot: 9}
+          - {version: baseline, shot: 10}
+          - {version: baseline, shot: 20}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-${{ matrix.version }}-runtime
+          path: /tmp/water-render
+      - name: Prepare actual browser and video encoder
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Render native 1920 x 1080 frames
+        working-directory: /tmp/water-render
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p renders
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --shot ${{ matrix.shot }} --width 1920 --height 1080 --fps 24 2>&1 | tee renders/runner-${{ matrix.version }}-${{ matrix.shot }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-${{ matrix.version }}-shot-${{ matrix.shot }}
+          path: /tmp/water-render/renders/
+          retention-days: 7
+  endurance:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {scene: harbor, seconds: 120}
+          - {scene: storm, seconds: 60}
+          - {scene: rain, seconds: 30}
+          - {scene: glass, seconds: 60}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-repair-runtime
+          path: /tmp/water-endurance
+      - name: Prepare browser
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Exercise continuous coupled physical ticks
+        working-directory: /tmp/water-endurance
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/endurance.py --scene ${{ matrix.scene }} --seconds ${{ matrix.seconds }} 2>&1 | tee docs/endurance-${{ matrix.scene }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-endurance-${{ matrix.scene }}
+          path: /tmp/water-endurance/docs/endurance-*
+          retention-days: 7
+  controls:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-repair-runtime
+          path: /tmp/water-controls
+      - name: Prepare browser
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Exercise replay controls and the completely self-contained HTML
+        working-directory: /tmp/water-controls
+        env:
+          LP_NUM_THREADS: '3'
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' python tools/check_controls.py .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-repair-controls
+          path: /tmp/water-controls/docs/*browser.json
+          retention-days: 7
+  release:
+    needs: [build,capture,endurance,controls]
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-repair-20260906
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-repair-runtime
+          path: /tmp/water-repair/CYBR-WATER-II
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-repair-shot-*
+          merge-multiple: true
+          path: /tmp/water-repair/CYBR-WATER-II/renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-baseline-shot-*
+          merge-multiple: true
+          path: /tmp/water-repair/baseline-renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-endurance-*
+          merge-multiple: true
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-repair-controls
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - name: Validate and assemble all captures and matched comparisons
+        run: |
+          python -m pip install pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python water-repair-source/release.py assemble
+      - name: Stage repaired application without replacing existing pages
+        run: |
+          mkdir -p water/repair
+          cp -r /tmp/water-repair/CYBR-WATER-II/public/. water/repair/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water/repair
+          git commit -m 'Repair water optics and interactions; publish thirty newly verified shots and matched comparisons'
+          git push origin HEAD:cybr-water-repair-20260906
+          git rev-parse HEAD > water/repair/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-comparison
+          path: water/repair/films/00-Before-and-After.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-ocean
+          path: water/repair/films/01-Ocean-and-Whitewater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-optics
+          path: water/repair/films/02-Depth-and-Underwater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-interactions
+          path: water/repair/films/03-Wakes-and-Weather.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-details
+          path: water/repair/films/04-Water-Details.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-verification
+          path: water/repair/films/05-Verification-Reel.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-repair-complete
+          path: water/repair/films/CYBR-WATER-2.1-Complete.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-repair-code-and-checks
+          path: |
+            water/repair/SOURCE.zip
+            water/repair/standalone.html
+            water/repair/*.md
+            water/repair/*.json
+            water/repair/*.txt
+            water/repair/docs
+            water/repair/films/*.jpg
+          retention-days: 7
