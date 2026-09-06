@@ -1,0 +1,67 @@
+name: Build CYBR WATER II
+on:
+  push:
+    branches: [cybr-water-v2-20260906]
+    paths: ['water-v2-source/source.zip']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unpack new engine without replacing original demo
+        run: |
+          mkdir -p /tmp/cybr-water-v2
+          unzip -q water-v2-source/source.zip -d /tmp/cybr-water-v2
+          mkdir -p /tmp/cybr-water-v2/public/vendor /tmp/cybr-water-v2/public/assets
+          cp -r water/vendor/. /tmp/cybr-water-v2/public/vendor/
+          cp water/assets/micro.png /tmp/cybr-water-v2/public/assets/
+      - name: Run numerical validation
+        working-directory: /tmp/cybr-water-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install numpy scipy pillow
+          mkdir -p docs
+          node --test tests/*.test.mjs | tee docs/numerics-ci.tap
+      - name: Generate original filtered environment fields
+        working-directory: /tmp/cybr-water-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/make_skies.py dawn & p1=$!
+          python tools/make_skies.py blue & p2=$!
+          python tools/make_skies.py storm & p3=$!
+          wait "$p1"
+          wait "$p2"
+          wait "$p3"
+          python tools/build.py
+          cp README.md public/README.md
+          cp -r docs public/docs
+      - name: Publish build to isolated branch directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p water-v2
+          cp -r /tmp/cybr-water-v2/public/. water-v2/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water-v2
+          git commit -m 'Build WATER II GPU ocean, optics, interaction fields and separate 3D liquid lab'
+          git push origin HEAD:cybr-water-v2-20260906
+          git rev-parse HEAD > /tmp/build-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cybr-water-v2-browser-build
+          path: |
+            water-v2/
+            /tmp/build-commit.txt
+          retention-days: 7
