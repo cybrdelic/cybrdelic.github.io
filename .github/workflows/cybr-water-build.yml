@@ -1,0 +1,56 @@
+name: Build CYBR WATER
+on:
+  push:
+    branches: [cybr-water-20260905]
+    paths: ['water-source/source.zip']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unpack isolated water project
+        run: |
+          mkdir -p /tmp/cybr-water
+          unzip -q water-source/source.zip -d /tmp/cybr-water
+      - name: Install build dependencies and run numerical tests
+        working-directory: /tmp/cybr-water
+        run: |
+          python -m pip install numpy scipy pillow
+          npm install --ignore-scripts --no-audit --no-fund
+          mkdir -p docs
+          npm test | tee docs/numerics.tap
+      - name: Build original sky fields and vendor Three.js
+        working-directory: /tmp/cybr-water
+        run: |
+          python tools/make_assets.py
+          mkdir -p public/vendor
+          cp node_modules/three/build/three.module.js public/vendor/
+          cp node_modules/three/build/three.core.js public/vendor/
+          cp node_modules/three/LICENSE public/vendor/THREE-LICENSE.txt
+          npx --yes esbuild@0.25.9 node_modules/three/build/three.module.js --bundle --format=iife --global-name=THREE --minify --outfile=public/vendor/three.global.js
+          python tools/build.py --output public/standalone.html
+          cp -r docs public/
+      - name: Stage generated demo without modifying existing pages
+        run: |
+          mkdir -p water
+          cp -r /tmp/cybr-water/public/. water/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add water
+          git commit -m 'Build standalone Three.js ocean demo and generated assets' || true
+          git push origin HEAD:cybr-water-20260905
+          git rev-parse HEAD > water/build-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cybr-water-browser-build
+          path: water/
+          retention-days: 7
