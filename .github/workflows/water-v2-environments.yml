@@ -1,0 +1,24 @@
+name: Water V2 environment assets
+on:
+  push:
+    branches: [cybr-water-v2]
+    paths: ['.github/workflows/water-v2-environments.yml']
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Download original CC0 radiance panoramas
+        run: |
+          mkdir -p hdr
+          curl --retry 3 --fail --location 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kloofendal_48d_partly_cloudy_puresky_2k.hdr' -o hdr/blue.hdr
+          curl --retry 3 --fail --location 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/belfast_sunset_puresky_2k.hdr' -o hdr/dawn.hdr
+          printf '%s\n' 'CC0: Kloofendal 48d Partly Cloudy (Pure Sky), Greg Zaal and Jarod Guest, Poly Haven.' 'https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky' 'CC0: Belfast Sunset (Pure Sky), Poly Haven. See source for authors.' 'https://polyhaven.com/a/belfast_sunset_puresky' > hdr/ATTRIBUTION.txt
+          sha256sum hdr/*.hdr > hdr/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-v2-CC0-HDRI
+          path: hdr/
+          retention-days: 7
