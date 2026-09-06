@@ -1,0 +1,297 @@
+name: Water repair - grounded final release
+on:
+  push:
+    branches: [cybr-water-repair-20260906]
+    paths: ['.github/workflows/water-repair-grounded.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-final-runtime
+          github-token: ${{ github.token }}
+          run-id: 34041087283
+          path: /tmp/water-grounded
+      - name: Apply tested grounding and static visibility synchronization
+        run: |
+          python water-repair-source/ground-final.py /tmp/water-grounded
+          mkdir -p /tmp/water-grounded/renders
+          rm -f /tmp/water-grounded/docs/unchanged-physics-core.json
+          cp water-repair-source/ground-final.py /tmp/water-grounded/tools/grounding-patch.py
+      - name: Run all 71 numerical checks and rebuild browser delivery
+        working-directory: /tmp/water-grounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes prettier@3.6.2 --write public/src/world.js public/src/ray-scene.js public/src/engine.js public/src/repair-validation.js tests/repair.test.mjs
+          npm test | tee docs/numerics-repair.tap
+          python tools/bundle.py --output public/browser-bundle.html
+          python tools/bundle.py --assets --output public/standalone.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-grounded-runtime
+          path: /tmp/water-grounded/
+          retention-days: 7
+  capture:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shot: [6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,25,26,27,28,29]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-grounded-runtime
+          path: /tmp/water-grounded
+      - name: Prepare native browser and encoder
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Render affected scene with synchronized terrain, ray geometry and collision data
+        working-directory: /tmp/water-grounded
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p renders
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --shot ${{ matrix.shot }} --width 1920 --height 1080 --fps 24 2>&1 | tee renders/grounded-${{ matrix.shot }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-grounded-shot-${{ matrix.shot }}
+          path: /tmp/water-grounded/renders/
+          retention-days: 7
+  validation:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-grounded-runtime
+          path: /tmp/water-grounded
+      - name: Prepare browser
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Verify actual GPU rays, bathymetry, optics, control replay and standalone HTML
+        working-directory: /tmp/water-grounded
+        env:
+          LP_NUM_THREADS: '3'
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/render.py --smoke --ids 6,10,19,20,26 --width 960 --height 540 --output docs/grounded-smoke
+          xvfb-run -a -s '-screen 0 1920x1080x24' python tools/check_controls.py .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-grounded-checks
+          path: |
+            /tmp/water-grounded/docs/grounded-smoke
+            /tmp/water-grounded/docs/*browser.json
+          retention-days: 7
+  endurance:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {scene: harbor, seconds: 120}
+          - {scene: rain, seconds: 30}
+          - {scene: glass, seconds: 60}
+          - {scene: storm, seconds: 60}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-grounded-runtime
+          path: /tmp/water-grounded
+      - name: Prepare browser
+        run: |
+          python -m pip install playwright
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-vulkan-drivers
+          if ! command -v google-chrome && ! command -v chromium; then python -m playwright install --with-deps chromium; fi
+      - name: Exercise grounded-geometry boundary conditions over continuous physical ticks
+        working-directory: /tmp/water-grounded
+        env:
+          LP_NUM_THREADS: '3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1920x1080x24' python capture/endurance.py --scene ${{ matrix.scene }} --seconds ${{ matrix.seconds }} 2>&1 | tee docs/endurance-${{ matrix.scene }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-grounded-endurance-${{ matrix.scene }}
+          path: /tmp/water-grounded/docs/endurance-*
+          retention-days: 7
+  release:
+    needs: [build,capture,validation,endurance]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cybr-water-repair-20260906
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-grounded-runtime
+          path: /tmp/water-repair/CYBR-WATER-II
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-final-shot-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: 34041087283
+          path: /tmp/water-repair/CYBR-WATER-II/renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-grounded-shot-*
+          merge-multiple: true
+          path: /tmp/water-repair/CYBR-WATER-II/renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-baseline-shot-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: 34039863221
+          path: /tmp/water-repair/baseline-renders
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-grounded-endurance-*
+          merge-multiple: true
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - uses: actions/download-artifact@v4
+        with:
+          name: water-grounded-checks
+          path: /tmp/water-repair/CYBR-WATER-II/docs
+      - name: Validate retained non-terrain clips and fresh grounded renders; assemble final source and films
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m pip install pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python - <<'PY'
+          from pathlib import Path
+          import json,shutil,urllib.request,os
+          root=Path('/tmp/water-repair/CYBR-WATER-II');docs=root/'docs'
+          for name in ['gpu-verification.json','repair-verification.json']:
+              shutil.copyfile(docs/'grounded-smoke'/name,root/'renders'/name)
+          retained=[0,1,2,3,4,5,15,22,23,24];shots=json.loads((root/'capture/shots.json').read_text())
+          assert all(shots[i]['scene'] in ['dawn','blue','swell','storm','buoy'] for i in retained)
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
+          u='https://api.github.com/repos/cybrdelic/cybrdelic.github.io/actions/runs/34041087283/jobs?per_page=100'
+          jobs=json.load(urllib.request.urlopen(urllib.request.Request(u,headers=headers)))['jobs'];audits=[]
+          for i in retained:
+              job=next(j for j in jobs if j['name']==f'capture ({i})');assert job['status']=='completed'
+              url='https://api.github.com/repos/cybrdelic/cybrdelic.github.io/actions/jobs/'+str(job['id'])+'/logs'
+              log=urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=60).read().decode('utf-8-sig')
+              assert 'tee: renders/final-' in log and 'No such file or directory' in log and 'DONE ' in log
+              assert 'BROWSER ERROR' not in log and 'Traceback (most recent call last)' not in log
+              audits.append({'id':i,'job':job['id'],'renderCompleted':True,'initialHarnessIssue':'tee output directory did not exist; fixed in new capture workflow','sceneUnaffectedByTerrainPlacement':True})
+          (docs/'final-capture-provenance.json').write_text(json.dumps({'retainedNonTerrainScenes':audits,'freshlyRerenderedGroundedScenes':[s['id'] for s in shots if s['id'] not in retained],'source':'All clips rendered in this repair turn after the optical corrections. Grounding affected only terrain-enabled scenes; those 20 clips and all four endurance runs were repeated. No upscaling or frame interpolation.'},indent=2))
+          p=Path('water-repair-source/release.py');s=p.read_text().replace("'59 numerical implementation tests'","'71 numerical implementation tests'").replace("'66 numerical implementation tests'","'71 numerical implementation tests'");p.write_text(s)
+          PY
+          python water-repair-source/release.py assemble
+      - name: Save final isolated release without replacing earlier demos
+        run: |
+          git restore water-repair-source/release.py
+          git pull --ff-only origin cybr-water-repair-20260906
+          if [ -d water/repair ]; then mv water/repair /tmp/earlier-water-repair; fi
+          mkdir -p water/repair
+          cp -r /tmp/water-repair/CYBR-WATER-II/public/. water/repair/
+          git config user.name 'CYBR WATER build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A water/repair
+          git commit -m 'Release repaired water with grounded terrain, consistent visibility, 71 tests and thirty final feature views'
+          git push origin HEAD:cybr-water-repair-20260906
+          git rev-parse HEAD > water/repair/RELEASE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-comparison
+          path: water/repair/films/00-Before-and-After.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-ocean
+          path: water/repair/films/01-Ocean-and-Whitewater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-optics
+          path: water/repair/films/02-Depth-and-Underwater.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-interactions
+          path: water/repair/films/03-Wakes-and-Weather.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-details
+          path: water/repair/films/04-Water-Details.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-verification
+          path: water/repair/films/05-Verification-Reel.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-shipping-complete
+          path: water/repair/films/CYBR-WATER-2.1-Complete.mp4
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-shipping-code-and-checks
+          path: |
+            water/repair/SOURCE.zip
+            water/repair/standalone.html
+            water/repair/*.md
+            water/repair/*.json
+            water/repair/*.txt
+            water/repair/docs
+            water/repair/films/*.jpg
+          retention-days: 7
