@@ -75,8 +75,8 @@
     },
     {
       "path": "pyro-gpu/app.js",
-      "bytes": 24450,
-      "sha256": "950c6cf7ea7f74c200b6a60669b1955589a60564ecc051c13919b7ab543b794d"
+      "bytes": 23756,
+      "sha256": "403949c9c8ee84632ba7f24b14ccbf457e414c1f6a822b8aaee3648d63154015"
     },
     {
       "path": "pyro-gpu/combustion.js",
