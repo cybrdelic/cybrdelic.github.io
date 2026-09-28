@@ -3,12 +3,12 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=studio-rc-2';
-import { ForestMesh } from './forest-mesh.js?v=studio-rc-2';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=studio-rc-2';
-import { probeGPU } from './gpu-session.js';
-import { simulationShaders, pressureShaders } from './shaders.js?v=studio-rc-2';
-import { rendererShaders, dilateWGSL } from './renderer.js?v=studio-rc-2';
+} from './objects.js?v=studio-rc-3';
+import { ForestMesh } from './forest-mesh.js?v=studio-rc-3';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=studio-rc-3';
+import { probeGPU } from './gpu-session.js?v=studio-rc-3';
+import { simulationShaders, pressureShaders } from './shaders.js?v=studio-rc-3';
+import { rendererShaders, dilateWGSL } from './renderer.js?v=studio-rc-3';
 export class PyroSolver {
   static async create(canvas, options = {}) {
     const { adapter, context, format } = await probeGPU(canvas);

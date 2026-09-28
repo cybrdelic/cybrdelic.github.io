@@ -1,5 +1,5 @@
-import {runtimeScope} from './runtime-scope.js';
-import {legacyProbe} from './legacy-qa.js';
+import {runtimeScope} from './runtime-scope.js?v=studio-rc-3';
+import {legacyProbe} from './legacy-qa.js?v=studio-rc-3';
 export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -22,7 +22,6 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const message = document.querySelector('#message');
   const metrics = document.querySelector('#metrics');
   const help = document.querySelector('#help');
-  const modeButton = document.querySelector('#mode');
   const restartButton = document.querySelector('#restart');
   const extinguishButton = document.querySelector('#extinguish');
   const roomToggle = document.querySelector('#room');
@@ -549,7 +548,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   }
   const pointer = { x: .5, y: .5, vx: 0, vy: 0, active: false, down: false, id: null, last: 0 };
   const brush = { x: .5, y: .5, fromX: .5, fromY: .5, active: false };
-  let freeMode = false;
+  let freeMode = false, activePreset = initialPreset;
   let emitterKind=0, burstStart=-100;
   const presetControl=document.querySelector('#preset');
   const fuelControl=document.querySelector('#fuel');
@@ -573,10 +572,10 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   }
   function selectPreset(key,frameSource=true){
     if((key==='explosion')!==domain.blast){onRemount(key);return;}
-    presetControl.value=key;emitterKind=presets[key];freeMode=key!=='sigil';
+    activePreset=key;presetControl.value=key;emitterKind=presets[key];freeMode=key!=='sigil';
     pointer.down=false;pointer.id=null;pointer.active=false;endPan();setTool(false);
     reset();burstStart=-100;
-    modeButton.hidden=!freeMode;extinguishButton.hidden=!freeMode;
+    extinguishButton.hidden=!freeMode;
     burstButton.hidden=emitterKind!==6;
     restartButton.textContent=key==='free'?'Clear fire':'Restart';
     focusButton.disabled=true;
@@ -597,7 +596,6 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     }
     needsDraw=true;
   }
-  presetControl.onchange=()=>selectPreset(presetControl.value);
   fuelControl.onchange=()=>{stateRevision++;needsDraw=true;};
   burstButton.onclick=()=>{if(emitterKind===6)ignite();};
 
@@ -654,9 +652,9 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     pointer.down = true; pointer.id = e.pointerId;
     view.setPointerCapture(e.pointerId);
     if (!freeMode) {
-      freeMode = true;emitterKind=0;presetControl.value='free';
+      freeMode = true;emitterKind=0;activePreset='free';presetControl.value='free';
       reset();
-      modeButton.hidden = false;
+      extinguishButton.hidden = false;
       restartButton.textContent = 'Clear fire';
     }
     brush.x = brush.fromX = pointer.x;
@@ -749,7 +747,6 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     document.querySelector('#pause').textContent = 'Pause';
   };
   restartButton.onclick = () => selectPreset(presetControl.value,false);
-  modeButton.onclick = () => selectPreset('sigil');
   on(window,'keydown', e => {
     if(!scope.visible)return;
     if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
@@ -877,7 +874,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     async dispose(){await scope.stop();gl.getExtension('WEBGL_lose_context')?.loseContext();},
     setVisible:scope.setVisible,
     fire:selectPreset,
-    snapshot:()=>({fire:'legacy:'+presetControl.value,fuel:fuelControl.value,smoke:false,room:roomEnabled,camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
-    look(item){if(item.fuel)fuelControl.value=item.fuel;roomToggle.checked=item.room;roomToggle.onchange();if(item.camera){viewZoom=item.camera.zoom;viewAngle=Math.max(-30,Math.min(30,item.camera.angle));[panX,panY]=item.camera.pan;updateView();}}
+    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:false,room:roomEnabled,camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
+    look(item){if(item.fuel)fuelControl.value=item.fuel;if(typeof item.room==='boolean'){roomToggle.checked=item.room;roomToggle.dispatchEvent(new Event('change'));}if(item.camera){viewZoom=item.camera.zoom??viewZoom;viewAngle=Math.max(-30,Math.min(30,item.camera.angle??viewAngle));[panX,panY]=item.camera.pan??[panX,panY];updateView();}}
   };
 }

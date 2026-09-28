@@ -503,7 +503,6 @@ body[data-demo='true'] .help,
 body[data-demo='true'] .disclosure,
 body[data-demo='true'] .studio-footer,
 body[data-demo='true'] #lighting-panel,
-body[data-demo='true'] #mode,
 body[data-demo='true'] #test-instructions {
   display: none !important;
 }

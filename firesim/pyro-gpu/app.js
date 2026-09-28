@@ -1,11 +1,9 @@
-import { FIRE_COLORS } from './fire-colors.js?v=studio-rc-2';
-import { PyroSolver } from './solver.js?v=studio-rc-2';
-import { pressureCheck } from './pressure-check.js';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=studio-rc-2';
-import { runtimeScope } from '../runtime-scope.js';
+import { FIRE_COLORS } from './fire-colors.js?v=studio-rc-3';
+import { PyroSolver } from './solver.js?v=studio-rc-3';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=studio-rc-3';
+import { runtimeScope } from '../runtime-scope.js?v=studio-rc-3';
 export async function mountVolume({
   initialPreset = 'explosion',
-  onSigil,
   onFailure = () => {},
 } = {}) {
   const scope = runtimeScope(onFailure),
@@ -43,8 +41,7 @@ export async function mountVolume({
     revision++;
   };
   let smoke = params.get('smoke') === '1',
-    activeFire = FIRE_PRESETS.find((p) => p.id === initialPreset) || FIRE_PRESETS[0],
-    library;
+    activeFire = FIRE_PRESETS.find((p) => p.id === initialPreset) || FIRE_PRESETS[0];
   let fireLight = 24;
   try {
     const saved = Number(localStorage.getItem('cybr-pyro-fire-light') ?? 24);
@@ -78,22 +75,11 @@ export async function mountVolume({
     history.replaceState(null, '', u);
     markDirty();
   };
-  $('#preset').replaceChildren(
-    ...['Objects', 'Fire', 'Jets', 'Shapes', 'Sigils', 'Looks', 'Prototypes'].map((family) => {
-      const group = document.createElement('optgroup');
-      group.label = family;
-      group.append(
-        ...FIRE_PRESETS.filter((p) => p.family === family).map((p) => new Option(p.name, p.id)),
-      );
-      return group;
-    }),
-  );
   $('#fuel').value = ['gas', 'wood', 'oil'].includes(params.get('fuel'))
     ? params.get('fuel')
     : activeFire.fuel;
   $('#preset').value = activeFire.id;
   $('#burst').hidden = false;
-  $('#mode').hidden = false;
   $('#extinguish').hidden = false;
   $('#help').textContent =
     'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom. Inspect smoke hides visible flame while retaining its illumination.';
@@ -263,8 +249,6 @@ export async function mountVolume({
   $('#fuel').onchange = () => {
     if (solver) solver.fuel = { gas: 0, wood: 0.35, oil: 1 }[$('#fuel').value];
   };
-  $('#preset').onchange = () => applyFire($('#preset').value);
-  $('#mode').onclick = () => onSigil();
   $('#room').onchange = markDirty;
   on(window, 'scene-light-change', markDirty);
   $('#orbit').oninput = () => {
@@ -380,7 +364,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'pyro-library-v1',
+      build: 'fire-studio-rc-3',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -481,7 +465,6 @@ export async function mountVolume({
     url.searchParams.set('fuel', preset.fuel);
     history.replaceState(null, '', url);
     restart();
-    library?.refresh();
   }
   function setFireLight(value) {
     fireLight = Math.max(0, Math.min(80, Number(value) || 0));
@@ -495,7 +478,6 @@ export async function mountVolume({
   }
   $('#fire-light').oninput = (e) => setFireLight(e.target.value);
   setFireLight(fireLight);
-  if (params.has('lighting')) window.SceneLights.apply(params.get('lighting'));
   if (activeFire.smokeSimulation || activeFire.id === 'smoke-burst') smoke = true;
   $('#smoke-only').checked = smoke;
   fireHelp();
@@ -564,6 +546,10 @@ export async function mountVolume({
       const fps = 1000 / report.frameIntervalMs.mean,
         passed = report.frameIntervalMs.p95 <= 1000 / 60 && report.simulationToWallRatio >= 0.99;
       report.meets60FpsBudget = passed;
+      const gpuMean = [report.simulationMs, report.lightingMs, report.renderMs];
+      metrics.textContent = (gpuMean.every(Boolean)
+        ? 'GPU mean ' + gpuMean.reduce((sum, part) => sum + part.mean, 0).toFixed(1) + ' ms'
+        : 'GPU timestamps unavailable') + ' · ' + report.last.time.toFixed(2) + ' s simulated';
       message.textContent = cancelBenchmark
         ? 'Measurement cancelled'
         : 'Measurement complete - ' + (passed ? '60 FPS gate passed' : '60 FPS gate not met');
@@ -640,6 +626,7 @@ export async function mountVolume({
   try {
     solver = await PyroSolver.create(canvas);
     if (params.has('validate')) {
+      const { pressureCheck } = await import('./pressure-check.js?v=studio-rc-3');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -686,16 +673,19 @@ export async function mountVolume({
       testStopped = false;
       if (testScenario && solver) solver.seed = 2;
       if (item.fireLight !== undefined) setFireLight(item.fireLight);
-      $('#room').checked = item.room;
+      if (typeof item.room === 'boolean') {
+        $('#room').checked = item.room;
+        $('#room').dispatchEvent(new Event('change'));
+      }
       if (item.fuel) $('#fuel').value = item.fuel;
       if (typeof item.smoke === 'boolean') {
         smoke = item.smoke;
         $('#smoke-only').checked = smoke;
       }
       if (item.camera) {
-        zoom = item.camera.zoom;
-        angle = item.camera.angle;
-        pan = [...item.camera.pan];
+        zoom = item.camera.zoom ?? zoom;
+        angle = item.camera.angle ?? angle;
+        pan = [...(item.camera.pan ?? pan)];
       }
       configureFire();
       sync();

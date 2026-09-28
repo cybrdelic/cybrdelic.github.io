@@ -1,10 +1,11 @@
-import { createFireDomain } from './fire-domain.js';
-import { inspectionState } from './inspection-state.js';
-import { loadRuntime } from './runtime-loader.js';
-import { studioUI } from './studio-ui.js';
-import { DEMO_PRESETS, isExperimental } from './demo-presets.js';
-import { mountLibrary } from './pyro-gpu/library.js?v=studio-rc-2';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=studio-rc-2';
+import { readLook, writeLook } from './studio-location.js?v=studio-rc-3';
+import { createFireDomain } from './fire-domain.js?v=studio-rc-3';
+import { inspectionState } from './inspection-state.js?v=studio-rc-3';
+import { loadRuntime } from './runtime-loader.js?v=studio-rc-3';
+import { studioUI } from './studio-ui.js?v=studio-rc-3';
+import { DEMO_PRESETS, isExperimental } from './demo-presets.js?v=studio-rc-3';
+import { mountLibrary } from './pyro-gpu/library.js?v=studio-rc-3';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=studio-rc-3';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -12,6 +13,7 @@ const remembered = new Map();
 let runtime,
   engine = '',
   healthy = false,
+  applying = false,
   library,
   transition = Promise.resolve();
 let inspectionStorage;
@@ -60,10 +62,7 @@ function refreshSources(kind = $('#simulation').value, selected = $('#preset').v
 }
 
 function updateLocation(kind, key, look) {
-  const url = new URL(location.href);
-  url.searchParams.set('simulation', kind);
-  url.searchParams.set(kind === 'legacy' ? 'preset' : 'firePreset', key);
-  url.searchParams.delete(kind === 'legacy' ? 'firePreset' : 'preset');
+  const url = writeLook(new URL(location.href), snapshot());
   url.searchParams.delete('scene');
   if (look?.id && (look.test || DEMO_PRESETS.some((p) => p.id === look.id)))
     url.searchParams.set('scene', look.id);
@@ -122,7 +121,6 @@ async function mount(kind, chosen, plain, old, look) {
     runtime = await createRuntime({
       initialPreset: plain,
       onRemount: (key) => requestActivate('legacy', key),
-      onSigil: () => requestActivate('legacy', 'sigil'),
       onFailure: (error) => fail(error, kind),
     });
     if (!runtime) throw new Error('The simulation could not start in this browser.');
@@ -143,7 +141,6 @@ async function mount(kind, chosen, plain, old, look) {
     $('main').setAttribute('aria-busy', 'false');
     $('#simulation').disabled = $('#preset').disabled = false;
     refreshSources(kind, plain);
-    $('#mode').hidden = true;
     $('#preset').onchange = () => requestActivate($('#simulation').value, $('#preset').value);
   }
 }
@@ -152,58 +149,62 @@ function activate(kind, key, look, force = false) {
   transition = transition
     .catch(() => {})
     .then(async () => {
-      const original = kind === 'legacy',
-        plain = key.replace(/^legacy:/, '');
-      const catalog = original ? LEGACY_PRESETS : FIRE_PRESETS;
-      const chosen = catalog.find((p) => (original ? p.id.slice(7) : p.id) === plain);
-      if (!chosen) throw new Error('Unknown fire preset: ' + plain);
-      if (look)
-        look = {
-          ...look,
-          fuel: look.fuel ?? chosen.fuel,
-          smoke: look.smoke ?? (!!chosen.smokeSimulation || plain === 'smoke-burst'),
-        };
-      const old = snapshot();
-      if (look?.test)
-        inspection.enter(
-          {
-            ...old,
-            camera:
-              old.camera ||
-              (kind === 'volume' ? { zoom: 1.25, angle: 16, pan: [0, 0] } : undefined),
-          },
-          engine || kind,
-        );
-      const restored = look?.test ? null : inspection.leave(kind, !!look);
-      window.SceneLights.setTransient(!!look?.test);
-      if (restored)
-        look = {
-          ...restored,
-          fuel: chosen.fuel,
-          smoke: !!chosen.smokeSimulation || plain === 'smoke-burst',
-          color: chosen.color || 'natural',
-          room: restored.room ?? old.room ?? true,
-        };
-      if (look?.lights || look?.lighting) window.SceneLights.apply(look.lights || look.lighting);
-      const remount =
-        force ||
-        !healthy ||
-        engine !== kind ||
-        (original && window.FireDomain?.blast !== (plain === 'explosion'));
-      if (remount) await mount(kind, chosen, plain, old, look);
-      else {
-        runtime.fire(plain);
-        if (look) runtime.look(look);
+      applying = true;
+      try {
+        const original = kind === 'legacy',
+          plain = key.replace(/^legacy:/, '');
+        const catalog = original ? LEGACY_PRESETS : FIRE_PRESETS;
+        const chosen = catalog.find((p) => (original ? p.id.slice(7) : p.id) === plain);
+        if (!chosen) throw new Error('Unknown fire preset: ' + plain);
+        if (look)
+          look = {
+            ...look,
+            fuel: look.fuel ?? chosen.fuel,
+            smoke: look.smoke ?? (!!chosen.smokeSimulation || plain === 'smoke-burst'),
+          };
+        const old = snapshot();
+        if (look?.test)
+          inspection.enter(
+            {
+              ...old,
+              camera:
+                old.camera ||
+                (kind === 'volume' ? { zoom: 1.25, angle: 16, pan: [0, 0] } : undefined),
+            },
+            engine || kind,
+          );
+        const restored = look?.test ? null : inspection.leave(kind, !!look);
+        window.SceneLights.setTransient(!!look?.test);
+        if (restored)
+          look = {
+            ...restored,
+            fuel: chosen.fuel,
+            smoke: !!chosen.smokeSimulation || plain === 'smoke-burst',
+            color: chosen.color || 'natural',
+            room: restored.room ?? old.room ?? true,
+          };
+        if (look?.lights || look?.lighting) window.SceneLights.apply(look.lights || look.lighting);
+        const remount =
+          force ||
+          !healthy ||
+          engine !== kind ||
+          (original && window.FireDomain?.blast !== (plain === 'explosion'));
+        if (remount) await mount(kind, chosen, plain, old, look);
+        else {
+          runtime.fire(plain);
+          if (look) runtime.look(look);
+        }
+        refreshSources(kind, plain);
+        $('#test-instructions').hidden = !look?.test;
+        if (look?.test)
+          $('#test-instructions').textContent = look.name + ' — ' + look.test.instruction;
+        runtime.setVisible(ui.visible);
+        $('#preset').onchange = () => requestActivate(engine, $('#preset').value);
+        updateLocation(kind, plain, look);
+        library.refresh();
+      } finally {
+        applying = false;
       }
-      refreshSources(kind, plain);
-      $('#test-instructions').hidden = !look?.test;
-      if (look?.test)
-        $('#test-instructions').textContent = look.name + ' — ' + look.test.instruction;
-      $('#mode').hidden = true; // The Source picker already provides this action.
-      runtime.setVisible(ui.visible);
-      $('#preset').onchange = () => requestActivate(engine, $('#preset').value);
-      updateLocation(kind, plain, look);
-      library.refresh();
     })
     .catch((error) => {
       fail(error, kind);
@@ -238,14 +239,38 @@ if (initialScene)
   await requestActivate(
     initialScene.fire.startsWith('legacy:') ? 'legacy' : 'volume',
     initialScene.fire,
-    initialScene,
+    { ...initialScene, ...readLook(params, initialScene.camera) },
   );
 else {
   const kind = params.get('simulation') === 'volume' ? 'volume' : 'legacy';
-  await requestActivate(
-    kind,
-    kind === 'volume' ? params.get('firePreset') || 'bonfire' : params.get('preset') || 'sigil',
-  );
+  const catalog = kind === 'volume' ? FIRE_PRESETS : LEGACY_PRESETS;
+  const fallback = kind === 'volume' ? 'bonfire' : 'sigil';
+  const requested = params.get(kind === 'volume' ? 'firePreset' : 'preset') || fallback;
+  const key = catalog.some((p) => p.id.replace(/^legacy:/, '') === requested) ? requested : fallback;
+  await requestActivate(kind, key, readLook(params));
 }
 if (params.get('present') === '1') ui.present(true);
-window.addEventListener('pagehide', () => runtime?.dispose(), { once: true });
+// Shell owns link synchronization after engine handlers update their state.
+function syncLocation() {
+  if (!healthy || applying) return;
+  const url = writeLook(new URL(location.href), snapshot());
+  url.searchParams.delete('scene');
+  url.searchParams.delete('lighting');
+  history.replaceState(null, '', url);
+}
+for (const type of ['input', 'change']) document.addEventListener(type, (event) => {
+  if (event.target.matches('#fuel, #room, #smoke-only, #flame-color, #embers, #fire-light, #zoom, #orbit')) syncLocation();
+});
+window.addEventListener('scene-light-change', syncLocation);
+$('#view').addEventListener('pointerup', syncLocation);
+$('#view').addEventListener('wheel', syncLocation);
+for (const id of ['zoom-in', 'zoom-out', 'reset-view', 'focus-fire'])
+  $('#' + id).addEventListener('click', syncLocation);
+// A page in the back/forward cache must retain its runtime for pageshow.
+window.addEventListener('pagehide', (event) => {
+  if (event.persisted) runtime?.setVisible(false);
+  else runtime?.dispose();
+});
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) runtime?.setVisible(ui.visible);
+});

@@ -25,6 +25,10 @@ export function studioUI(onVisibility) {
       showPanel('scene');
     }
     presenting = value;
+    const url = new URL(location.href);
+    if (value) url.searchParams.set('present', '1');
+    else url.searchParams.delete('present');
+    history.replaceState(null, '', url);
     document.body.dataset.demo = String(value);
     $('#demo-mode').textContent = value ? 'Exit presentation' : 'Present';
     $('#demo-mode').setAttribute('aria-pressed', String(value));

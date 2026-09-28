@@ -1,5 +1,5 @@
-import {objectWGSL} from './objects.js?v=studio-rc-2';
-import {combustionWGSL} from './combustion.js?v=studio-rc-2';
+import {objectWGSL} from './objects.js?v=studio-rc-3';
+import {combustionWGSL} from './combustion.js?v=studio-rc-3';
 // Volumetric integration in world units. No animated render noise or flipbooks.
 function renderSource(tree){return `
 ${combustionWGSL}

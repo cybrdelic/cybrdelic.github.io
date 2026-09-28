@@ -40,7 +40,8 @@ The old pyro-gpu/ URL redirects into this same studio.
 
 | Module | Responsibility |
 | --- | --- |
-| studio.js | Serialized engine/preset transitions, URL state, shared look restoration |
+| studio.js | Serialized engine/preset transitions and shared look restoration |
+| studio-location.js | Validated shared links and camera state |
 | studio-ui.js | Workspace panels, presentation, startup and recovery UI |
 | runtime-loader.js | Loads only the selected engine and its dependencies |
 | runtime-scope.js | Animation/listener lifecycle; hidden, disposed, and failed runtimes stop |
@@ -74,10 +75,16 @@ The package excludes historical experiment directories, build tools, raw mesh au
 
 A Courant-aware monotonic correction replaces the discontinuous scalar fallback. Slow soot no longer repeatedly amplifies reverse-advection errors into a grid pattern. Faster flow keeps second-order correction within donor bounds. This is a transport change; there is no image blur, lower grid resolution, or extra render pass.
 
+## State and code audit (rc.3)
+
+URL fuel and camera settings survive startup and manual edits. Invalid camera inputs are bounded; partial looks preserve unspecified room/camera values. Original remembers its actual source across engine switches. Presentation state stays synchronized with the URL. Cached back/forward pages pause and resume instead of destroying their GPU runtime.
+
+The shell owns source menus. The obsolete return button and unused engine-local library hook were removed; pressure validation loads on request. All shipped JavaScript modules are reachable from the runtime. Historical experiments remain outside the release package.
+
 ## Release status: candidate
 
 The UI cleanup is verified on desktop and phone layouts. Original starts and renders in the tested in-app browser, with 30 rendered FPS observed during the check. This is not a sustained performance certification.
 
-The current in-app browser session returns no WebGPU adapter. The volume shaders run successfully in native offscreen tests on the RTX 4060 Laptop GPU, but this does not establish browser FPS. Native full-frame timings exceeded the 60 FPS budget. Browser WebGPU playback and a sustained performance check on the demo machine remain release gates.
+WebGPU playback was verified after the browser adapter recovered. The in-app browser selected Intel gen-12lp despite a high-performance adapter request. A 180-frame Bonfire measurement with the room enabled achieved 12.3 completed FPS, 122.6 ms frame p95, and 0.20x realtime simulation. This fails the 60 FPS gate. Native RTX 4060 shader timings describe a different adapter and do not establish browser performance. Sustained realtime performance on the demo machine remains a release gate.
 
 Trees and blockout objects remain experiments. Tree moisture, local combustion, char, and leaf loss are present; physical branch fracture/collapse is not. No offline-quality-parity or guaranteed 60 FPS claim is made.

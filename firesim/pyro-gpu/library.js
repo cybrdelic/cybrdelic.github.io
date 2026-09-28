@@ -1,6 +1,6 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=studio-rc-2';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js';
-import { lookStore } from '../look-storage.js';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=studio-rc-3';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=studio-rc-3';
+import { lookStore } from '../look-storage.js?v=studio-rc-3';
 
 const CATEGORIES = ['Demos', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [

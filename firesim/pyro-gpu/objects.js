@@ -104,4 +104,4 @@ struct ObjectSettings{origin:vec4f,options:vec4f,tint:vec4f};
  textureStore(nextDamage,vec3i(id),vec4f(moisture,0,0,1));
 }`;
 
-export { FIRE_COLORS } from './fire-colors.js?v=studio-rc-2';
+export { FIRE_COLORS } from './fire-colors.js?v=studio-rc-3';
