@@ -1,0 +1,704 @@
+import { FIRE_COLORS } from './fire-colors.js?v=studio-rc-2';
+import { PyroSolver } from './solver.js?v=studio-rc-2';
+import { pressureCheck } from './pressure-check.js';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=studio-rc-2';
+import { runtimeScope } from '../runtime-scope.js';
+export async function mountVolume({
+  initialPreset = 'explosion',
+  onSigil,
+  onFailure = () => {},
+} = {}) {
+  const scope = runtimeScope(onFailure),
+    on = scope.on;
+  const $ = (s) => document.querySelector(s),
+    params = new URL(location.href).searchParams;
+  const canvas = $('#fire'),
+    view = $('#view'),
+    message = $('#message'),
+    metrics = $('#metrics');
+  canvas.width = 1280;
+  canvas.height = 720;
+  let solver,
+    paused = false,
+    busy = false,
+    dirty = true,
+    zoom = 1.25,
+    angle = Number(params.get('angle') || 16),
+    pan = [0, 0],
+    panMode = false,
+    gesture = null,
+    trace = [],
+    captureIndex = 0,
+    saved = false;
+  let frameCount = 0,
+    testScenario = null,
+    testStopped = false;
+  let revision = 0,
+    resetQueued = false,
+    benchmarkQueued = false,
+    benchmarkActive = false,
+    cancelBenchmark = false;
+  const markDirty = () => {
+    dirty = true;
+    revision++;
+  };
+  let smoke = params.get('smoke') === '1',
+    activeFire = FIRE_PRESETS.find((p) => p.id === initialPreset) || FIRE_PRESETS[0],
+    library;
+  let fireLight = 24;
+  try {
+    const saved = Number(localStorage.getItem('cybr-pyro-fire-light') ?? 24);
+    if (Number.isFinite(saved)) fireLight = Math.max(0, Math.min(80, saved));
+  } catch {}
+  if (params.has('fireLight') && Number.isFinite(Number(params.get('fireLight'))))
+    fireLight = Math.max(0, Math.min(80, Number(params.get('fireLight'))));
+  let flameColor = FIRE_COLORS.some((c) => c.id === params.get('color'))
+      ? params.get('color')
+      : activeFire.color || 'natural',
+    embers = params.get('embers') !== '0';
+  $('#flame-color').replaceChildren(...FIRE_COLORS.map((c) => new Option(c.name, c.id)));
+  $('#flame-color').value = flameColor;
+  $('#embers').checked = embers;
+  $('#flame-color').onchange = () => {
+    flameColor = $('#flame-color').value;
+    if (solver) {
+      solver.color = flameColor;
+      solver.lightReady = false;
+    }
+    const u = new URL(location.href);
+    u.searchParams.set('color', flameColor);
+    history.replaceState(null, '', u);
+    markDirty();
+  };
+  $('#embers').onchange = () => {
+    embers = $('#embers').checked;
+    if (solver) solver.embers = embers;
+    const u = new URL(location.href);
+    u.searchParams.set('embers', embers ? '1' : '0');
+    history.replaceState(null, '', u);
+    markDirty();
+  };
+  $('#preset').replaceChildren(
+    ...['Objects', 'Fire', 'Jets', 'Shapes', 'Sigils', 'Looks', 'Prototypes'].map((family) => {
+      const group = document.createElement('optgroup');
+      group.label = family;
+      group.append(
+        ...FIRE_PRESETS.filter((p) => p.family === family).map((p) => new Option(p.name, p.id)),
+      );
+      return group;
+    }),
+  );
+  $('#fuel').value = ['gas', 'wood', 'oil'].includes(params.get('fuel'))
+    ? params.get('fuel')
+    : activeFire.fuel;
+  $('#preset').value = activeFire.id;
+  $('#burst').hidden = false;
+  $('#mode').hidden = false;
+  $('#extinguish').hidden = false;
+  $('#help').textContent =
+    'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom. Inspect smoke hides visible flame while retaining its illumination.';
+  canvas.setAttribute(
+    'aria-label',
+    'Live three-dimensional explosion. Click to burst, drag the source, shift-drag to pan.',
+  );
+
+  $('#smoke-only').checked = smoke;
+  $('#smoke-only').title =
+    'Hide visible flame without resetting the flow or removing fire illumination. Use scene lighting to reveal cooled smoke.';
+  $('#gpu-status').textContent = 'Compiling the 3D solver…';
+  $('#room').checked = params.get('room') !== '0';
+  $('#orbit').min = -75;
+  $('#orbit').max = 75;
+  $('#orbit').disabled = false;
+  if (params.has('qa'))
+    (($('#lighting-preset').value = 'studio'),
+      $('#lighting-preset').dispatchEvent(new Event('change')));
+  const normalize = (v) => {
+    const n = Math.hypot(...v);
+    return v.map((x) => x / n);
+  };
+  const cross = (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+  function camera() {
+    const a = (angle * Math.PI) / 180,
+      eye = [pan[0] + Math.sin(a) * 13, 3.5 + pan[1], Math.cos(a) * 13],
+      forward = normalize([pan[0] - eye[0], 2.4 + pan[1] - eye[1], -eye[2]]),
+      right = normalize(cross(forward, [0, 1, 0]));
+    return { eye, forward, right, up: cross(right, forward), tan: 0.3443276133 / zoom };
+  }
+  function sync() {
+    $('#zoom').value = zoom * 100;
+    $('#zoom-value').value = Math.round(zoom * 100) + '%';
+    $('#orbit').value = angle;
+    $('#angle-value').value = angle + '°';
+    $('#pause').textContent = paused ? 'Resume' : 'Pause';
+    $('.stamp strong').textContent = smoke
+      ? 'WebGPU · smoke inspection'
+      : 'WebGPU · live combustion';
+    markDirty();
+  }
+  function color(hex) {
+    return [1, 3, 5].map((i) => {
+      const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+  }
+  function lightState() {
+    const state = {};
+    for (const input of document.querySelectorAll('[data-light]'))
+      state[input.dataset.light] = input.type === 'color' ? input.value : Number(input.value);
+    return state;
+  }
+  function viewUniform() {
+    const c = camera(),
+      l = lightState(),
+      data = [
+        ...c.eye,
+        c.tan,
+        ...c.right,
+        0,
+        ...c.up,
+        0,
+        ...c.forward,
+        0,
+        $('#room').checked ? 1 : 0,
+        smoke ? 1 : 0,
+        l.bounce,
+        fireLight,
+        ...color(l.tint).map((v) => v * l.ambient),
+        0,
+      ];
+    for (const k of ['key', 'rim']) {
+      const a = (l[k + 'Az'] * Math.PI) / 180,
+        pos = [Math.sin(a) * 5, l[k + 'Height'], 1.2 + Math.cos(a) * 3],
+        dir = normalize([l.aimX - pos[0], l.aimY - pos[1], -pos[2]]),
+        cone = (l[k + 'Beam'] * 0.5 * Math.PI) / 180;
+      data.push(
+        ...pos,
+        0,
+        ...dir,
+        Math.cos(cone),
+        ...color(l[k + 'Color']).map((v) => v * l[k]),
+        Math.cos(cone * 0.7),
+      );
+    }
+    return data;
+  }
+  function worldPoint(e) {
+    const r = canvas.getBoundingClientRect(),
+      x = (2 * (e.clientX - r.left)) / r.width - 1,
+      y = 1 - (2 * (e.clientY - r.top)) / r.height,
+      c = camera(),
+      ray = c.forward.map((v, i) => v + x * (16 / 9) * c.tan * c.right[i] + y * c.tan * c.up[i]),
+      t = -c.eye[2] / ray[2];
+    return [c.eye[0] + ray[0] * t, c.eye[1] + ray[1] * t, 0];
+  }
+  function locationPoint(e) {
+    const p = worldPoint(e),
+      edge = activeFire.object ? 1.45 : 2.2;
+    return [
+      Math.max(-edge, Math.min(edge, p[0])),
+      Math.max(
+        activeFire.minHeight ?? (activeFire.effect[3] > 0.5 ? 0.18 : 0.48),
+        Math.min(activeFire.object ? 4.45 : 4.8, p[1]),
+      ),
+      0,
+    ];
+  }
+  async function restart() {
+    if (!solver) return;
+    if (busy) {
+      resetQueued = true;
+      return;
+    }
+    resetQueued = false;
+    busy = true;
+    try {
+      await solver.reset();
+      solver.burst();
+      if (testScenario) {
+        solver.seed = 2;
+        solver.source = sourceOrigin(activeFire);
+      }
+      testStopped = false;
+      trace = [];
+      captureIndex = 0;
+      saved = false;
+      paused = false;
+      sync();
+    } finally {
+      busy = false;
+    }
+  }
+  function burst() {
+    if (!solver) return;
+    solver.burst();
+    paused = false;
+    sync();
+  }
+  $('#pause').onclick = () => {
+    if (benchmarkActive) {
+      cancelBenchmark = true;
+      return;
+    }
+    paused = !paused;
+    sync();
+  };
+  $('#restart').onclick = restart;
+  $('#burst').onclick = burst;
+  $('#extinguish').onclick = () => {
+    if (solver) solver.active = false;
+    message.textContent = 'Source stopped · smoke continues to drift';
+  };
+  $('#smoke-only').onchange = () => {
+    smoke = $('#smoke-only').checked;
+    const url = new URL(location.href);
+    url.searchParams.set('smoke', smoke ? '1' : '0');
+    history.replaceState(null, '', url);
+    sync();
+  };
+  $('#fuel').onchange = () => {
+    if (solver) solver.fuel = { gas: 0, wood: 0.35, oil: 1 }[$('#fuel').value];
+  };
+  $('#preset').onchange = () => applyFire($('#preset').value);
+  $('#mode').onclick = () => onSigil();
+  $('#room').onchange = markDirty;
+  on(window, 'scene-light-change', markDirty);
+  $('#orbit').oninput = () => {
+    angle = Number($('#orbit').value);
+    sync();
+  };
+  $('#zoom').oninput = () => {
+    zoom = Number($('#zoom').value) / 100;
+    sync();
+  };
+  function changeZoom(value, event) {
+    const before = event ? worldPoint(event) : null;
+    zoom = Math.max(0.7, Math.min(3, value));
+    if (before) {
+      const after = worldPoint(event);
+      pan[0] += before[0] - after[0];
+      pan[1] += before[1] - after[1];
+    }
+    sync();
+  }
+  $('#zoom-in').onclick = () => changeZoom(zoom + 0.25);
+  $('#zoom-out').onclick = () => changeZoom(zoom - 0.25);
+  $('#reset-view').onclick = () => {
+    zoom = 1.25;
+    angle = 16;
+    pan = [0, 0];
+    sync();
+  };
+  $('#focus-fire').disabled = false;
+  $('#focus-fire').onclick = () => {
+    if (!solver) return;
+    pan = [solver.source[0], solver.source[1] - 0.6];
+    zoom = 1.4;
+    sync();
+  };
+  function tool(pan) {
+    panMode = pan;
+    $('#fire-tool').setAttribute('aria-pressed', !pan);
+    $('#pan-tool').setAttribute('aria-pressed', pan);
+    view.dataset.tool = pan ? 'pan' : 'fire';
+  }
+  $('#fire-tool').onclick = () => tool(false);
+  $('#pan-tool').onclick = () => tool(true);
+  on(view, 'pointerdown', (e) => {
+    if (!solver) return;
+    e.preventDefault();
+    view.focus({ preventScroll: true });
+    const isPan = panMode || e.shiftKey || e.button === 2;
+    gesture = { id: e.pointerId, pan: isPan, anchor: worldPoint(e) };
+    view.setPointerCapture(e.pointerId);
+    if (!isPan) {
+      solver.source = locationPoint(e);
+      burst();
+    }
+  });
+  on(view, 'pointermove', (e) => {
+    if (!gesture || gesture.id !== e.pointerId) return;
+    if (gesture.pan) {
+      const at = worldPoint(e);
+      pan[0] += gesture.anchor[0] - at[0];
+      pan[1] += gesture.anchor[1] - at[1];
+      sync();
+    } else solver.source = locationPoint(e);
+  });
+  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'])
+    on(view, name, () => {
+      gesture = null;
+    });
+  on(view, 'contextmenu', (e) => e.preventDefault());
+  on(
+    view,
+    'wheel',
+    (e) => {
+      e.preventDefault();
+      changeZoom(zoom * Math.exp(-Math.max(-250, Math.min(250, e.deltaY)) * 0.0015), e);
+    },
+    { passive: false },
+  );
+  $('#fullscreen').onclick = () =>
+    document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.querySelector('main').requestFullscreen();
+  on(window, 'keydown', (e) => {
+    if (!scope.visible) return;
+    if (e.ctrlKey || e.altKey || e.metaKey || e.repeat || e.target.matches('input,select,textarea'))
+      return;
+    if (e.code === 'Space' && !e.target.matches('button,a')) {
+      e.preventDefault();
+      if (benchmarkActive) cancelBenchmark = true;
+      else {
+        paused = !paused;
+        sync();
+      }
+    }
+    if (e.key.toLowerCase() === 'r') restart();
+    if (e.key === '0') $('#reset-view').click();
+    if (e.key.toLowerCase() === 'f') $('#fullscreen').click();
+    if (e.key === 'Escape') tool(false);
+  });
+  function summary(samples) {
+    const list = (key) =>
+      samples
+        .map(key)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    const stats = (a) =>
+      a.length
+        ? {
+            median: a[Math.floor(a.length * 0.5)],
+            p95: a[Math.floor(a.length * 0.95)],
+            max: a.at(-1),
+            mean: a.reduce((a, b) => a + b, 0) / a.length,
+          }
+        : null;
+    return {
+      build: 'pyro-library-v1',
+      adapter: solver.adapter,
+      grid: { velocity: solver.N, scalar: solver.D },
+      settings: {
+        render: [canvas.width, canvas.height],
+        firePreset: activeFire.id,
+        color: flameColor,
+        embers,
+        object: activeFire.object || null,
+        fireLight,
+        smokeOnly: smoke,
+        fuel: $('#fuel').value,
+        room: $('#room').checked,
+        zoom,
+        angle,
+        lights: lightState(),
+      },
+      frames: samples.length,
+      simulationToWallRatio:
+        samples.length > 1
+          ? (samples.at(-1).time - samples[0].time) /
+            ((samples.at(-1).completedAt - samples[0].completedAt) / 1000)
+          : null,
+      frameIntervalMs: stats(
+        samples
+          .slice(1)
+          .map((v, i) => v.startedAt - samples[i].startedAt)
+          .filter(Number.isFinite)
+          .sort((a, b) => a - b),
+      ),
+      wallMs: stats(list((x) => x.wall)),
+      simulationMs: stats(list((x) => x.gpu?.simulation)),
+      lightingMs: stats(list((x) => x.gpu?.lighting)),
+      renderMs: stats(list((x) => x.gpu?.render)),
+      last: samples.at(-1),
+      errors: solver.errors,
+    };
+  }
+  function configureFire() {
+    if (!solver) return;
+    solver.effect = [...activeFire.effect];
+    solver.dynamics = [...activeFire.dynamics];
+    solver.chemistry = [...activeFire.chemistry];
+    solver.fuel = { gas: 0, wood: 0.35, oil: 1 }[$('#fuel').value];
+    solver.smoke = !!activeFire.smokeSimulation || activeFire.id === 'smoke-burst';
+    solver.objectId = activeFire.object || null;
+    solver.ignition = activeFire.ignition === 'crown' ? 2 : activeFire.ignition === 'all' ? 1 : 0;
+    solver.treeMoisture = activeFire.moisture || 'dry';
+    solver.color = flameColor;
+    solver.embers = embers;
+  }
+  function advanceTest() {
+    if (testScenario?.stopAfter && !testStopped && solver.time >= testScenario.stopAfter) {
+      solver.active = false;
+      testStopped = true;
+      message.textContent =
+        'Test: fuel stopped at ' +
+        testScenario.stopAfter +
+        ' s · watch the remaining smoke · Restart to repeat';
+    }
+  }
+  function fireHelp() {
+    const continuous = activeFire.effect[3] > 0.5;
+    $('#burst').textContent = continuous ? 'Relight' : 'Trigger burst';
+    message.textContent =
+      activeFire.name +
+      (continuous ? ' · drag to move the burning source' : ' · click to detonate');
+    if (activeFire.object)
+      message.textContent =
+        activeFire.name + ' · surface heats, releases fuel and chars · Restart restores fuel';
+    canvas.setAttribute(
+      'aria-label',
+      activeFire.name + '. Drag to move the source, shift-drag to pan.',
+    );
+    $('#help').textContent = continuous
+      ? 'Drag to move the burning source. Stop fuel lets the flame die. Shift/right-drag to pan; scroll to zoom.'
+      : 'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom.';
+  }
+  function applyFire(id) {
+    const preset = FIRE_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    if (benchmarkActive) cancelBenchmark = true;
+    testScenario = null;
+    testStopped = false;
+    activeFire = preset;
+    flameColor = preset.color || 'natural';
+    $('#flame-color').value = flameColor;
+    $('#preset').value = id;
+    $('#fuel').value = preset.fuel;
+    smoke = !!preset.smokeSimulation || id === 'smoke-burst';
+    $('#smoke-only').checked = smoke;
+    configureFire();
+    if (solver) solver.source = sourceOrigin(preset);
+    fireHelp();
+    const url = new URL(location.href);
+    url.searchParams.set('firePreset', id);
+    url.searchParams.set('color', flameColor);
+    url.searchParams.set('smoke', smoke ? '1' : '0');
+    url.searchParams.set('fuel', preset.fuel);
+    history.replaceState(null, '', url);
+    restart();
+    library?.refresh();
+  }
+  function setFireLight(value) {
+    fireLight = Math.max(0, Math.min(80, Number(value) || 0));
+    $('#fire-light').value = fireLight;
+    $('#fire-light-value').value = fireLight.toFixed(0);
+    if (!testScenario)
+      try {
+        localStorage.setItem('cybr-pyro-fire-light', String(fireLight));
+      } catch {}
+    markDirty();
+  }
+  $('#fire-light').oninput = (e) => setFireLight(e.target.value);
+  setFireLight(fireLight);
+  if (params.has('lighting')) window.SceneLights.apply(params.get('lighting'));
+  if (activeFire.smokeSimulation || activeFire.id === 'smoke-burst') smoke = true;
+  $('#smoke-only').checked = smoke;
+  fireHelp();
+  async function save(name, body, type = 'json') {
+    if (!params.has('qa')) return;
+    await fetch('/capture/' + name + '.' + type, {
+      method: 'POST',
+      body: type === 'json' ? JSON.stringify(body) : body,
+    });
+  }
+  async function snapshot(name) {
+    const out = document.createElement('canvas');
+    out.width = 960;
+    out.height = 540;
+    const source = document.createElement('canvas');
+    source.width = canvas.width;
+    source.height = canvas.height;
+    source
+      .getContext('2d')
+      .putImageData(new ImageData(await solver.pixels(), canvas.width, canvas.height), 0, 0);
+    out.getContext('2d').drawImage(source, 0, 0, 960, 540);
+    const blob = await new Promise((resolve) => out.toBlob(resolve));
+    await save(name, blob, 'png');
+  }
+  $('#benchmark').onclick = () => {
+    benchmarkQueued = true;
+  };
+  async function benchmark() {
+    if (busy || !solver) return;
+    benchmarkQueued = false;
+    benchmarkActive = true;
+    cancelBenchmark = false;
+    $('#benchmark').disabled = true;
+    paused = true;
+    busy = true;
+    message.textContent = 'Measuring 180 completed GPU frames…';
+    try {
+      await solver.reset();
+      solver.burst();
+      for (let i = 0; i < 12 && scope.visible && !scope.disposed; i++) {
+        solver.camera(viewUniform());
+        await solver.frame();
+      }
+      await solver.reset();
+      solver.burst();
+      testStopped = false;
+      if (testScenario) {
+        solver.seed = 2;
+        solver.source = sourceOrigin(activeFire);
+      }
+      const samples = [];
+      for (let i = 0; i < 180 && !cancelBenchmark && scope.visible && !scope.disposed; i++) {
+        await new Promise(requestAnimationFrame);
+        solver.camera(viewUniform());
+        const item = await solver.frame();
+        advanceTest();
+        samples.push(item);
+        if (i % 30 === 0) message.textContent = `Measurement ${i} / 180`;
+      }
+      if (!scope.visible || scope.disposed) cancelBenchmark = true;
+      if (samples.length < 2) {
+        message.textContent = 'Measurement cancelled before enough frames completed';
+        return;
+      }
+      const report = { ...summary(samples), trace: samples };
+      const fps = 1000 / report.frameIntervalMs.mean,
+        passed = report.frameIntervalMs.p95 <= 1000 / 60 && report.simulationToWallRatio >= 0.99;
+      report.meets60FpsBudget = passed;
+      message.textContent = cancelBenchmark
+        ? 'Measurement cancelled'
+        : 'Measurement complete - ' + (passed ? '60 FPS gate passed' : '60 FPS gate not met');
+      $('#gpu-status').textContent =
+        `${solver.adapter.vendor} ${solver.adapter.architecture} - ${fps.toFixed(1)} completed FPS - frame p95 ${report.frameIntervalMs.p95.toFixed(1)} ms - simulation ${report.simulationToWallRatio.toFixed(2)}x realtime`;
+      await save((params.get('qa') || 'bench') + '-benchmark', report);
+    } catch (e) {
+      message.textContent = e.message;
+      console.error(e);
+    } finally {
+      busy = false;
+      paused = true;
+      benchmarkActive = false;
+      $('#benchmark').disabled = false;
+      sync();
+    }
+  }
+  async function frame() {
+    if (!scope.visible) {
+      scope.schedule(frame);
+      return;
+    }
+    if (!busy && resetQueued) await restart();
+    if (!busy && benchmarkQueued) await benchmark();
+    if (!busy && solver && (!paused || dirty)) {
+      busy = true;
+      const drawnRevision = revision;
+      try {
+        solver.smoke = !!activeFire.smokeSimulation || activeFire.id === 'smoke-burst';
+        solver.camera(viewUniform());
+        const result = await solver.frame(paused ? 0 : 1 / 60);
+        dirty = revision !== drawnRevision;
+        if (!paused) {
+          advanceTest();
+          trace.push(result);
+          if (!params.has('qa') && trace.length > 180) trace.shift();
+          if (params.has('qa') && trace.length <= 5)
+            await save(params.get('qa') + '-step-' + trace.length, result);
+          if (++frameCount % 30 === 0) {
+            const recent = trace.slice(-60),
+              report = summary(recent);
+            metrics.textContent = `GPU ${((result.gpu?.simulation || 0) + (result.gpu?.lighting || 0) + (result.gpu?.render || 0)).toFixed(1)} ms · ${solver.time.toFixed(2)} s`;
+            $('#gpu-status').textContent =
+              `${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · completed-frame p95 ${report.wallMs.p95.toFixed(1)} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps`;
+          }
+          if (
+            params.has('qa') &&
+            params.has('sequence') &&
+            solver.time >= 0.1 + captureIndex * 0.15
+          ) {
+            await snapshot(params.get('qa') + '-' + String(captureIndex++).padStart(2, '0'));
+          }
+          if (params.has('stop') && solver.time >= Number(params.get('stop')) && !saved) {
+            saved = true;
+            paused = true;
+            sync();
+            await snapshot(params.get('qa') || 'capture');
+            await save(params.get('qa') || 'capture', { ...summary(trace.slice(30)), trace });
+          }
+        }
+      } catch (e) {
+        paused = true;
+        message.textContent = e.message;
+        console.error(e);
+        sync();
+        dirty = false;
+        onFailure(e);
+      } finally {
+        busy = false;
+      }
+    }
+    scope.schedule(frame);
+  }
+  try {
+    solver = await PyroSolver.create(canvas);
+    if (params.has('validate')) {
+      const report = await pressureCheck(solver.device);
+      await save(params.get('qa') + '-pressure', report);
+      if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
+    }
+    configureFire();
+    solver.source = sourceOrigin(activeFire);
+    fireHelp();
+    sync();
+    scope.schedule(frame);
+  } catch (e) {
+    await scope.stop();
+    solver?.destroy();
+    throw e;
+  }
+
+  return {
+    async dispose() {
+      cancelBenchmark = true;
+      await scope.stop();
+      solver?.destroy();
+    },
+    setVisible: scope.setVisible,
+    fire: applyFire,
+    snapshot: () => ({
+      fire: activeFire.id,
+      color: flameColor,
+      embers,
+      fuel: $('#fuel').value,
+      smoke,
+      fireLight,
+      room: $('#room').checked,
+      camera: { zoom, angle, pan: [...pan] },
+    }),
+    look(item) {
+      if (FIRE_COLORS.some((c) => c.id === item.color)) {
+        flameColor = item.color;
+        $('#flame-color').value = flameColor;
+      }
+      if (typeof item.embers === 'boolean') {
+        embers = item.embers;
+        $('#embers').checked = embers;
+      }
+      testScenario = item.test || null;
+      testStopped = false;
+      if (testScenario && solver) solver.seed = 2;
+      if (item.fireLight !== undefined) setFireLight(item.fireLight);
+      $('#room').checked = item.room;
+      if (item.fuel) $('#fuel').value = item.fuel;
+      if (typeof item.smoke === 'boolean') {
+        smoke = item.smoke;
+        $('#smoke-only').checked = smoke;
+      }
+      if (item.camera) {
+        zoom = item.camera.zoom;
+        angle = item.camera.angle;
+        pan = [...item.camera.pan];
+      }
+      configureFire();
+      sync();
+    },
+  };
+}

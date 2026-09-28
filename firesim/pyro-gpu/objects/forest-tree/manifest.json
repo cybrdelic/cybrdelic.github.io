@@ -1,0 +1,68 @@
+{
+  "source": "world/output/forest-surface/forest.blend",
+  "treeIndex": 538,
+  "variant": 1,
+  "sourceTreeMetres": [
+    -12.009140508023236,
+    21.789189035821167,
+    4.019155664550092,
+    1.0,
+    1.036007122003286,
+    2.401888175643003
+  ],
+  "normalization": {
+    "scale": 0.2317184834508791,
+    "center": [
+      0.019876718521118164,
+      -0.18403911590576172,
+      5.423231601715088
+    ],
+    "axis": "source XYZ to browser XZY"
+  },
+  "vertices": 1027597,
+  "triangles": 1588926,
+  "foliageTriangles": 734040,
+  "vertexStride": 36,
+  "sourceMeshes": [
+    {
+      "object": "Variant 1 wood.243",
+      "mesh": "Variant 1 wood.001",
+      "sourceVertices": 407227,
+      "triangles": 814056
+    },
+    {
+      "object": "Variant 1 roots.132",
+      "mesh": "Variant 1 roots.132",
+      "sourceVertices": 20479,
+      "triangles": 40830
+    }
+  ],
+  "geometrySimplified": false,
+  "barkRelief": "Actual displaced wood and root vertices from forest-surface; residual microrelief retained",
+  "files": {
+    "bark-color.png": {
+      "bytes": 1618948,
+      "sha256": "a25dfc7623fe47441c18cee08daf844b582e39365158f1298f8dc96fed144156"
+    },
+    "bark-micro.png": {
+      "bytes": 3798294,
+      "sha256": "022337c59e721651c465eac9d9da4f613026a5cb3da0ae48f0ef383a5669e40d"
+    },
+    "bark-roughness.png": {
+      "bytes": 590188,
+      "sha256": "d08d07a9b030607caf15f35a6b62cb06a9d8719a41931dcac4659a5551b8131b"
+    },
+    "indices.bin": {
+      "bytes": 19067112,
+      "sha256": "001bfbd843a41de04fc482e2df0b266865546f51177d933ab120742cf4c70b9b"
+    },
+    "vertices.bin": {
+      "bytes": 36993492,
+      "sha256": "87528ae38a8aaa27daf661ed5bc4e2d117fe85c4d38afe5aa0be050ea936f1c4"
+    }
+  },
+  "leafCoordinates": {
+    "leaves": 29397,
+    "method": "Principal lamina coordinates for each connected source leaf; no vertex positions or topology changed"
+  }
+}

@@ -1,0 +1,336 @@
+{
+  "version": "0.1.0-rc.2",
+  "status": "release-candidate",
+  "entry": "index.html",
+  "files": [
+    {
+      "path": "coarse-pressure.js",
+      "bytes": 15124,
+      "sha256": "950712449b1a160d5e12efd2275329617994a8d6a71fd9af796c910e546ba89c"
+    },
+    {
+      "path": "corrected-advection.js",
+      "bytes": 11249,
+      "sha256": "4db1c7e2c6f85c71369eafecae5ba1aece2f858973c82b853b5a98f4ab1346bb"
+    },
+    {
+      "path": "demo-presets.js",
+      "bytes": 1682,
+      "sha256": "0296c0966556388ccf9add0c5266898664f8b870a352268a8e110a7e4eeebc30"
+    },
+    {
+      "path": "fire-domain.js",
+      "bytes": 580,
+      "sha256": "9fde7659f16e74d110ee2595821eb6eb1cc2d45b6605ef790fe7d2a8ead3bbba"
+    },
+    {
+      "path": "fire-emitters.js",
+      "bytes": 4244,
+      "sha256": "e65d1f6e6d5fe1131be828ab3b5ceea697ebd5fbb0a121b607d35d9fd348ebfe"
+    },
+    {
+      "path": "fire-optics.js",
+      "bytes": 1195,
+      "sha256": "86c9f4ec94c186aa870ebd1e45e8b61b917b88cde95e6dd00b2582e67eab7db2"
+    },
+    {
+      "path": "fire-props.js",
+      "bytes": 2702,
+      "sha256": "e951fb2291338debe90dc7d34dc3769037c3d4777db2e5bc016f131d953ac656"
+    },
+    {
+      "path": "fire-room.js",
+      "bytes": 17010,
+      "sha256": "b428c8e48e0fbe7747e708ff95ad741abafa9a5f9c509361a984b889e077c3f4"
+    },
+    {
+      "path": "fire.js",
+      "bytes": 49043,
+      "sha256": "477ffcb547fc310b9965140ed440d75166c11f13430952710ee5cce313d4e110"
+    },
+    {
+      "path": "icon.svg",
+      "bytes": 292,
+      "sha256": "6b1060f80077eb997b0a848f5320a5e4f6a198aa36a671c642d400b33bb79520"
+    },
+    {
+      "path": "index.html",
+      "bytes": 7841,
+      "sha256": "a977845d226e71b8b1e210337628080f2e096fead9dfbec1279dcaa1ab180fe9"
+    },
+    {
+      "path": "inspection-state.js",
+      "bytes": 1349,
+      "sha256": "5a4325e18b6c37022d2d85fa2a18dd960a065fd7da3b5601824cb113361aa30e"
+    },
+    {
+      "path": "legacy-qa.js",
+      "bytes": 1556,
+      "sha256": "0b17429c672effd979bbf348f557de08bdc6b7239c2b2310d462281d09e9074c"
+    },
+    {
+      "path": "look-storage.js",
+      "bytes": 2916,
+      "sha256": "c94317c145c657fd376edbba882580d11ade9d02eec26f712c7122c7f1852001"
+    },
+    {
+      "path": "pyro-gpu/app.js",
+      "bytes": 23884,
+      "sha256": "363badcb4e048ebfee0bf667b6d5afff90957de7df84adb4a932a438c2e61605"
+    },
+    {
+      "path": "pyro-gpu/combustion.js",
+      "bytes": 381,
+      "sha256": "5334336a469236ed6e360689bc55af5b3195daea3f00d8a4aac2e7d055409bc9"
+    },
+    {
+      "path": "pyro-gpu/embers.js",
+      "bytes": 4145,
+      "sha256": "5e17ebddd724a966a4ed83d566d82f14df36c231f13b16fd4251a6b6edfdd895"
+    },
+    {
+      "path": "pyro-gpu/fire-colors.js",
+      "bytes": 570,
+      "sha256": "5445a8fd57c711b54644b5254a71b8f80ad5f5f212dd7a4060c4f27745862560"
+    },
+    {
+      "path": "pyro-gpu/forest-mesh.js",
+      "bytes": 12918,
+      "sha256": "da44cb51700bb403cdeec2cd566f174c402a48800d51dd10c2ee0721e438f175"
+    },
+    {
+      "path": "pyro-gpu/gpu-session.js",
+      "bytes": 997,
+      "sha256": "9ba3a9a58197439aed54942743662f844f21cd62a66928b54426caadddb43699"
+    },
+    {
+      "path": "pyro-gpu/index.html",
+      "bytes": 325,
+      "sha256": "981432b923b6835fba664f25bc5b88c697eb156f0362b51835db602f68367bf4"
+    },
+    {
+      "path": "pyro-gpu/library.css",
+      "bytes": 3630,
+      "sha256": "aa74d09d3297b80700d3ff8222779f82b59da7f232930b0afd2a1a36f66bae9a"
+    },
+    {
+      "path": "pyro-gpu/library.js",
+      "bytes": 9311,
+      "sha256": "1442d36ba8db739e1d3fadbd85885f7e96fd42005efeb4c7ae62143eff81f03a"
+    },
+    {
+      "path": "pyro-gpu/objects/car.jpg",
+      "bytes": 15254,
+      "sha256": "b3712e90bd8534a2d4e5b6aafde15277bd55c239f4ae9c3d71154c777a9c5f92"
+    },
+    {
+      "path": "pyro-gpu/objects/car.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "fe01cd2b437619435a28bcc25e23cecc00ab1de6d22bcbf6cb598309e2f73e9d"
+    },
+    {
+      "path": "pyro-gpu/objects/cybr-tree.jpg",
+      "bytes": 23645,
+      "sha256": "03ce2f6ceff94db0dcf85b843fd5b75e876295c8bbbc4f884f0b21477cfce999"
+    },
+    {
+      "path": "pyro-gpu/objects/cybr-tree.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "9fb2aa452f67223eb0fdd9a98160e05ffe1c4d353ea70fe2bd75f67614ccedb0"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/bark-color.png",
+      "bytes": 1618948,
+      "sha256": "a25dfc7623fe47441c18cee08daf844b582e39365158f1298f8dc96fed144156"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/bark-micro.png",
+      "bytes": 3798294,
+      "sha256": "022337c59e721651c465eac9d9da4f613026a5cb3da0ae48f0ef383a5669e40d"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/indices.bin",
+      "bytes": 19067112,
+      "sha256": "001bfbd843a41de04fc482e2df0b266865546f51177d933ab120742cf4c70b9b"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/manifest.json",
+      "bytes": 1878,
+      "sha256": "3fb44a33abb5090967be846bf97c852539c9bc3b68de9149b6ac3daca1c56251"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/preview.jpg",
+      "bytes": 39173,
+      "sha256": "dbb382044a70e8a5ce2be959caa42c772b769c761219edb824776638edec67b8"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/source-space.js",
+      "bytes": 217,
+      "sha256": "245d6e4d5b624d2088d2e74147733fd54db241e77502cb2e4b68d2fc81d3f2e4"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/vertices.bin",
+      "bytes": 36993492,
+      "sha256": "87528ae38a8aaa27daf661ed5bc4e2d117fe85c4d38afe5aa0be050ea936f1c4"
+    },
+    {
+      "path": "pyro-gpu/objects/house.jpg",
+      "bytes": 15554,
+      "sha256": "df56e00692f2513d72bc5cacda80590d812d4e7324d3d339884f8a22d202c5fa"
+    },
+    {
+      "path": "pyro-gpu/objects/house.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "af2ce6411d4b05e2c3f416031c121476fc5b0fe4d91bd6079de3634c0e4dfc8f"
+    },
+    {
+      "path": "pyro-gpu/objects/logs.jpg",
+      "bytes": 12608,
+      "sha256": "b2119cb2b161d1ab16626c7d2d7c8c7ca104392591989cc4698c13cb592114ac"
+    },
+    {
+      "path": "pyro-gpu/objects/logs.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "8457cb064b0bb634b72a0054301ddd306f9c98233f455e64523d49206527e965"
+    },
+    {
+      "path": "pyro-gpu/objects/mannequin.jpg",
+      "bytes": 16235,
+      "sha256": "c90d65915aea178005b39e5f19505760bf29a1b87ab3dff426feb36f43cb41e3"
+    },
+    {
+      "path": "pyro-gpu/objects/mannequin.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "00ebccbc62a7ba903da3c364340e6e6639e1bd8fb45105311d4b788fdf3dc343"
+    },
+    {
+      "path": "pyro-gpu/objects.js",
+      "bytes": 6013,
+      "sha256": "852b1504aa25efd98a1d1cd7f305afc35541fe2c2a1f96225059c8b36ced716c"
+    },
+    {
+      "path": "pyro-gpu/presets.js",
+      "bytes": 22151,
+      "sha256": "fecb3d081b15fc6d797775abb7ae973c1bd7d31c8f73b147adb745b111b99387"
+    },
+    {
+      "path": "pyro-gpu/pressure-check.js",
+      "bytes": 2941,
+      "sha256": "13465ed4f72aa12d694c0bd1fae7b384162f82b0b837bf138946a74cc28363b1"
+    },
+    {
+      "path": "pyro-gpu/renderer.js",
+      "bytes": 16783,
+      "sha256": "8897ca1488a1d2a933ff0c33a78b17b21dd4bf7facedf0c9571ce65b3789ee14"
+    },
+    {
+      "path": "pyro-gpu/shaders.js",
+      "bytes": 22517,
+      "sha256": "4516b1e1866fae8663ebbd2a81615667a127ef12941d36a9275744102475ba7b"
+    },
+    {
+      "path": "pyro-gpu/solver.js",
+      "bytes": 31978,
+      "sha256": "a0ed33f763b2ed2c60e059511e686a4a63f7c1aa1eae0dc7eb1879c919d66009"
+    },
+    {
+      "path": "pyro-gpu/source-previews/cube.jpg",
+      "bytes": 8387,
+      "sha256": "256cac2acd08403efabbe1eaec47baa47c5d7d91332381bbfba6b5251adf7f6f"
+    },
+    {
+      "path": "pyro-gpu/source-previews/halo.jpg",
+      "bytes": 5599,
+      "sha256": "290e5023e1faa84f2299a8aede93f35fc0925c73b68f86ca12960de482846092"
+    },
+    {
+      "path": "pyro-gpu/source-previews/helix.jpg",
+      "bytes": 5715,
+      "sha256": "6152bf4011f351d4f84dca0ecf696143521142f62fe377587964dffa58504b16"
+    },
+    {
+      "path": "pyro-gpu/source-previews/sigil-cybr.jpg",
+      "bytes": 7806,
+      "sha256": "0c9f82f6a0080f1497542922644ab437c5230b579471c1f5b1c91425f5894603"
+    },
+    {
+      "path": "pyro-gpu/source-previews/sigil-rune.jpg",
+      "bytes": 6478,
+      "sha256": "62ca16b74f71c1ccf64e2b2ae5507789b3217bda00daa676d8d5852f95f7ab7b"
+    },
+    {
+      "path": "pyro-gpu/source-previews/sigil-star.jpg",
+      "bytes": 11302,
+      "sha256": "7d4cd3a8a572068d25b52b964c73618aad0dd8bfebf421a069d79df7002a9a5f"
+    },
+    {
+      "path": "pyro-gpu/source-previews/sigil-triangle.jpg",
+      "bytes": 9424,
+      "sha256": "8c2a1dda87f6ddfbda3ae32b6d446b2041ed1e5fdcb5e03eafd679846a28a096"
+    },
+    {
+      "path": "pyro-gpu/source-previews/twin-jets.jpg",
+      "bytes": 2864,
+      "sha256": "216045783f8481b15c42d1dd9aaffe76b23882f5d9d407052f5949ef58ee959a"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4899,
+      "sha256": "da9121ec2ad6450c0f2dfa7ef71fdc89666b43b1a273a8c4bbaec458d1b44caf"
+    },
+    {
+      "path": "runtime-loader.js",
+      "bytes": 1151,
+      "sha256": "e06d68a396dbe8c99c7e0b1bd67e82cdde44d72c03fb75871ad5540ec25989b7"
+    },
+    {
+      "path": "runtime-scope.js",
+      "bytes": 1624,
+      "sha256": "b541efef5f64250610f1e09e5b7b3e71a14181903ff08241460df35a02c339a8"
+    },
+    {
+      "path": "scene-lights.js",
+      "bytes": 11674,
+      "sha256": "c589a320fd63cc5f6d5da1172837c853ff3e18e83196360c766ed2004e367d76"
+    },
+    {
+      "path": "smoke-light.js",
+      "bytes": 4257,
+      "sha256": "6f859fce617473e32160d48172a372f636f7b4a57da5db5248be6f4bb3a2c492"
+    },
+    {
+      "path": "source/halfwidth-native.r8.bin",
+      "bytes": 451584,
+      "sha256": "c25900f4bcb50944c2e751aa12580cf72876c702c90abef057be2530fff03a67"
+    },
+    {
+      "path": "source/source-native.rgba8.bin",
+      "bytes": 1806336,
+      "sha256": "7e01baeb06f84f515b8964468c9a08264c8cde1490177342b3ac04aad1463354"
+    },
+    {
+      "path": "studio-ui.js",
+      "bytes": 2623,
+      "sha256": "b096ef74db1954b150ed0dfb5c9fb40c79315008eb5bfd340035cc92030b376e"
+    },
+    {
+      "path": "studio.css",
+      "bytes": 12186,
+      "sha256": "e06eb1dd0f99c8a462538710a8dde565fac1a9dc84ba3d217b2bba3532523126"
+    },
+    {
+      "path": "studio.js",
+      "bytes": 9635,
+      "sha256": "bb469d90103fe14f2c3f77baae95367b97fc5f43dc1ecc9ec0e35298de6464ef"
+    },
+    {
+      "path": "vorticity.js",
+      "bytes": 8864,
+      "sha256": "a392cebf92de233e1110e1ea53403fac6cf74203ee077b30d1341c6d96a6be0d"
+    }
+  ],
+  "openGates": [
+    "Browser WebGPU playback on demo machine",
+    "Sustained 60 FPS performance gate"
+  ]
+}
