@@ -1,12 +1,16 @@
-import {objectWGSL} from './objects.js?v=studio-rc-3';
-import {combustionWGSL} from './combustion.js?v=studio-rc-3';
+import {objectWGSL} from './objects.js?v=95fcf488354ba45d';
+import {combustionWGSL} from './combustion.js?v=95fcf488354ba45d';
+import {sparseSamplerWGSL} from './sparse-field.js?v=95fcf488354ba45d';
+// Five room faces share this irradiance resolution. Keep atlas allocation,
+// compute dispatch and sampling coordinates in sync with this value.
+export const ROOM_SIZE=64;
 // Volumetric integration in world units. No animated render noise or flipbooks.
-function renderSource(tree){return `
+function renderSource(tree,sparse,fastSeams){return `
 ${combustionWGSL}
 ${objectWGSL}
 struct View{eye:vec4f,right:vec4f,up:vec4f,forward:vec4f,options:vec4f,ambient:vec4f,
  spotPos0:vec4f,spotDir0:vec4f,spotPower0:vec4f,spotPos1:vec4f,spotDir1:vec4f,spotPower1:vec4f};
-@group(0) @binding(0) var chem:texture_3d<f32>;
+${sparse ? sparseSamplerWGSL({D:256,brick:8,atlasTiles:20,name:'field',atlasBinding:0,pagesBinding:25,samplerName:'smp',declareSampler:false,seamMode:fastSeams?'filtered':'manual'}) : '@group(0) @binding(0) var chem:texture_3d<f32>;'}
 @group(0) @binding(1) var smp:sampler;
 @group(0) @binding(2) var<uniform> cam:View;
 @group(0) @binding(3) var illumination:texture_3d<f32>;
@@ -22,7 +26,8 @@ ${tree?`@group(0) @binding(18) var meshPosition:texture_2d<f32>;
 struct FireLight{position:vec4f,power:vec4f,lower:vec4f,upper:vec4f};
 @group(0) @binding(5) var<storage,read> lights:array<FireLight>;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
-fn field(x:vec3f)->vec4f{if(any(x<LO)||any(x>LO+EXT)){return vec4f(0);}return textureSampleLevel(chem,smp,(x-LO)/EXT,0);}
+const ROOM_SIZE:f32=${ROOM_SIZE}.;
+${sparse ? '' : 'fn field(x:vec3f)->vec4f{if(any(x<LO)||any(x>LO+EXT)){return vec4f(0);}return textureSampleLevel(chem,smp,(x-LO)/EXT,0);}' }
 fn extinction(c:vec4f)->f32{return c.x*3.0;}
 fn emission(c:vec4f)->vec3f{
  let reaction=flameActivity(c);
@@ -92,7 +97,7 @@ fn roomIrradiance(at:vec3f,n:vec3f)->vec3f{
  var face=1.;var uv=vec2f((at.x+7.4)/14.8,at.y/7.2);
  if(abs(n.y)>.5){face=select(4.,0.,n.y>0.);uv=vec2f((at.x+7.4)/14.8,(at.z+3.4)/13.4);}
  else if(abs(n.x)>.5){face=select(3.,2.,n.x>0.);uv=vec2f((at.z+3.4)/13.4,at.y/7.2);}
- uv=clamp(uv,vec2f(.5/128.),vec2f(1.-.5/128.));return textureSampleLevel(finalRoom,smp,vec2f((face+uv.x)/5.,uv.y),0).xyz;
+ uv=clamp(uv,vec2f(.5/ROOM_SIZE),vec2f(1.-.5/ROOM_SIZE));return textureSampleLevel(finalRoom,smp,vec2f((face+uv.x)/5.,uv.y),0).xyz;
 }
 fn roomHit(eye:vec3f,ray:vec3f)->vec4f{
  var t=1e4;var n=vec3f(0);
@@ -223,11 +228,11 @@ const adaptiveSource=base=>gatherSource(base).replace('var<workgroup> energy:', 
 const roomSource=base=>base+`
 @group(0) @binding(8) var roomOut:texture_storage_2d<rgba16float,write>;
 @compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id:vec3u){
- if(id.x>=640u||id.y>=128u){return;}let face=id.x/128u;let uv=(vec2f(vec2u(id.x%128u,id.y))+.5)/128.;let at=roomPatch(face,uv).xyz;let n=patchNormal(face);
+ if(id.x>=${ROOM_SIZE*5}u||id.y>=${ROOM_SIZE}u){return;}let face=id.x/${ROOM_SIZE}u;let uv=(vec2f(vec2u(id.x%${ROOM_SIZE}u,id.y))+.5)/${ROOM_SIZE}.;let at=roomPatch(face,uv).xyz;let n=patchNormal(face);
  textureStore(roomOut,vec2i(id.xy),vec4f(directIncoming(at,n,true),1));
 }
 @compute @workgroup_size(8,8) fn bounce(@builtin(global_invocation_id) id:vec3u){
- if(id.x>=640u||id.y>=128u){return;}let face=id.x/128u;let uv=(vec2f(vec2u(id.x%128u,id.y))+.5)/128.;let at=roomPatch(face,uv).xyz;let n=patchNormal(face);
+ if(id.x>=${ROOM_SIZE*5}u||id.y>=${ROOM_SIZE}u){return;}let face=id.x/${ROOM_SIZE}u;let uv=(vec2f(vec2u(id.x%${ROOM_SIZE}u,id.y))+.5)/${ROOM_SIZE}.;let at=roomPatch(face,uv).xyz;let n=patchNormal(face);
  let direct=textureLoad(directRoom,vec2i(id.xy),0).xyz;textureStore(roomOut,vec2i(id.xy),vec4f(direct+bounceIncoming(at,n,true),1));
 }`;
 
@@ -247,8 +252,9 @@ export const dilateWGSL=`
 // Build separate GPU pipelines. Ordinary fire never declares mesh targets,
 // mesh shadow textures, or the tree's voxel traversal branch.
 const families=new Map();
-export function rendererShaders(tree=false){
- if(!families.has(tree)){const render=renderSource(tree);families.set(tree,{render,light:lightSource(render),room:roomSource(render),gather:coarseSource(render),gatherAdaptive:adaptiveSource(render)});}
- return families.get(tree);
+export function rendererShaders(tree=false,sparse=false,fastSeams=false){
+ const key=`${tree}:${sparse}:${fastSeams}`;
+ if(!families.has(key)){const render=renderSource(tree,sparse,fastSeams);families.set(key,{render,light:lightSource(render),room:roomSource(render),gather:coarseSource(render),gatherAdaptive:adaptiveSource(render)});}
+ return families.get(key);
 }
 export const {render:renderWGSL,light:lightWGSL,room:roomWGSL,gather:gatherWGSL,gatherAdaptive:gatherAdaptiveWGSL}=rendererShaders(true);

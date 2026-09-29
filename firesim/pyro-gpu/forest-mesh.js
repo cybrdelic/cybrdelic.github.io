@@ -1,6 +1,6 @@
 // The reviewed forest-surface asset is rasterized at its original topology.
 // A separate 64³ fuel/collision proxy is used by the fluid solver.
-import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=studio-rc-3';
+import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=95fcf488354ba45d';
 export const forestMeshWGSL = `
 struct View{eye:vec4f,right:vec4f,up:vec4f,forward:vec4f,options:vec4f,ambient:vec4f,spotPos0:vec4f,spotDir0:vec4f,spotPower0:vec4f,spotPos1:vec4f,spotDir1:vec4f,spotPower1:vec4f};
 struct ObjectSettings{origin:vec4f,options:vec4f,tint:vec4f};
@@ -61,22 +61,7 @@ export class ForestMesh {
     this.s = solver;
     this.resources = [];
     const d = solver.device;
-    this.targets = ['rgba16float', 'rgba16float', 'rgba8unorm'].map((format) => {
-      const t = d.createTexture({
-        size: [solver.canvas.width, solver.canvas.height],
-        format,
-        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-      });
-      this.resources.push(t);
-      return { view: t.createView() };
-    });
-    const depth = d.createTexture({
-      size: [solver.canvas.width, solver.canvas.height],
-      format: 'depth24plus',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    this.resources.push(depth);
-    this.depth = depth.createView();
+    this.resizeOutput(solver.canvas.width, solver.canvas.height);
     const shadow = d.createTexture({
       size: [1024, 1024, 2],
       format: 'depth32float',
@@ -97,6 +82,35 @@ export class ForestMesh {
     );
     this.resources.push(...this.shadowCameras);
   }
+  resizeOutput(width, height) {
+    if (this.width === width && this.height === height) return false;
+    const d = this.s.device;
+    const old = new Set(this.outputResources || []);
+    const next = [];
+    this.targets = ['rgba16float', 'rgba16float', 'rgba8unorm'].map((format) => {
+      const t = d.createTexture({
+        size: [width, height], format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      });
+      next.push(t);
+      return { view: t.createView() };
+    });
+    const depth = d.createTexture({
+      size: [width, height], format: 'depth24plus',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    next.push(depth);
+    this.depth = depth.createView();
+    this.width = width;
+    this.height = height;
+    this.outputResources = next;
+    this.resources = this.resources.filter((resource) => !old.has(resource));
+    this.resources.push(...next);
+    // Shadow maps, vertex/index buffers and material textures are independent
+    // of the viewport and remain resident during fullscreen/window resizing.
+    for (const resource of old) resource.destroy();
+    return true;
+  }
   async load() {
     if (this.ready) return;
     if (this.loading) return this.loading;
@@ -108,7 +122,7 @@ export class ForestMesh {
       d = s.device,
       base = new URL('./objects/forest-tree/', import.meta.url);
     const get = async (name) => {
-      const r = await fetch(new URL(name, base));
+      const r = await fetch(new URL(name + '?v=95fcf488354ba45d', base));
       if (!r.ok) throw Error('Reviewed tree asset unavailable: ' + name);
       return r;
     };

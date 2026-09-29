@@ -12,7 +12,7 @@ const preset = (id, name, description, fuel, effect, dynamics, chemistry, option
   chemistry,
   preview:
     effect[0] >= 5 && effect[0] <= 12
-      ? new URL('./source-previews/' + id + '.jpg', import.meta.url).href
+      ? new URL('./source-previews/' + id + '.jpg?v=95fcf488354ba45d', import.meta.url).href
       : undefined,
   family: effect[0] >= 8 ? 'Sigils' : effect[0] >= 2 ? 'Shapes' : 'Fire',
   ...options,
@@ -85,11 +85,11 @@ export const FIRE_PRESETS = [
   preset(
     'bonfire',
     'Bonfire',
-    'A wider continuous source with lively rising tongues.',
+    'A broad wood flame with a compact burn and a separate rising soot plume.',
     'wood',
     [1, 1.5, 0, 1],
-    [0.65, 0.12, 1.5, 1.2],
-    [1.2, 1.3, 1.2, 1.6],
+    [0.45, 0.12, 1.5, 0.55],
+    [1.2, 1.15, 1.2, 1.6],
   ),
 
   preset(
@@ -105,7 +105,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.45, 0],
       minHeight: 0.45,
-      preview: new URL('./objects/logs.jpg', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
 
@@ -122,7 +122,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.64, 0],
       minHeight: 0.64,
-      preview: new URL('./objects/logs.jpg', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
 
@@ -305,7 +305,7 @@ export const FIRE_PRESETS = [
     [0.8, 1, 1.2, 0.75],
     {
       smokeSimulation: true,
-      preview: new URL('./source-previews/twin-jets.jpg', import.meta.url).href,
+      preview: new URL('./source-previews/twin-jets.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -341,7 +341,7 @@ export const FIRE_PRESETS = [
       object: 'house',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -358,7 +358,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -374,7 +374,7 @@ export const FIRE_PRESETS = [
       object: 'car',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -391,7 +391,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -408,7 +408,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/mannequin.jpg', import.meta.url).href,
+      preview: new URL('./objects/mannequin.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -424,7 +424,7 @@ export const FIRE_PRESETS = [
       object: 'cybr-tree',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -441,7 +441,7 @@ export const FIRE_PRESETS = [
       moisture: 'damp',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -458,7 +458,7 @@ export const FIRE_PRESETS = [
       ignition: 'crown',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
   preset(
@@ -524,7 +524,7 @@ export const FIRE_PRESETS = [
       color: 'violet',
       source: [0, 1, 0],
       minHeight: 0.85,
-      preview: new URL('./source-previews/sigil-cybr.jpg', import.meta.url).href,
+      preview: new URL('./source-previews/sigil-cybr.jpg?v=95fcf488354ba45d', import.meta.url).href,
     },
   ),
 ];
@@ -800,23 +800,39 @@ export const SCENES = [
   },
 ];
 
-export const LEGACY_PRESETS = [
-  ['sigil', 'Cybrdelic sigil'],
-  ['free', 'Free fire'],
-  ['campfire', 'Campfire'],
-  ['torch', 'Torch'],
-  ['ring', 'Burning ring'],
-  ['sphere', 'Fire sphere'],
-  ['wall', 'Fire wall'],
-  ['explosion', 'Explosion'],
-].map(([key, name]) => ({
+const ORIGINAL_ONLY = [
+  ['sigil', 'Cybrdelic sigil', 'The animated CYBR fuel mark.'],
+  ['free', 'Free fire', 'Place a live fuel source anywhere.'],
+  ['campfire', 'Campfire', 'Three wood flame tongues above crossed logs.'],
+  ['wall', 'Fire wall', 'A broad line of fuel forming a curtain.'],
+].map(([key, name, description]) => ({
   id: 'legacy:' + key,
   name,
-  description:
-    'Original simulation · ' +
-    (key === 'sigil' ? 'the animated CYBR source.' : 'interactive fire source.'),
-  fuel: key === 'torch' ? 'gas' : 'wood',
+  description: 'Original simulation · ' + description,
+  fuel: 'wood',
 }));
+
+// Both solvers expose the same authored source IDs. Original interprets their
+// source geometry and fuel parameters on its own grid and renderer.
+const originalDescription = (source) => {
+  if (source.object === 'cybr-tree')
+    return 'Static tree fuel shape with finite surface release and advected flame and soot. Detailed moisture, bark cracks and damage studies use 3D Volume.';
+  const objects = {
+    logs: 'Static stacked log fuel shape with finite surface release. Flame and soot evolve in the surrounding flow.',
+    house: 'Static cabin fuel shape with finite timber surface release and advected flame and soot.',
+    car: 'Static vehicle fuel shape with finite release from combustible regions and advected flame and soot.',
+    mannequin: 'Static human-shaped test dummy with a finite combustible surface coating and advected flame and soot.',
+  };
+  return objects[source.object] || source.description;
+};
+export const LEGACY_PRESETS = [
+  ...ORIGINAL_ONLY,
+  ...FIRE_PRESETS.map((source) => ({
+    ...source,
+    id: 'legacy:' + source.id,
+    description: 'Original simulation · ' + originalDescription(source),
+  })),
+];
 
 export const ALL_FIRE_PRESETS = [
   ...LEGACY_PRESETS,

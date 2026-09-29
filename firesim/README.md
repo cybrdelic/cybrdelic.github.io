@@ -1,90 +1,79 @@
 # CYBRDELIC Fire Studio
 
-One page for fire, lighting, presets, and presentation. Every visible fire frame is simulated; source artwork and geometry are static assets.
+Interactive fire and smoke, source geometry, lighting and camera controls in one page. The GPU evolves the gas and renders the current volume. The runtime uses static emitter and geometry assets; it does not play a prerecorded fire animation.
 
-## Published demo
+[Hosted demo](https://cybrdelic.github.io/firesim/)
 
-https://cybrdelic.github.io/firesim/
-
-## Run
-
-Serve this directory over localhost or HTTPS. Do not open index.html through file://.
+## Run locally
 
 From the repository root:
 
-    python -m http.server 8767 --directory outputs/cybrdelic-type
+```powershell
+python -m http.server 8767 --directory outputs/cybrdelic-type
+```
 
-Open /elements/motion/bending/sigils/02/fire-live/.
+Open [Fire Studio](http://127.0.0.1:8767/elements/motion/bending/sigils/02/fire-live/). A packaged build can be served directly from its release directory. Use localhost or HTTPS; opening `index.html` as a file does not provide a supported graphics session.
 
-- **Scene:** choose a simulation, source, and fuel; drag the source, pan, zoom, pause, and restart.
-- **Library:** six complete demo scenes, sources, lighting, inspection tests, experiments, and saved looks.
-- **Lighting:** the scene remains visible while you change the rig.
-- **Present:** hides editing controls. Escape returns to the previous workspace view.
-- **Include experiments:** exposes unfinished source studies in the Source picker. Every experiment also remains accessible in the library.
+## Use
 
-Saved looks stay in browser storage. Import/export uses version 1 JSON libraries; existing saved libraries remain compatible. Inspection lighting and cameras are temporary and restore when leaving a test.
+- **Scene:** choose Original or experimental 3D volume, a source, fuel and color. Click to place fire and drag to move its source. Stop fuel lets the existing gas burn out; Restart replenishes the source.
+- **Camera:** scroll to zoom; Shift-drag or right-drag pans. The controls also provide an angle slider and camera reset. Touch interaction and keyboard controls are described beside the scene.
+- **Library:** choose a complete demo scene, an individual source, a lighting rig, an inspection test or a saved look. Tests use temporary lighting and camera settings.
+- **Lighting:** adjust external light sources and approximate room bounce while the fire remains visible. Fire itself illuminates the gas, room and source props.
+- **Present:** hide editing controls for a demo. Escape returns to the workspace.
 
-## Demo entry
+Sources carry stable IDs across both simulations. Each engine implements them using its own flow and source model. Prototype object and burst studies are identified as experiments; the Include experiments control exposes them in the Source picker. Saved looks use local browser storage and version 1 JSON import/export.
 
-Open ?scene=demo-sigil&present=1 for the signature scene. Other repeatable entries:
+Repeatable entries include `?scene=demo-sigil&present=1`, `?scene=demo-campfire`, `?scene=demo-torch`, `?scene=demo-ring`, `?scene=demo-bonfire` and `?scene=demo-smoke`. The last two select 3D volume. The older `pyro-gpu/` URL redirects into this same page and preserves its query settings.
 
-- ?scene=demo-campfire
-- ?scene=demo-torch
-- ?scene=demo-ring
-- ?scene=demo-bonfire — WebGPU required
-- ?scene=demo-smoke — WebGPU required
+## Graphics requirements and scope
 
-The old pyro-gpu/ URL redirects into this same studio.
+Original requires WebGL 2, floating point render targets and linear filtering of float textures. 3D volume requires a working WebGPU adapter with sufficient texture and buffer limits. The page provides recovery controls when the selected engine cannot start. A WebGPU API being present does not establish that its adapter can submit frames.
+
+Both engines transport heat, fuel and soot in evolving flow. Flame emission and extinction share their state with fire illumination. Original uses an atlas volume with a coarse pressure solve; 3D volume uses a dense MAC velocity field, multilevel pressure projection and a separate chemistry grid. These are visual combustion models with accelerated, uncalibrated coefficients. Creative colors are art direction.
+
+Object studies use finite fuel, local heating and char. Volume trees use geometry from the CYBR forest scene and add moisture, leaf loss and widening of existing fissures. They do not simulate physical branch fracture or collapse. Volume embers are flow-driven tracers and cannot ignite new fuel; Original does not implement them. Original's object model does not reproduce Volume's per-voxel surface state. External illumination and room bounce are approximations, not converged path tracing or calibrated global illumination.
+
+## Verify and package
+
+Run from the repository root:
+
+```powershell
+node tools/fire-studio/studio.test.mjs
+node tools/fire-studio/studio-polish.test.mjs
+node tools/fire-studio/normal-regression.test.mjs
+node tools/fire-studio/telemetry.test.mjs
+node tools/fire-studio/check-volume-telemetry.mjs
+node tools/fire-studio/check-volume-queries.mjs
+node tools/fire-studio/check-tree-resize.mjs
+python tools/fire-studio/package.test.py
+python tools/fire-studio/package.py --check
+python tools/fire-studio/package.py
+```
+
+The package checks JavaScript syntax, local module/HTML/CSS/asset references, catalog previews and binary asset integrity. It also rejects JavaScript that is included in the release but unreachable from its entry pages. A content fingerprint normalizes module and asset cache keys in the packaged files. The source files remain editable without generated cache changes.
+
+The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
+
+Deployment instructions and the demonstration checklist are in `docs/fire-studio/RELEASE.md` in the source repository. Development notes and measurements are retained in `docs/fire-studio/` and `work/` rather than presented as product guarantees.
+
+## Current verification limits
+
+Release packaging and automated state/lifecycle checks do not certify visual motion or sustained frame rate. The last recorded in-app browser selected Intel integrated graphics despite the high-performance adapter request. A September 27 short Original run observed about 30 rendered FPS; a 180-frame room-enabled Volume Bonfire run observed 12.3 completed FPS and 0.20 simulated seconds per wall second. These historical results fail the requested Volume performance gate and are not measurements of the latest edits.
+
+Native RTX shader timings and offscreen captures describe a different execution path. Offline film detail parity, sustained 60 FPS, mobile support and the latest live-browser motion comparison remain unverified. See `docs/fire-studio/PERFORMANCE.md` for measurement conditions and `docs/fire-studio/RELEASE.md` for the remaining gates.
 
 ## Code map
 
 | Module | Responsibility |
 | --- | --- |
-| studio.js | Serialized engine/preset transitions and shared look restoration |
-| studio-location.js | Validated shared links and camera state |
-| studio-ui.js | Workspace panels, presentation, startup and recovery UI |
-| runtime-loader.js | Loads only the selected engine and its dependencies |
-| runtime-scope.js | Animation/listener lifecycle; hidden, disposed, and failed runtimes stop |
-| demo-presets.js | Curated demo scenes and experiment classification |
-| inspection-state.js | Temporary inspection look capture/restore |
-| look-storage.js | Saved-look validation, persistence, import/export |
-| pyro-gpu/library.js | Shared library rendering and actions |
-| scene-lights.js | Lighting catalog, controls, shared lighting values |
-| fire.js and root shader helpers | Original WebGL simulation and rendering |
-| pyro-gpu/app.js | Volume interaction, camera, playback, measurement |
-| pyro-gpu/solver.js | GPU resources, simulation scheduling, renderer selection |
-| pyro-gpu/shaders.js / renderer.js | Fluid and volume rendering WGSL |
-| pyro-gpu/objects.js / forest-mesh.js | Finite surface fuel and reviewed tree geometry |
-
-Original and Volume share the UI and library; they retain different simulation implementations. Ordinary volume sources do not allocate or render tree meshes/shadow targets. Tree resources are released when returning to normal fire. Bonfire and Hearth retain their original continuous-source parameters; finite log prototypes have separate IDs.
-
-## Verify and package
-
-From the repository root:
-
-    node tools/fire-studio/studio.test.mjs
-    node tools/fire-studio/normal-regression.test.mjs
-    python tools/fire-studio/package.py --check
-    python tools/fire-studio/package.py
-
-The package script validates JavaScript syntax and static dependencies, copies an explicit runtime asset list, writes SHA-256 hashes in release.json, and creates a ZIP. Existing builds are never overwritten. Use --out releases/fire-studio-another-name for a subsequent build.
-
-The package excludes historical experiment directories, build tools, raw mesh authoring data, and QA captures. Historical notes are preserved in docs/fire-studio/development-history.md in the source repository. Development reports remain under work/.
-
-## Dense-volume transport fix (rc.2)
-
-A Courant-aware monotonic correction replaces the discontinuous scalar fallback. Slow soot no longer repeatedly amplifies reverse-advection errors into a grid pattern. Faster flow keeps second-order correction within donor bounds. This is a transport change; there is no image blur, lower grid resolution, or extra render pass.
-
-## State and code audit (rc.3)
-
-URL fuel and camera settings survive startup and manual edits. Invalid camera inputs are bounded; partial looks preserve unspecified room/camera values. Original remembers its actual source across engine switches. Presentation state stays synchronized with the URL. Cached back/forward pages pause and resume instead of destroying their GPU runtime.
-
-The shell owns source menus. The obsolete return button and unused engine-local library hook were removed; pressure validation loads on request. All shipped JavaScript modules are reachable from the runtime. Historical experiments remain outside the release package.
-
-## Release status: candidate
-
-The UI cleanup is verified on desktop and phone layouts. Original starts and renders in the tested in-app browser, with 30 rendered FPS observed during the check. This is not a sustained performance certification.
-
-WebGPU playback was verified after the browser adapter recovered. The in-app browser selected Intel gen-12lp despite a high-performance adapter request. A 180-frame Bonfire measurement with the room enabled achieved 12.3 completed FPS, 122.6 ms frame p95, and 0.20x realtime simulation. This fails the 60 FPS gate. Native RTX 4060 shader timings describe a different adapter and do not establish browser performance. Sustained realtime performance on the demo machine remains a release gate.
-
-Trees and blockout objects remain experiments. Tree moisture, local combustion, char, and leaf loss are present; physical branch fracture/collapse is not. No offline-quality-parity or guaranteed 60 FPS claim is made.
+| `studio.js`, `studio-location.js` | Engine/preset transitions, shared state and URLs |
+| `studio-ui.js`, `studio.css` | Workspace, presentation and recovery controls |
+| `runtime-loader.js`, `runtime-scope.js` | Lazy engine loading and animation/listener cleanup |
+| `demo-presets.js`, `source-picker.js`, `preset-pairs.js` | Demo collection and shared source selection |
+| `look-storage.js`, `inspection-state.js` | Saved looks and temporary inspection settings |
+| `scene-lights.js`, `pyro-gpu/library.js` | Lighting catalog and library actions |
+| `fire.js` and root shader helpers | Original WebGL simulation and rendering |
+| `pyro-gpu/app.js`, `solver.js` | Volume controls, GPU scheduling and diagnostics |
+| `pyro-gpu/shaders.js`, `renderer.js` | Volume transport, combustion and volume/room rendering |
+| `pyro-gpu/objects.js`, `forest-mesh.js` | Surface fuel and imported tree geometry |

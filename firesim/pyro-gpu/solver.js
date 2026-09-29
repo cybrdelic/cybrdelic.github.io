@@ -3,17 +3,25 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=studio-rc-3';
-import { ForestMesh } from './forest-mesh.js?v=studio-rc-3';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=studio-rc-3';
-import { probeGPU } from './gpu-session.js?v=studio-rc-3';
-import { simulationShaders, pressureShaders } from './shaders.js?v=studio-rc-3';
-import { rendererShaders, dilateWGSL } from './renderer.js?v=studio-rc-3';
+} from './objects.js?v=95fcf488354ba45d';
+import { ForestMesh } from './forest-mesh.js?v=95fcf488354ba45d';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=95fcf488354ba45d';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=95fcf488354ba45d';
+import { simulationShaders, pressureShaders } from './shaders.js?v=95fcf488354ba45d';
+import { rendererShaders, dilateWGSL, ROOM_SIZE } from './renderer.js?v=95fcf488354ba45d';
+export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
+  if (burstAge < 0.12) return Math.max(maxSpeed, 12);
+  const lag = Math.max(0, Math.min(telemetryLag, 8));
+  // A few late readbacks do not imply a new explosion. Bound ordinary velocity
+  // growth from the last observed field instead of jumping straight to 12.
+  const predicted = Math.max(maxSpeed * (1 + 0.05 * lag), maxSpeed + 0.35 * lag);
+  return telemetryLag > 8 ? Math.max(predicted, 12) : predicted;
+}
 export class PyroSolver {
   static async create(canvas, options = {}) {
     const { adapter, context, format } = await probeGPU(canvas);
     const features = adapter.features.has('timestamp-query') ? ['timestamp-query'] : [];
-    const device = await adapter.requestDevice({ requiredFeatures: features });
+    const device = await gpuSessionTimeout(adapter.requestDevice({ requiredFeatures: features }), 'device request');
     let s;
     try {
       s = new PyroSolver(device, canvas, { ...options, context, format });
@@ -29,7 +37,7 @@ export class PyroSolver {
       description: adapter.info.description,
     };
     try {
-      await s.init();
+      await gpuSessionTimeout(s.init(), 'solver startup');
       return s;
     } catch (e) {
       s.destroy();
@@ -57,6 +65,8 @@ export class PyroSolver {
     this.embers = true;
     this.si = 0;
     this.errors = [];
+    this.stateEpoch = 0;
+    this.destroyed = false;
     device.addEventListener('uncapturederror', (e) => {
       this.errors.push(e.error.message);
       console.error(e.error.message);
@@ -124,10 +134,22 @@ export class PyroSolver {
       size: Math.ceil((this.N + 1) / 4) ** 3 * 16,
       usage: GPUBufferUsage.STORAGE,
     });
-    this.readback = d.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
+    // Readbacks must never hold the presentation loop on mapAsync. Keep a
+    // small ring so a slow browser/driver mapping cannot freeze every frame.
+    this.telemetrySlots = Array.from({ length: 3 }, () => ({
+      stats: d.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }),
+      pending: false,
+      queryPending: false,
+    }));
+    this.latestTelemetry = {
+      maxSpeed: this.maxSpeed,
+      preDivergence: 0,
+      postDivergence: 0,
+      gpu: null,
+    };
+    this.frameNumber = 0;
+    this.completedFrames = 0;
+    this.inFlight = [];
     this.masks = [0, 1].map(() =>
       d.createBuffer({
         size: (this.D / 8) ** 3 * 4,
@@ -152,7 +174,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=95fcf488354ba45d', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -230,13 +252,18 @@ export class PyroSolver {
     if (d.features.has('timestamp-query')) {
       this.query = d.createQuerySet({ type: 'timestamp', count: 80 });
       this.queryResolve = d.createBuffer({
-        size: 640,
+        // Resolve ranges require 256-byte alignment. Up to 72 simulation
+        // timestamps occupy bytes 0..575; the four final stamps use 768..799.
+        size: 800,
         usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
       });
-      this.queryRead = d.createBuffer({
-        size: 640,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-      });
+      for (const slot of this.telemetrySlots)
+        slot.query = d.createBuffer({
+          size: 640,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+      // Existing isolated kernel probes use this buffer directly.
+      this.queryRead = this.telemetrySlots[0].query;
     }
     this.visibleBricks = d.createBuffer({ size: 32 ** 3 * 4, usage: GPUBufferUsage.STORAGE });
     this.dilatePipeline = await this.pipeline(dilateWGSL, 'visible-bricks');
@@ -245,7 +272,7 @@ export class PyroSolver {
     this.lightSeeds = d.createBuffer({ size: 8 * 64, usage: GPUBufferUsage.STORAGE });
     this.roomTargets = [0, 1].map(() => {
       const t = d.createTexture({
-        size: [640, 128],
+        size: [ROOM_SIZE*5, ROOM_SIZE],
         format: 'rgba16float',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
       });
@@ -299,7 +326,7 @@ export class PyroSolver {
       tree = requested === 'cybr-tree';
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin', import.meta.url),
+        new URL('./objects/' + requested + '.rgba16.bin?v=95fcf488354ba45d', import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -382,7 +409,8 @@ export class PyroSolver {
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, this.group(pipeline, items));
     const xy = pipeline.label.startsWith('pressure-') ? 8 : 4;
-    pass.dispatchWorkgroups(Math.ceil(n / xy), Math.ceil(n / xy), Math.ceil(n / 4));
+    const x = pipeline.label === 'advectVelocity' ? 8 : xy;
+    pass.dispatchWorkgroups(Math.ceil(n / x), Math.ceil(n / xy), Math.ceil(n / 4));
     if (!this.pressurePass) pass.end();
   }
   sparse(encoder, pipeline, items) {
@@ -410,7 +438,14 @@ export class PyroSolver {
       }
     };
     if (l === this.levels.length - 1) {
-      smooth(24);
+      if (level.kernels.coarse) {
+        this.dispatch(encoder, level.kernels.coarse, [
+          [0, level.p[level.current]],
+          [1, level.b],
+          [2, level.p[1 - level.current]],
+        ], level.n);
+        level.current = 1 - level.current;
+      } else smooth(24);
       return;
     }
     smooth(3);
@@ -742,20 +777,106 @@ export class PyroSolver {
     present.draw(3);
     present.end();
   }
-  async frame(dt = 1 / 60) {
+  async collectTelemetry(slot, substeps, sampleFrame, epoch, dt, collectQuery = !!slot.query) {
+    let statsReleased = false;
+    try {
+      await slot.stats.mapAsync(GPUMapMode.READ);
+      const mapped = slot.stats.getMappedRange();
+      const values = new Float32Array(mapped);
+      const maxSpeed = values[0];
+      if (!Number.isFinite(maxSpeed) || maxSpeed > 1000)
+        throw Error('Invalid velocity state: ' + JSON.stringify({ time: this.time, maxSpeed }));
+      const diagnostic = {
+        maxSpeed,
+        preDivergence: values[1] / Math.max(values[3], 1),
+        postDivergence: values[2] / Math.max(values[3], 1),
+      };
+      slot.stats.unmap();
+      slot.pending = false;
+      statsReleased = true;
+      if (!this.destroyed && epoch === this.stateEpoch && sampleFrame >= (this.latestTelemetry.sampleFrame || 0)) {
+        this.latestTelemetry = { ...this.latestTelemetry, ...diagnostic, sampleFrame };
+        if (dt > 0) this.maxSpeed = Math.max(maxSpeed, 0.1);
+      }
+      if (collectQuery) {
+        try {
+          await slot.query.mapAsync(GPUMapMode.READ);
+          const t = new BigUint64Array(slot.query.getMappedRange());
+          const gpu = {
+            velocity: 0,
+            pressure: 0,
+            transport: 0,
+            lighting: Number(t[77] - t[76]) / 1e6,
+            render: Number(t[79] - t[78]) / 1e6,
+          };
+          for (let i = 0; i < substeps; i++) {
+            gpu.velocity += Number(t[i * 6 + 1] - t[i * 6]) / 1e6;
+            gpu.pressure += Number(t[i * 6 + 3] - t[i * 6 + 2]) / 1e6;
+            gpu.transport += Number(t[i * 6 + 5] - t[i * 6 + 4]) / 1e6;
+          }
+          gpu.simulation = gpu.velocity + gpu.pressure + gpu.transport;
+          slot.query.unmap();
+          // Stats and timestamp mappings complete independently. Comparing a
+          // timestamp against the newest *stats* frame discards valid GPU
+          // timing whenever its query map finishes one display tick later.
+          if (!this.destroyed && epoch === this.stateEpoch && sampleFrame >= (this.latestTelemetry.gpuSampleFrame || 0))
+            this.latestTelemetry = { ...this.latestTelemetry, gpu, gpuSampleFrame: sampleFrame };
+        } catch (error) {
+          // Timestamp queries are diagnostic. A failed map must not stop fire.
+          this.queryTimingAvailable = false;
+          if (!this.destroyed && epoch === this.stateEpoch)
+            this.latestTelemetry = { ...this.latestTelemetry, gpu: null };
+        }
+      }
+    } catch (error) {
+      if (!this.destroyed && !this.lost) this.errors.push(error?.message || String(error));
+    } finally {
+      if (!statsReleased) {
+        if (slot.stats.mapState === 'mapped') slot.stats.unmap();
+        slot.pending = false;
+      }
+      if (collectQuery) {
+        if (slot.query.mapState === 'mapped') slot.query.unmap();
+        slot.queryPending = false;
+      }
+    }
+  }
+  resolveTimings(encoder, slot, substeps) {
+    // Resolve only timestamps written by this frame. Waiting on unused query
+    // slots can stall some Vulkan backends. The CPU readback keeps its existing
+    // 80-slot layout; collectTelemetry reads only these active step pairs.
+    if (substeps > 0) {
+      encoder.resolveQuerySet(this.query, 0, substeps * 6, this.queryResolve, 0);
+      encoder.copyBufferToBuffer(this.queryResolve, 0, slot.query, 0, substeps * 48);
+    }
+    // These four stamps are written even for paused/cached-light rendering.
+    encoder.resolveQuerySet(this.query, 76, 4, this.queryResolve, 768);
+    encoder.copyBufferToBuffer(this.queryResolve, 768, slot.query, 608, 32);
+  }
+  canSubmit() {
+    return this.inFlight.length < 2;
+  }
+  async frame(dt = 1 / 60, { waitForCapacity = true } = {}) {
     if (this.lost) throw Error('GPU device lost: ' + this.lost);
     if (this.errors.length) throw Error(this.errors.at(-1));
+    const wall = performance.now();
+    // Bound GPU work in flight without waiting for a CPU-visible map. Otherwise
+    // a fast JS loop can queue seconds of simulation behind a busy adapter.
+    if (!waitForCapacity && !this.canSubmit()) return null;
+    while (!this.canSubmit())
+      await gpuSessionTimeout(Promise.race(this.inFlight), 'frame completion', 8000);
     await this.prepareSource();
     this.updateObject();
-    const wall = performance.now(),
-      encoder = this.device.createCommandEncoder();
+    const encoder = this.device.createCommandEncoder();
     encoder.clearBuffer(this.stats);
+    const telemetryLag = this.frameNumber - (this.latestTelemetry.sampleFrame || 0);
+    const safeSpeed = cflSafeSpeed(this.maxSpeed, telemetryLag, this.burstAge);
     const substeps =
       dt > 0
         ? Math.max(
             1,
             Math.ceil(
-              (dt * Math.max(this.maxSpeed, this.burstAge < 0.12 ? 12 : 0)) / ((1.5 * 6) / this.N),
+              (dt * Math.max(safeSpeed, this.burstAge < 0.12 ? 12 : 0)) / ((1.5 * 6) / this.N),
             ),
           )
         : 0;
@@ -819,7 +940,7 @@ export class PyroSolver {
             ...this.meshShadowBindings(),
           ]),
         );
-        direct.dispatchWorkgroups(80, 16);
+        direct.dispatchWorkgroups(ROOM_SIZE*5/8, ROOM_SIZE/8);
         direct.end();
         const bounce = encoder.beginComputePass();
         bounce.setPipeline(this.bouncePipeline);
@@ -834,7 +955,7 @@ export class PyroSolver {
             ...this.objectBindings(),
           ]),
         );
-        bounce.dispatchWorkgroups(80, 16);
+        bounce.dispatchWorkgroups(ROOM_SIZE*5/8, ROOM_SIZE/8);
         bounce.end();
       }
       this.dispatch(
@@ -857,53 +978,35 @@ export class PyroSolver {
     }
     this.stamp(encoder, 77);
     this.render(encoder);
-    encoder.copyBufferToBuffer(this.stats, 0, this.readback, 0, 16);
-    if (this.query) {
-      encoder.resolveQuerySet(this.query, 0, 80, this.queryResolve, 0);
-      encoder.copyBufferToBuffer(this.queryResolve, 0, this.queryRead, 0, 640);
+    const slot = this.telemetrySlots.find((candidate) => !candidate.pending);
+    if (slot) {
+      slot.pending = true;
+      encoder.copyBufferToBuffer(this.stats, 0, slot.stats, 0, 16);
+    }
+    const collectQuery = !!slot?.query && !slot.queryPending && this.queryTimingAvailable !== false;
+    if (collectQuery) {
+      slot.queryPending = true;
+      this.resolveTimings(encoder, slot, substeps);
     }
     this.device.queue.submit([encoder.finish()]);
-    // Mapping waits for the copy itself; request both maps together instead of three serial fences.
-    await Promise.all([
-      this.readback.mapAsync(GPUMapMode.READ),
-      ...(this.query ? [this.queryRead.mapAsync(GPUMapMode.READ)] : []),
-    ]);
-    const mapped = this.readback.getMappedRange();
-    const u = new Uint32Array(mapped);
-    const f = new Float32Array(mapped);
-    const diagnostic = {
-      maxSpeed: f[0],
-      preDivergence: f[1] / Math.max(f[3], 1),
-      postDivergence: f[2] / Math.max(f[3], 1),
-    };
-    this.readback.unmap();
-    if (dt > 0) this.maxSpeed = Math.max(diagnostic.maxSpeed, 0.1);
-    let gpu = null;
-    if (this.query) {
-      const t = new BigUint64Array(this.queryRead.getMappedRange());
-      gpu = {
-        velocity: 0,
-        pressure: 0,
-        transport: 0,
-        lighting: Number(t[77] - t[76]) / 1e6,
-        render: Number(t[79] - t[78]) / 1e6,
-      };
-      for (let i = 0; i < substeps; i++) {
-        gpu.velocity += Number(t[i * 6 + 1] - t[i * 6]) / 1e6;
-        gpu.pressure += Number(t[i * 6 + 3] - t[i * 6 + 2]) / 1e6;
-        gpu.transport += Number(t[i * 6 + 5] - t[i * 6 + 4]) / 1e6;
-      }
-      gpu.simulation = gpu.velocity + gpu.pressure + gpu.transport;
-      this.queryRead.unmap();
-    }
-    if (!Number.isFinite(this.maxSpeed) || this.maxSpeed > 1000)
-      throw Error('Invalid velocity state: ' + JSON.stringify({ time: this.time, diagnostic }));
+    const sampleFrame = ++this.frameNumber;
+    if (slot) void this.collectTelemetry(slot, substeps, sampleFrame, this.stateEpoch, dt, collectQuery);
+    const fence = this.device.queue.onSubmittedWorkDone();
+    this.inFlight.push(fence);
+    fence.then(
+      () => { this.completedFrames++; this.inFlight = this.inFlight.filter((item) => item !== fence); },
+      (error) => { this.inFlight = this.inFlight.filter((item) => item !== fence); if (!this.destroyed) this.errors.push(error?.message || String(error)); },
+    );
+    const diagnostic = this.latestTelemetry;
     const completedAt = performance.now();
     return {
       wall: completedAt - wall,
       startedAt: wall,
       completedAt,
-      gpu,
+      gpu: diagnostic.gpu,
+      gpuTelemetryAge: diagnostic.gpu ? sampleFrame - (diagnostic.gpuSampleFrame || 0) : null,
+      telemetryAge: sampleFrame - (diagnostic.sampleFrame || 0),
+      completedFrames: this.completedFrames,
       relit,
       substeps,
       time: this.time,
@@ -911,6 +1014,8 @@ export class PyroSolver {
     };
   }
   burst(at = this.source) {
+    this.stateEpoch++;
+    this.maxSpeed = Math.max(this.maxSpeed, 12);
     this.source = [...at];
     this.burstAge = 0;
     this.seed += 3.17;
@@ -918,29 +1023,59 @@ export class PyroSolver {
   }
   async pixels() {
     const row = this.canvas.width * 4;
+    const paddedRow = Math.ceil(row / 256) * 256;
     const buffer = this.device.createBuffer({
-      size: row * this.canvas.height,
+      size: paddedRow * this.canvas.height,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     const encoder = this.device.createCommandEncoder();
-    encoder.copyTextureToBuffer({ texture: this.output }, { buffer, bytesPerRow: row }, [
+    encoder.copyTextureToBuffer({ texture: this.output }, { buffer, bytesPerRow: paddedRow }, [
       this.canvas.width,
       this.canvas.height,
     ]);
     this.device.queue.submit([encoder.finish()]);
     await buffer.mapAsync(GPUMapMode.READ);
-    const bytes = new Uint8ClampedArray(buffer.getMappedRange()).slice();
+    const mapped = new Uint8Array(buffer.getMappedRange());
+    const bytes = new Uint8ClampedArray(row * this.canvas.height);
+    for (let y = 0; y < this.canvas.height; y++)
+      bytes.set(mapped.subarray(y * paddedRow, y * paddedRow + row), y * row);
     buffer.unmap();
     buffer.destroy();
     return bytes;
   }
-  async reset() {
+  resizeOutput(width, height) {
+    if (this.canvas.width === width && this.canvas.height === height) return false;
+    if (width < 1 || height < 1) throw Error('Invalid output dimensions.');
+    const old = this.output;
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.output = this.device.createTexture({
+      size: [width, height],
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_SRC,
+    });
+    this.outputView = this.output.createView();
+    this.forestMesh?.resizeOutput(width, height);
+    this.resources.splice(this.resources.indexOf(old), 1, this.output);
+    this.cache.clear();
+    old.destroy();
+    return true;
+  }
+  async drain() {
     await this.device.queue.onSubmittedWorkDone();
+  }
+  async reset() {
+    this.stateEpoch++;
+    await gpuSessionTimeout(this.device.queue.onSubmittedWorkDone(), 'reset drain', 8000);
     this.lightReady = false;
     this.previousDt = 0;
     this.time = 0;
     this.burstAge = 0;
     this.maxSpeed = 12;
+    this.latestTelemetry = { maxSpeed: 12, preDivergence: 0, postDivergence: 0, gpu: null, sampleFrame: this.frameNumber };
     // Reset in place; no full-volume CPU uploads or transient half-GB buffers.
     const encoder = this.device.createCommandEncoder();
     encoder.clearBuffer(this.emberBuffer);
@@ -954,9 +1089,10 @@ export class PyroSolver {
         fields[0].n,
       );
     this.device.queue.submit([encoder.finish()]);
-    await this.device.queue.onSubmittedWorkDone();
+    await gpuSessionTimeout(this.device.queue.onSubmittedWorkDone(), 'reset clear', 8000);
   }
   destroy() {
+    this.destroyed = true;
     this.forestMesh?.destroy();
     for (const r of this.resources) r.destroy();
     this.device.destroy();

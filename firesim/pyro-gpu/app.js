@@ -1,7 +1,9 @@
-import { FIRE_COLORS } from './fire-colors.js?v=studio-rc-3';
-import { PyroSolver } from './solver.js?v=studio-rc-3';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=studio-rc-3';
-import { runtimeScope } from '../runtime-scope.js?v=studio-rc-3';
+import { FIRE_COLORS } from './fire-colors.js?v=95fcf488354ba45d';
+import { PyroSolver } from './solver.js?v=95fcf488354ba45d';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=95fcf488354ba45d';
+import { runtimeScope } from '../runtime-scope.js?v=95fcf488354ba45d';
+import { outputSize } from './output-size.js?v=95fcf488354ba45d';
+import { gpuSessionTimeout } from './gpu-session.js?v=95fcf488354ba45d';
 export async function mountVolume({
   initialPreset = 'explosion',
   onFailure = () => {},
@@ -14,8 +16,14 @@ export async function mountVolume({
     view = $('#view'),
     message = $('#message'),
     metrics = $('#metrics');
-  canvas.width = 1280;
-  canvas.height = 720;
+  const desiredOutput = () =>
+    outputSize(view.getBoundingClientRect().width, devicePixelRatio, params.has('qa'));
+  [canvas.width, canvas.height] = desiredOutput();
+  let pendingOutput = null;
+  const resizeObserver = new ResizeObserver(() => {
+    pendingOutput = desiredOutput();
+    markDirty();
+  });
   let solver,
     paused = false,
     busy = false,
@@ -29,6 +37,7 @@ export async function mountVolume({
     captureIndex = 0,
     saved = false;
   let frameCount = 0,
+    queueLimitedRafs = 0,
     testScenario = null,
     testStopped = false;
   let revision = 0,
@@ -40,6 +49,11 @@ export async function mountVolume({
     dirty = true;
     revision++;
   };
+  resizeObserver.observe(view);
+  on(window, 'resize', () => {
+    pendingOutput = desiredOutput();
+    markDirty();
+  });
   let smoke = params.get('smoke') === '1',
     activeFire = FIRE_PRESETS.find((p) => p.id === initialPreset) || FIRE_PRESETS[0];
   let fireLight = 24;
@@ -327,10 +341,24 @@ export async function mountVolume({
     },
     { passive: false },
   );
-  $('#fullscreen').onclick = () =>
-    document.fullscreenElement
-      ? document.exitFullscreen()
-      : document.querySelector('main').requestFullscreen();
+  const fullscreen = $('#fullscreen');
+  const syncFullscreen = () => {
+    const active = !!document.fullscreenElement;
+    fullscreen.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+    fullscreen.setAttribute('aria-pressed', String(active));
+  };
+  fullscreen.disabled = !document.fullscreenEnabled;
+  fullscreen.onclick = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.querySelector('main').requestFullscreen();
+    } catch {
+      message.textContent = 'Fullscreen is unavailable in this browser window.';
+    }
+    syncFullscreen();
+  };
+  on(document, 'fullscreenchange', syncFullscreen);
+  syncFullscreen();
   on(window, 'keydown', (e) => {
     if (!scope.visible) return;
     if (e.ctrlKey || e.altKey || e.metaKey || e.repeat || e.target.matches('input,select,textarea'))
@@ -349,6 +377,11 @@ export async function mountVolume({
     if (e.key === 'Escape') tool(false);
   });
   function summary(samples) {
+    // A mapped GPU timing can span several submitted frames. Count that
+    // timing once rather than biasing the profile toward slow readbacks.
+    const gpuSamples = [...new Map(samples
+      .filter((sample) => sample.gpu && Number.isFinite(sample.gpuSampleFrame))
+      .map((sample) => [sample.gpuSampleFrame, sample])).values()];
     const list = (key) =>
       samples
         .map(key)
@@ -364,7 +397,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-3',
+      build: 'fire-studio-rc-6',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -385,7 +418,7 @@ export async function mountVolume({
       simulationToWallRatio:
         samples.length > 1
           ? (samples.at(-1).time - samples[0].time) /
-            ((samples.at(-1).completedAt - samples[0].completedAt) / 1000)
+            ((samples.at(-1).startedAt - samples[0].startedAt) / 1000)
           : null,
       frameIntervalMs: stats(
         samples
@@ -395,9 +428,10 @@ export async function mountVolume({
           .sort((a, b) => a - b),
       ),
       wallMs: stats(list((x) => x.wall)),
-      simulationMs: stats(list((x) => x.gpu?.simulation)),
-      lightingMs: stats(list((x) => x.gpu?.lighting)),
-      renderMs: stats(list((x) => x.gpu?.render)),
+      timingSamples: gpuSamples.length,
+      simulationMs: stats(gpuSamples.map((x) => x.gpu.simulation).filter(Number.isFinite).sort((a,b) => a-b)),
+      lightingMs: stats(gpuSamples.map((x) => x.gpu.lighting).filter(Number.isFinite).sort((a,b) => a-b)),
+      renderMs: stats(gpuSamples.map((x) => x.gpu.render).filter(Number.isFinite).sort((a,b) => a-b)),
       last: samples.at(-1),
       errors: solver.errors,
     };
@@ -529,6 +563,7 @@ export async function mountVolume({
         solver.source = sourceOrigin(activeFire);
       }
       const samples = [];
+      const benchmarkStartedAt = performance.now();
       for (let i = 0; i < 180 && !cancelBenchmark && scope.visible && !scope.disposed; i++) {
         await new Promise(requestAnimationFrame);
         solver.camera(viewUniform());
@@ -537,14 +572,18 @@ export async function mountVolume({
         samples.push(item);
         if (i % 30 === 0) message.textContent = `Measurement ${i} / 180`;
       }
+      await gpuSessionTimeout(solver.drain(), 'benchmark completion', 15000);
+      const benchmarkElapsedMs = performance.now() - benchmarkStartedAt;
       if (!scope.visible || scope.disposed) cancelBenchmark = true;
       if (samples.length < 2) {
         message.textContent = 'Measurement cancelled before enough frames completed';
         return;
       }
-      const report = { ...summary(samples), trace: samples };
-      const fps = 1000 / report.frameIntervalMs.mean,
-        passed = report.frameIntervalMs.p95 <= 1000 / 60 && report.simulationToWallRatio >= 0.99;
+      const completedBenchmark = !cancelBenchmark && samples.length === 180;
+      const report = { ...summary(samples), trace: samples, drainedWallMs: benchmarkElapsedMs, completedBenchmark };
+      const fps = samples.length * 1000 / benchmarkElapsedMs,
+        passed = completedBenchmark && report.frameIntervalMs.p95 <= 1000 / 60 &&
+          (samples.at(-1).time - samples[0].time) / (benchmarkElapsedMs / 1000) >= 0.99;
       report.meets60FpsBudget = passed;
       const gpuMean = [report.simulationMs, report.lightingMs, report.renderMs];
       metrics.textContent = (gpuMean.every(Boolean)
@@ -554,7 +593,7 @@ export async function mountVolume({
         ? 'Measurement cancelled'
         : 'Measurement complete - ' + (passed ? '60 FPS gate passed' : '60 FPS gate not met');
       $('#gpu-status').textContent =
-        `${solver.adapter.vendor} ${solver.adapter.architecture} - ${fps.toFixed(1)} completed FPS - frame p95 ${report.frameIntervalMs.p95.toFixed(1)} ms - simulation ${report.simulationToWallRatio.toFixed(2)}x realtime`;
+        `${solver.adapter.vendor} ${solver.adapter.architecture} - ${fps.toFixed(1)} drained FPS - submission p95 ${report.frameIntervalMs.p95.toFixed(1)} ms - simulation ${report.simulationToWallRatio.toFixed(2)}x realtime`;
       await save((params.get('qa') || 'bench') + '-benchmark', report);
     } catch (e) {
       message.textContent = e.message;
@@ -575,12 +614,28 @@ export async function mountVolume({
     if (!busy && resetQueued) await restart();
     if (!busy && benchmarkQueued) await benchmark();
     if (!busy && solver && (!paused || dirty)) {
+      // A full GPU queue is a pacing signal, not a reason to hold this RAF
+      // callback open until a fence resolves. Keep input and controls live.
+      if (!solver.canSubmit()) {
+        queueLimitedRafs++;
+        scope.schedule(frame);
+        return;
+      }
       busy = true;
       const drawnRevision = revision;
       try {
+        if (pendingOutput) {
+          solver.resizeOutput(...pendingOutput);
+          pendingOutput = null;
+        }
         solver.smoke = !!activeFire.smokeSimulation || activeFire.id === 'smoke-burst';
         solver.camera(viewUniform());
-        const result = await solver.frame(paused ? 0 : 1 / 60);
+        const result = await solver.frame(paused ? 0 : 1 / 60, { waitForCapacity: false });
+        if (!result) {
+          queueLimitedRafs++;
+          scope.schedule(frame);
+          return;
+        }
         dirty = revision !== drawnRevision;
         if (!paused) {
           advanceTest();
@@ -591,9 +646,12 @@ export async function mountVolume({
           if (++frameCount % 30 === 0) {
             const recent = trace.slice(-60),
               report = summary(recent);
-            metrics.textContent = `GPU ${((result.gpu?.simulation || 0) + (result.gpu?.lighting || 0) + (result.gpu?.render || 0)).toFixed(1)} ms · ${solver.time.toFixed(2)} s`;
+            metrics.textContent = result.gpu
+              ? `GPU sample ${((result.gpu.simulation || 0) + (result.gpu.lighting || 0) + (result.gpu.render || 0)).toFixed(1)} ms · ${solver.time.toFixed(2)} s`
+              : `GPU timing pending · ${solver.time.toFixed(2)} s`;
             $('#gpu-status').textContent =
-              `${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · completed-frame p95 ${report.wallMs.p95.toFixed(1)} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps`;
+              `${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · frame cadence p95 ${report.frameIntervalMs?.p95.toFixed(1) || '—'} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps · ${queueLimitedRafs} queue-limited display ticks`;
+            queueLimitedRafs = 0;
           }
           if (
             params.has('qa') &&
@@ -626,7 +684,7 @@ export async function mountVolume({
   try {
     solver = await PyroSolver.create(canvas);
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=studio-rc-3');
+      const { pressureCheck } = await import('./pressure-check.js?v=95fcf488354ba45d');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -635,8 +693,15 @@ export async function mountVolume({
     solver.source = sourceOrigin(activeFire);
     fireHelp();
     sync();
+    // Confirm that the first volume image actually finishes on this browser
+    // GPU before the shell announces Ready. Some broken sessions accept a
+    // device and pipelines but never complete a submitted frame.
+    solver.camera(viewUniform());
+    await solver.frame(1 / 60);
+    await gpuSessionTimeout(solver.drain(), 'first presentation', 8000);
     scope.schedule(frame);
   } catch (e) {
+    resizeObserver.disconnect();
     await scope.stop();
     solver?.destroy();
     throw e;
@@ -644,6 +709,7 @@ export async function mountVolume({
 
   return {
     async dispose() {
+      resizeObserver.disconnect();
       cancelBenchmark = true;
       await scope.stop();
       solver?.destroy();

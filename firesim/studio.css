@@ -268,6 +268,7 @@ summary {
   display: flex;
   justify-content: center;
   gap: 10px;
+  flex-wrap: wrap;
   margin-top: 22px;
 }
 .playback-bar {
@@ -464,6 +465,7 @@ body[data-panel='lighting'] .camera-bar input[type='range'] {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.6;
+  display: block;
 }
 .lighting-panel output {
   text-align: right;
@@ -551,11 +553,26 @@ body[data-demo='true'] main:fullscreen .view {
   .fire-light-control {
     max-width: 480px;
   }
-  .studio-header {
+.studio-header {
     gap: 15px;
   }
 }
 @media (max-width: 720px) {
+  button,
+  select,
+  input[type='search'],
+  input[type='text'] {
+    min-height: 44px;
+  }
+  input[type='range'] {
+    min-height: 30px;
+  }
+  .camera-bar button {
+    min-height: 44px;
+  }
+  .check-control {
+    min-height: 44px;
+  }
   main {
     padding: 0 14px 20px;
   }
@@ -601,7 +618,7 @@ body[data-demo='true'] main:fullscreen .view {
   .source-controls .check-control {
     margin-left: 0;
     width: 100%;
-    min-height: 20px;
+    min-height: 44px;
   }
   .source-controls select {
     width: 100%;
@@ -630,7 +647,7 @@ body[data-demo='true'] main:fullscreen .view {
   }
   .view-state button {
     font-size: 11px;
-    min-height: 30px;
+    min-height: 44px;
   }
   .playback-bar {
     align-items: start;

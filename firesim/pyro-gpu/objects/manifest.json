@@ -1,0 +1,71 @@
+{
+  "format": "rgba16float",
+  "channels": [
+    "distance",
+    "fuelCapacity",
+    "thermalResponse",
+    "material"
+  ],
+  "models": [
+    {
+      "id": "house",
+      "resolution": 64,
+      "bounds": [
+        -1.5,
+        1.5
+      ],
+      "bytes": 2097152,
+      "sha256": "af2ce6411d4b05e2c3f416031c121476fc5b0fe4d91bd6079de3634c0e4dfc8f",
+      "provenance": "Authored hollow timber cabin with open windows, door, pitched roof and inert chimney."
+    },
+    {
+      "id": "car",
+      "resolution": 64,
+      "bounds": [
+        -1.5,
+        1.5
+      ],
+      "bytes": 2097152,
+      "sha256": "fe01cd2b437619435a28bcc25e23cecc00ab1de6d22bcbf6cb598309e2f73e9d",
+      "provenance": "Authored test vehicle: inert metal body; combustible seats, tyres and engine contents."
+    },
+    {
+      "id": "mannequin",
+      "resolution": 64,
+      "bounds": [
+        -1.5,
+        1.5
+      ],
+      "bytes": 2097152,
+      "sha256": "00ebccbc62a7ba903da3c364340e6e6639e1bd8fb45105311d4b788fdf3dc343",
+      "provenance": "Non-anatomical articulated test mannequin with combustible surface coating."
+    },
+    {
+      "id": "logs",
+      "resolution": 64,
+      "bounds": [
+        -1.5,
+        1.5
+      ],
+      "bytes": 2097152,
+      "sha256": "8457cb064b0bb634b72a0054301ddd306f9c98233f455e64523d49206527e965",
+      "provenance": "Cross-stacked solid wood logs; the bonfire and hearth use this geometry as their fuel source."
+    },
+    {
+      "id": "cybr-tree",
+      "resolution": 64,
+      "bounds": [
+        -1.5,
+        1.5
+      ],
+      "bytes": 2097152,
+      "sha256": "9fb2aa452f67223eb0fdd9a98160e05ffe1c4d353ea70fe2bd75f67614ccedb0",
+      "provenance": {
+        "source": "world/output/forest-surface/forest.blend",
+        "treeIndex": 538,
+        "displayMesh": "forest-tree/manifest.json",
+        "method": "Full reviewed mesh; same-mesh porous foliage and wood proxy."
+      }
+    }
+  ]
+}

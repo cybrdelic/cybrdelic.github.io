@@ -1,11 +1,13 @@
-import { readLook, writeLook } from './studio-location.js?v=studio-rc-3';
-import { createFireDomain } from './fire-domain.js?v=studio-rc-3';
-import { inspectionState } from './inspection-state.js?v=studio-rc-3';
-import { loadRuntime } from './runtime-loader.js?v=studio-rc-3';
-import { studioUI } from './studio-ui.js?v=studio-rc-3';
-import { DEMO_PRESETS, isExperimental } from './demo-presets.js?v=studio-rc-3';
-import { mountLibrary } from './pyro-gpu/library.js?v=studio-rc-3';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=studio-rc-3';
+import { readLook, writeLook } from './studio-location.js?v=95fcf488354ba45d';
+import { createFireDomain } from './fire-domain.js?v=95fcf488354ba45d';
+import { inspectionState } from './inspection-state.js?v=95fcf488354ba45d';
+import { loadRuntime } from './runtime-loader.js?v=95fcf488354ba45d';
+import { studioUI } from './studio-ui.js?v=95fcf488354ba45d';
+import { DEMO_PRESETS } from './demo-presets.js?v=95fcf488354ba45d';
+import { matchingPreset } from './preset-pairs.js?v=95fcf488354ba45d';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=95fcf488354ba45d';
+import { mountLibrary } from './pyro-gpu/library.js?v=95fcf488354ba45d';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=95fcf488354ba45d';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -41,24 +43,20 @@ function snapshot() {
 }
 
 function refreshSources(kind = $('#simulation').value, selected = $('#preset').value) {
-  const original = kind === 'legacy';
-  const catalog = original ? LEGACY_PRESETS : FIRE_PRESETS;
   const includeExperiments = $('#show-experiments').checked;
   $('#preset').replaceChildren();
-  for (const experimental of [false, true]) {
-    const items = catalog
-      .filter((p) => isExperimental(p) === experimental)
-      .filter(
-        (p) =>
-          !experimental || includeExperiments || (original ? p.id.slice(7) : p.id) === selected,
-      );
-    if (!items.length) continue;
+  for (const section of sourceGroups(kind, includeExperiments, selected)) {
     const group = document.createElement('optgroup');
-    group.label = experimental ? 'Experiments' : 'Fire sources';
-    group.append(...items.map((p) => new Option(p.name, original ? p.id.slice(7) : p.id)));
+    group.label = section.label;
+    group.append(...section.options.map((option) => new Option(option.name, option.value)));
     $('#preset').append(group);
   }
   $('#preset').value = selected;
+}
+
+function activateSourceSelection() {
+  const { kind, key } = sourceSelection($('#simulation').value, $('#preset').value);
+  return requestActivate(kind, key);
 }
 
 function updateLocation(kind, key, look) {
@@ -73,6 +71,7 @@ function updateLocation(kind, key, look) {
 
 function fail(error, kind = engine) {
   healthy = false;
+  $('#gpu-status').textContent = error?.message || String(error);
   ui.failure(error, kind);
 }
 
@@ -105,9 +104,12 @@ async function mount(kind, chosen, plain, old, look) {
     canvas.replaceWith(canvas.cloneNode(false));
     refreshSources(kind, plain);
     $('#simulation').value = kind;
-    $('#volume-source-controls').hidden = $('#appearance-controls').hidden = original;
-    $('#smoke-control').hidden = $('#benchmark').hidden = original;
-    $('.fire-light-control').hidden = original;
+    $('#volume-source-controls').hidden = $('#appearance-controls').hidden = false;
+    $('#smoke-control').hidden = $('#benchmark').hidden = false;
+    $('.fire-light-control').hidden = false;
+    $('#fire-light').disabled = false;
+    $('.fire-light-control small').textContent = 'Light cast by the flame onto smoke, props and the room.';
+    $('#embers').closest('label').hidden = original;
     $('#gpu-status').textContent = '';
     $('#metrics').textContent = '—';
     $('#pause').textContent = 'Pause';
@@ -141,7 +143,7 @@ async function mount(kind, chosen, plain, old, look) {
     $('main').setAttribute('aria-busy', 'false');
     $('#simulation').disabled = $('#preset').disabled = false;
     refreshSources(kind, plain);
-    $('#preset').onchange = () => requestActivate($('#simulation').value, $('#preset').value);
+    $('#preset').onchange = activateSourceSelection;
   }
 }
 
@@ -188,10 +190,11 @@ function activate(kind, key, look, force = false) {
           force ||
           !healthy ||
           engine !== kind ||
-          (original && window.FireDomain?.blast !== (plain === 'explosion'));
+          (original && (window.FireDomain?.blast !== (chosen.effect?.[0] === 0) ||
+            window.FireDomain?.object !== !!chosen.object));
         if (remount) await mount(kind, chosen, plain, old, look);
         else {
-          runtime.fire(plain);
+          await runtime.fire(plain);
           if (look) runtime.look(look);
         }
         refreshSources(kind, plain);
@@ -199,7 +202,7 @@ function activate(kind, key, look, force = false) {
         if (look?.test)
           $('#test-instructions').textContent = look.name + ' — ' + look.test.instruction;
         runtime.setVisible(ui.visible);
-        $('#preset').onchange = () => requestActivate(engine, $('#preset').value);
+        $('#preset').onchange = activateSourceSelection;
         updateLocation(kind, plain, look);
         library.refresh();
       } finally {
@@ -222,11 +225,17 @@ library = mountLibrary({
   snapshot,
   fire: (id) => activate(id.startsWith('legacy:') ? 'legacy' : 'volume', id),
   look: (item) => activate(item.fire.startsWith('legacy:') ? 'legacy' : 'volume', item.fire, item),
-  applied: (category) => ui.showPanel(category === 'Lighting' ? 'lighting' : 'scene'),
+  applied: (category) => ui.showPanel(category === 'Lighting' ? 'lighting' : 'scene', true),
 });
 $('#simulation').onchange = () => {
   const kind = $('#simulation').value;
-  requestActivate(kind, remembered.get(kind)?.fire || (kind === 'legacy' ? 'sigil' : 'bonfire'));
+  const currentFire = runtime?.snapshot()?.fire;
+  requestActivate(
+    kind,
+    matchingPreset(kind, currentFire) ||
+      remembered.get(kind)?.fire ||
+      (kind === 'legacy' ? 'sigil' : 'bonfire'),
+  );
 };
 $('#show-experiments').onchange = () => refreshSources();
 $('#retry-runtime').onclick = () =>

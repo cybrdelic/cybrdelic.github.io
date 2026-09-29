@@ -1,5 +1,5 @@
-import {objectWGSL} from './objects.js?v=studio-rc-3';
-import {combustionWGSL} from './combustion.js?v=studio-rc-3';
+import {objectWGSL} from './objects.js?v=95fcf488354ba45d';
+import {combustionWGSL} from './combustion.js?v=95fcf488354ba45d';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256){
@@ -46,6 +46,11 @@ fn jetDirection()->vec3f{
  let t=p.step.y;let sweep=select(0.,sin(t*1.8)*.7,p.effect.x>19.5);
  return normalize(vec3f(cos(sweep),.24+.12*sin(t*2.1),sin(sweep)));
 }
+fn isWoodBed()->bool{return p.effect.x>.5&&p.effect.x<1.5&&p.effect.w>.5&&p.shape.z>.2&&p.shape.z<.7;}
+fn bedCentre(pocket:u32)->vec3f{
+ switch pocket{case 0u:{return vec3f(-.30,-.02,-.17);}case 1u:{return vec3f(0,.02,-.20);}case 2u:{return vec3f(.30,-.01,-.15);}case 3u:{return vec3f(-.28,.015,.17);}case 4u:{return vec3f(.02,-.015,.20);}default:{return vec3f(.29,.01,.15);}}
+}
+fn bedPocket(q:vec3f)->u32{return min(2u,u32(max(0.,floor((q.x+.45)/.30))))+select(0u,3u,q.z>0.);}
 fn charge(x:vec3f)->f32{
  if(p.source.w<.5||p.step.z<0.||(p.effect.w<.5&&p.step.z>p.effect.z)){return 0.;}
  let q=(x-p.source.xyz)/p.effect.y;
@@ -58,6 +63,15 @@ fn charge(x:vec3f)->f32{
  }
  if(p.effect.x>.5){
   if(any(abs(q)>vec3f(1.6))){return 0.;}
+  if(isWoodBed()){
+   // A wood bed releases gas from separate burning patches. Fresh air enters
+   // their gaps; different feed phases prevent one hollow spherical front.
+   if(any(abs(q)>vec3f(.96,.30,.80))){return 0.;}
+   let pocket=bedPocket(q);let local=(q-bedCentre(pocket))/vec3f(.13,.055,.12);
+   let phase=f32(pocket)*2.399963;
+   let feed=.18+.92*smoothstep(.18,.82,.5+.5*sin(p.step.y*(2.8+.17*f32(pocket))+phase));
+   return exp(-1.5*dot(local,local))*feed;
+  }
   var r2=dot(q/vec3f(.26,.12,.26),q/vec3f(.26,.12,.26));
   if(p.effect.x>1.5&&p.effect.x<2.5){r2=pow((length(q.xz)-.65)/.12,2.)+pow(q.y/.10,2.);}
   if(p.effect.x>2.5&&p.effect.x<3.5){r2=pow(max(abs(q.x)-1.,0.)/.15,2.)+pow(q.y/.12,2.)+pow(q.z/.15,2.);}
@@ -91,6 +105,10 @@ fn charge(x:vec3f)->f32{
 fn sourceVelocity(x:vec3f)->vec3f{
  let q=x-p.source.xyz;let r=length(q);let dir=q/max(r,.03);
  if(object.options.x>.5){return (objectNormal(x)*.32+vec3f(0,.65,0))*p.dynamics.x;}
+ if(isWoodBed()){
+  let scaled=q/p.effect.y;let pocket=bedPocket(scaled);let local=scaled-bedCentre(pocket);let phase=f32(pocket)*2.399963;
+  return vec3f(local.x*1.2+.25*sin(p.step.y*3.5+phase),2.9+.55*sin(p.step.y*2.8+phase),local.z*1.2+.28*sin(p.step.y*4.1+phase*.7))*p.dynamics.x;
+ }
  if(p.effect.x>18.5){let d=jetDirection();let side=normalize(cross(d,vec3f(0,1,0)));let up=cross(side,d);let jitter=vec2f(noise(q*22.+vec3f(p.step.y*9.,4,8)),noise(q*22.+vec3f(3,p.step.y*11.,7)))*2.-1.;return d*p.dynamics.x*5.+(side*jitter.x+up*jitter.y)*1.4;}
  let asym=1.+.35*sin(atan2(q.z,q.x)*3.+q.y*7.);
  if(p.effect.x>12.5&&p.effect.x<13.5){return vec3f(-sign(q.x)*3.4,2.0,0)*p.dynamics.x;}
@@ -109,7 +127,7 @@ fn turbulence(x:vec3f)->vec3f{
 const advectVelocity=common+`
 @group(0) @binding(2) var v:texture_3d<f32>;
 @group(0) @binding(3) var dst:texture_storage_3d<rgba16float,write>;
-@compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id) i:vec3u){
+@compute @workgroup_size(8,4,4) fn main(@builtin(global_invocation_id) i:vec3u){
  if(any(i>vec3u(N))){return;}var out=vec3f(0);
  for(var k=0u;k<3u;k++){let x=face(i,k);out[k]=component(v,trace(v,x,p.step.x),k);}
  if(i.y==0u){out.y=0.;}textureStore(dst,vec3i(i),vec4f(out,0));
@@ -158,7 +176,7 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  if(i.x==0u){out.x=min(out.x,0.);}if(i.x==N){out.x=max(out.x,0.);}
  if(i.z==0u){out.z=min(out.z,0.);}if(i.z==N){out.z=max(out.z,0.);}
  if(i.y==N){out.y=max(out.y,0.);}
- let expansion=s*45.*p.dynamics.y+flameActivity(c)*1.2;
+ let expansion=s*select(45.,10.,isWoodBed())*p.dynamics.y+flameActivity(c)*1.2;
  textureStore(dst,vec3i(i),vec4f(out,expansion));
 }`;
 const advectScalar=common+`
@@ -307,6 +325,16 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
    if(p.effect.x>18.5){extent=vec3f(.45);}
    sourceLive=all(nearQ<=extent);
   }
+  if(isWoodBed()){
+   sourceLive=false;
+   // Include every pocket's r²<=25 support plus the brick extent. This is the
+   // same numerical tail cutoff as the original Gaussian source bound.
+   if(all(nearQ<=vec3f(.96,.30,.80))){for(var pocket=0u;pocket<6u;pocket++){
+    let center=p.source.xyz+bedCentre(pocket)*p.effect.y;
+    let near=max(abs(at-center)-vec3f(halfBrick),vec3f(0))/p.effect.y/vec3f(.13,.055,.12);
+    sourceLive=sourceLive||dot(near,near)<=25.;
+   }}
+  }
  }
  if(object.options.x>.5){
   let center=clamp(at,object.origin.xyz-vec3f(1.49*object.origin.w),object.origin.xyz+vec3f(1.49*object.origin.w));
@@ -339,6 +367,24 @@ fn at(i:vec3i)->f32{let sx=select(1.,-1.,i.x<0||i.x>=N);let sy=select(1.,-1.,i.y
 fn sum(i:vec3i)->f32{return at(i+vec3i(1,0,0))+at(i-vec3i(1,0,0))+at(i+vec3i(0,1,0))+at(i-vec3i(0,1,0))+at(i+vec3i(0,0,1))+at(i-vec3i(0,0,1));}
 `;
 return {
+ // The 4^3 coarse grid fits in one workgroup. Keep all 24 Jacobi
+ // iterations in shared memory, with the same f32 arithmetic and boundaries.
+ ...(n===4?{coarse:common+`
+var<workgroup> values:array<f32,64>;
+var<workgroup> next:array<f32,64>;
+fn localAt(i:vec3i)->f32{
+ let sx=select(1.,-1.,i.x<0||i.x>=4);let sy=select(1.,-1.,i.y>=4);let sz=select(1.,-1.,i.z<0||i.z>=4);
+ let q=clamp(i,vec3i(0),vec3i(3));return sx*sy*sz*values[u32(q.x+4*(q.y+4*q.z))];
+}
+@compute @workgroup_size(4,4,4) fn main(@builtin(local_invocation_id) id:vec3u,@builtin(local_invocation_index) lane:u32){
+ let i=vec3i(id);let rhs=textureLoad(b,i,0).x;values[lane]=textureLoad(p,i,0).x;workgroupBarrier();
+ for(var j=0u;j<24u;j++){
+  let neighbors=localAt(i+vec3i(1,0,0))+localAt(i-vec3i(1,0,0))+localAt(i+vec3i(0,1,0))+localAt(i-vec3i(0,1,0))+localAt(i+vec3i(0,0,1))+localAt(i-vec3i(0,0,1));
+  next[lane]=mix(values[lane],(neighbors+rhs)/6.,.6666667);workgroupBarrier();
+  values[lane]=next[lane];workgroupBarrier();
+ }
+ textureStore(dst,i,vec4f(values[lane]));
+}`}:{}),
  smooth:common+`@compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) id:vec3u){if(any(id>=vec3u(u32(N)))){return;}let i=vec3i(id);textureStore(dst,i,vec4f(mix(at(i),(sum(i)+textureLoad(b,i,0).x)/6.,.6666667)));}`,
  restrict:common+`@group(0) @binding(3) var zero:texture_storage_3d<r32float,write>;
  @compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) id:vec3u){if(any(id>=vec3u(u32(N/2)))){return;}var r=0.;for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){let i=vec3i(id)*2+vec3i(x,y,z);r+=textureLoad(b,i,0).x-6.*at(i)+sum(i);}}}textureStore(dst,vec3i(id),vec4f(r*.5));textureStore(zero,vec3i(id),vec4f(0));}`,

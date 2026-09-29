@@ -4,6 +4,22 @@ window.FireProps = `
   uniform int visibleEmitter;
   uniform float inspectionLight;
   uniform vec2 sourcePosition;
+  uniform float sourceScale;
+  uniform highp sampler3D objectTex;
+  float objectDistanceAt(vec3 world,vec3 center){
+    vec3 uv=((world-center)/sourceScale+vec3(1.5))/3.;
+    if(any(lessThan(uv,vec3(0)))||any(greaterThan(uv,vec3(1))))
+      return (length(max(abs((world-center)/sourceScale)-vec3(1.5),vec3(0)))+.01)*sourceScale;
+    return texture(objectTex,uv).r*sourceScale;
+  }
+  vec3 objectNormalAt(vec3 world,vec3 center){
+    float h=.055*sourceScale;
+    vec3 g=vec3(
+      objectDistanceAt(world+vec3(h,0,0),center)-objectDistanceAt(world-vec3(h,0,0),center),
+      objectDistanceAt(world+vec3(0,h,0),center)-objectDistanceAt(world-vec3(0,h,0),center),
+      objectDistanceAt(world+vec3(0,0,h),center)-objectDistanceAt(world-vec3(0,0,h),center));
+    return g/max(length(g),.0001);
+  }
   float sphereHit(vec3 eye,vec3 ray,vec3 center,float radius){
     vec3 q=eye-center;float b=dot(q,ray),h=b*b-dot(q,q)+radius*radius;
     return h>0.?max(-b-sqrt(h),0.):1000.;
@@ -18,23 +34,42 @@ window.FireProps = `
   }
   bool sourceProp(vec3 eye,vec3 ray,inout float distance,out vec3 color){
     color=vec3(0);
-    if(visibleEmitter!=1&&visibleEmitter!=2)return false;
+    if(visibleEmitter!=1&&visibleEmitter!=2&&(visibleEmitter<16||visibleEmitter>20))return false;
     vec3 c=vec3(-7.+sourcePosition.x*14.,-1.05+sourcePosition.y*7.875,0.);
     vec3 n=vec3(0);float hit=distance;
-    if(visibleEmitter==1){
-      capsuleHit(eye,ray,c+vec3(-.95,-.17,-.34),c+vec3(.95,-.17,.34),.18,hit,n);
-      capsuleHit(eye,ray,c+vec3(-.90,-.17,.37),c+vec3(.90,-.17,-.37),.18,hit,n);
-      capsuleHit(eye,ray,c+vec3(-.65,.05,-.42),c+vec3(.65,.05,.42),.16,hit,n);
+    if(visibleEmitter>=16&&visibleEmitter<=20){
+      float t=sphereHit(eye,ray,c,2.65*sourceScale);
+      if(t>=distance)return false;
+      for(int i=0;i<52;i++){
+        vec3 p=eye+ray*t;
+        float sdf=objectDistanceAt(p,c);
+        if(abs(sdf)<.042*sourceScale){hit=t;n=objectNormalAt(p,c);break;}
+        t+=max(abs(sdf)*.78,.028*sourceScale);
+        if(t>=distance||t>20.)break;
+      }
+    } else if(visibleEmitter==1){
+      capsuleHit(eye,ray,c+vec3(-.95,-.17,-.34)*sourceScale,c+vec3(.95,-.17,.34)*sourceScale,.18*sourceScale,hit,n);
+      capsuleHit(eye,ray,c+vec3(-.90,-.17,.37)*sourceScale,c+vec3(.90,-.17,-.37)*sourceScale,.18*sourceScale,hit,n);
+      capsuleHit(eye,ray,c+vec3(-.65,.05,-.42)*sourceScale,c+vec3(.65,.05,.42)*sourceScale,.16*sourceScale,hit,n);
     } else {
       capsuleHit(eye,ray,c+vec3(0,-.85,0),c+vec3(0,-.18,0),.095,hit,n);
       capsuleHit(eye,ray,c+vec3(0,-.24,0),c+vec3(0,-.06,0),.19,hit,n);
     }
     if(hit>=distance)return false;
     distance=hit;vec3 at=eye+ray*hit;
-    vec3 albedo=visibleEmitter==1?vec3(.14,.065,.025):vec3(.23,.24,.26);
+    vec3 albedo=visibleEmitter==1?vec3(.14,.065,.025):visibleEmitter==2?vec3(.23,.24,.26)
+      :visibleEmitter==18?vec3(.16,.18,.19):visibleEmitter==19?vec3(.32,.28,.24)
+      :visibleEmitter==20?vec3(.12,.075,.035):vec3(.18,.09,.04);
     if(visibleEmitter==1){
       float grain=sin(at.z*65.+at.y*43.+sin(at.x*3.)*.7);
       albedo*=.45+.55*smoothstep(-.5,.8,grain);
+    }
+    if(visibleEmitter>=16&&visibleEmitter<=20){
+      vec3 uv=((at-c)/sourceScale+vec3(1.5))/3.;vec4 material=texture(objectTex,clamp(uv,vec3(0),vec3(1)));
+      if(visibleEmitter==20&&material.w>7.5)albedo=vec3(.035,.11,.035);
+      if(visibleEmitter==18&&material.y<.05)albedo=vec3(.21,.24,.26);
+      float grain=sin(at.y*41.+at.x*17.+at.z*27.);
+      albedo*=.84+.16*grain;
     }
     for(int i=0;i<32;i++){
       vec3 light,power;roomLight(i,light,power);vec3 d=light-at;float r2=max(dot(d,d),.001);

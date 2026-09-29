@@ -5,8 +5,10 @@ export function studioUI(onVisibility) {
     presenting = false,
     previousPanel = 'scene';
   const badge = $('#session-status');
+  const panels = new Set(['scene', 'library', 'lighting']);
 
-  function showPanel(next) {
+  function showPanel(next, focus = false) {
+    if (!panels.has(next)) next = 'scene';
     panel = next;
     document.body.dataset.panel = next;
     $('#library-panel').hidden = next !== 'library';
@@ -16,6 +18,11 @@ export function studioUI(onVisibility) {
       button.setAttribute('aria-pressed', String(button.dataset.panel === next));
     }
     onVisibility(next !== 'library');
+    if (focus) {
+      const target = next === 'library' ? $('#library-category') : next === 'lighting'
+        ? $('#lighting-preset') : $('#view');
+      target?.focus({ preventScroll: true });
+    }
   }
 
   function present(value) {
@@ -32,7 +39,7 @@ export function studioUI(onVisibility) {
     document.body.dataset.demo = String(value);
     $('#demo-mode').textContent = value ? 'Exit presentation' : 'Present';
     $('#demo-mode').setAttribute('aria-pressed', String(value));
-    if (!value) showPanel(previousPanel);
+    if (!value) showPanel(previousPanel, true);
   }
 
   for (const button of document.querySelectorAll('[data-panel]')) {
@@ -56,21 +63,24 @@ export function studioUI(onVisibility) {
       $('#view-state-title').textContent = 'Preparing fire';
       $('#view-state-description').textContent = 'Loading the selected simulation.';
       $('#recovery-actions').hidden = true;
+      $('#view').setAttribute('aria-busy', 'true');
     },
     ready() {
       badge.textContent = 'Ready';
       badge.dataset.state = 'ready';
       $('#view-state').hidden = true;
+      $('#view').setAttribute('aria-busy', 'false');
     },
     failure(error, kind) {
       badge.textContent = 'Unavailable';
       badge.dataset.state = 'error';
       $('#view-state').hidden = false;
       $('#view-state-title').textContent = 'Simulation unavailable';
-      $('#view-state-description').textContent = error.message || String(error);
+      $('#view-state-description').textContent = error?.message || String(error);
       $('#recovery-actions').hidden = false;
+      $('#view').setAttribute('aria-busy', 'false');
       $('#use-original').hidden = kind === 'legacy';
-      for (const button of document.querySelectorAll('.playback-bar button, #benchmark'))
+      for (const button of document.querySelectorAll('.playback-bar button, .camera-bar button, .camera-bar input, #benchmark'))
         button.disabled = true;
       $('#message').textContent = 'Choose another simulation or try again.';
     },

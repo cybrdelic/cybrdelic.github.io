@@ -15,6 +15,7 @@ window.createFireRoom = () => {
   ${window.FireOptics}
   uniform sampler2D roomPowerTex;
   uniform sampler2D roomMomentTex;
+  uniform float fireLightGain;
   uniform vec3 ambientLight;
   uniform vec3 spotPosition[2],spotDirection[2],spotPower[2];
   uniform vec2 spotCone[2];
@@ -30,7 +31,7 @@ window.createFireRoom = () => {
   void roomLight(int i,out vec3 position,out vec3 power){
     ivec2 cell=ivec2(i%8,i/8);
     vec4 energy=texelFetch(roomPowerTex,cell,0);
-    power=energy.rgb*roomLightScale;
+    power=energy.rgb*roomLightScale*fireLightGain;
     position=roomMin+roomExtent*texelFetch(roomMomentTex,cell,0).xyz/max(energy.a,.00001);
   }
   `;
@@ -262,7 +263,8 @@ window.createFireRoom = () => {
       }
       `;
     }
-    update(vf,chem,gasFlame=0,shadeRoom=true,roomVisible=true) {
+    update(vf,chem,gasFlame=0,shadeRoom=true,roomVisible=true,tint=[1,1,1],tintStrength=0,fireLightGain=1) {
+      this.fireLightGain=fireLightGain;
       const gl=this.gl;
       const bind=(program,name,tex,unit)=>{gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(program.u(name),unit);};
       const begin=(program,target)=>{gl.useProgram(program.p);gl.bindFramebuffer(gl.FRAMEBUFFER,target.fbo);gl.viewport(0,0,target.width,target.height);};
@@ -270,6 +272,8 @@ window.createFireRoom = () => {
       for(const unit of [9,10,11,12]) {gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,null);}
       begin(this.gather,this.levels[0]);bind(this.gather,'velocity',vf,0);bind(this.gather,'chemistry',chem,1);
       gl.uniform1f(this.gather.u('gasFlame'),gasFlame);
+      gl.uniform3fv(this.gather.u('flameTint'),tint);
+      gl.uniform1f(this.gather.u('tintStrength'),tintStrength);
       gl.drawArrays(gl.TRIANGLES,0,3);
       for(let i=1;i<this.levels.length;i++) {
         const from=this.levels[i-1],to=this.levels[i];begin(this.reduce,to);
@@ -287,6 +291,7 @@ window.createFireRoom = () => {
         // A sampler must never alias the framebuffer being written.
         bind(program,'directReceiverTex',bounce?this.receivers.textures[0]:this.levels[0].textures[2],3);
         window.SceneLights.bind(gl,program.u,roomVisible);
+        gl.uniform1f(program.u('fireLightGain'),fireLightGain);
         gl.uniform1f(program.u('includeBounce'),bounce?1:0);
         gl.drawArrays(gl.TRIANGLES,0,3);
       };
@@ -300,6 +305,7 @@ window.createFireRoom = () => {
     }
     bind(program,uniform) {
       const gl=this.gl;
+      gl.uniform1f(uniform(program,'fireLightGain'),this.fireLightGain??1);
       for(const [name,texture,unit] of [['roomPowerTex',this.levels[4].textures[0],9],['roomMomentTex',this.levels[4].textures[1],10],['roomSmokeTex',this.illumination.textures[0],11],['roomReceiverTex',this.receiverTexture,12]]) {
         gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(uniform(program,name),unit);
       }

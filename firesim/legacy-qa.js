@@ -2,6 +2,8 @@
 export function legacyProbe(gl){
  const params=new URL(location.href).searchParams,name=params.get('qa');
  if(!name)return {begin(){},end(){},poll(){}};
+ const debug=gl.getExtension('WEBGL_debug_renderer_info');
+ const renderer=gl.getParameter(debug?debug.UNMASKED_RENDERER_WEBGL:gl.RENDERER);
  const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2'),pending=[],samples=[];
  let current,finished=false,last,first;
  function poll(paused=false){
@@ -11,7 +13,7 @@ export function legacyProbe(gl){
   if(paused&&!pending.length&&samples.length&&!finished){
    finished=true;const timed=samples.filter(s=>s.drawn),gpu=timed.map(s=>s.gpuMs).filter(Number.isFinite).sort((a,b)=>a-b);
    const stat=a=>a.length?{median:a[Math.floor(a.length*.5)],p95:a[Math.floor(a.length*.95)],mean:a.reduce((x,y)=>x+y,0)/a.length}:null;
-   fetch('/capture/'+name+'.json',{method:'POST',body:JSON.stringify({samples,frames:timed.length,gpuMs:stat(gpu),wallSeconds:(last-first)/1000,simulationTime:timed.at(-1)?.time,glError:gl.getError()})}).catch(console.error);
+   fetch('/capture/'+name+'.json',{method:'POST',body:JSON.stringify({renderer,samples,frames:timed.length,gpuMs:stat(gpu),wallSeconds:(last-first)/1000,simulationTime:timed.at(-1)?.time,glError:gl.getError()})}).catch(console.error);
   }
  }
  return {

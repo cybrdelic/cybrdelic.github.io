@@ -1,5 +1,8 @@
-import {runtimeScope} from './runtime-scope.js?v=studio-rc-3';
-import {legacyProbe} from './legacy-qa.js?v=studio-rc-3';
+import {runtimeScope} from './runtime-scope.js?v=95fcf488354ba45d';
+import {legacyProbe} from './legacy-qa.js?v=95fcf488354ba45d';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=95fcf488354ba45d';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=95fcf488354ba45d';
+import {emitterKindFor} from './original-source-profile.js?v=95fcf488354ba45d';
 export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -17,6 +20,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   let stateRevision=0, roomLightRevision=-1, smokeLightRevision=-1, propLightRevision=-1;
   let lightingRevision=-1;
   let turbulenceTexture;
+  let objectTexture,emptyObjectTexture;
+  const objectModels=new Map();
   const canvas = document.querySelector('#fire');
   const view = document.querySelector('#view');
   const message = document.querySelector('#message');
@@ -29,6 +34,35 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const zoomControl = document.querySelector('#zoom');
   const focusButton = document.querySelector('#focus-fire');
   const fullscreenButton = document.querySelector('#fullscreen');
+  const smokeControl = document.querySelector('#smoke-only');
+  const colorControl = document.querySelector('#flame-color');
+  const fireLightControl = document.querySelector('#fire-light');
+  const benchmarkButton = document.querySelector('#benchmark');
+  let inspectSmoke=false,flameColor='natural',fireLight=24,measurement=null;
+  const markAppearance=()=>{roomLightRevision=-1;propLightRevision=-1;needsDraw=true;};
+  colorControl.replaceChildren(...FIRE_COLORS.map(c=>new Option(c.name,c.id)));
+  colorControl.onchange=()=>{flameColor=colorControl.value;markAppearance();};
+  smokeControl.onchange=()=>{inspectSmoke=smokeControl.checked;needsDraw=true;};
+  smokeControl.title='Hide visible flame while keeping combustion, smoke and fire illumination running.';
+  const setFireLight=value=>{
+    fireLight=Math.max(0,Math.min(80,Number(value)||0));
+    fireLightControl.value=fireLight;
+    document.querySelector('#fire-light-value').value=fireLight.toFixed(0);
+    markAppearance();
+  };
+  fireLightControl.oninput=()=>setFireLight(fireLightControl.value);
+  benchmarkButton.onclick=()=>{
+    if(paused){document.querySelector('#gpu-status').textContent='Resume the simulation before measuring.';return;}
+    measurement={start:performance.now(),last:null,intervals:[],steps:0};
+    benchmarkButton.disabled=true;
+    document.querySelector('#gpu-status').textContent='Measuring 180 rendered frames…';
+  };
+  const cancelMeasurement=()=>{
+    if(!measurement)return;
+    measurement=null;benchmarkButton.disabled=false;
+    document.querySelector('#gpu-status').textContent='Measurement stopped while the scene was hidden.';
+  };
+  on(document,'visibilitychange',()=>{if(document.hidden)cancelMeasurement();});
   let viewZoom=1, panX=0, panY=0, panTool=false, panGesture=null;
   const lensTan=()=>.3443276133/viewZoom;
   let roomEnabled = new URL(location.href).searchParams.get('room') !== '0';
@@ -51,7 +85,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   if (!gl) { await scope.stop(); throw new Error('WebGL 2 is unavailable in this browser session. Reload or reopen the browser.'); }
   if (!gl.getExtension('EXT_color_buffer_float')) { await scope.stop(); gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('Floating point GPU targets are unavailable in this browser.'); }
   const probe=legacyProbe(gl);
-  const halfFloatLinear = !!gl.getExtension('OES_texture_float_linear');
+  gl.getExtension('OES_texture_float_linear');
 
   const vertex = `#version 300 es
   precision highp float;
@@ -109,6 +143,10 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   uniform vec2 brushTo;
   uniform float brushActive;
   uniform float sourceEnabled;
+  uniform float smokeOnly;
+  uniform float presetBuoyancy;
+  uniform float sourceHeat;
+  uniform float coolingScale;
   ${window.FireEmitters}
   ${advection.correctionGLSL}
   layout(location=0) out vec4 outVF;
@@ -200,23 +238,24 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     if(emitterKind==6){
       float inject=1.-exp(-brush*delta*9.*fuelProfile.x);
       vec3 mixField=texture(noiseTex,local*.42+worldY*vec2(.31,-.22)+vec2(.17,.38)).rgb;
-      fuel=mix(fuel,mix(.45,.95,smoothstep(.28,.68,mixField.r)),inject);
+      fuel=mix(fuel,smokeOnly>.5?0.:mix(.45,.95,smoothstep(.28,.68,mixField.r)),inject);
       oxygen=mix(oxygen,mix(.035,.5,smoothstep(.28,.7,mixField.b)),inject);
-      temp=mix(temp,mix(.5,1.65,smoothstep(.28,.72,mixField.g)),inject);
-      soot=mix(soot,.035*fuelProfile.y,inject);
+      temp=mix(temp,smokeOnly>.5?.08:mix(.5,1.65,smoothstep(.28,.72,mixField.g))*sourceHeat,inject);
+      soot=mix(soot,(smokeOnly>.5?.75:.035)*fuelProfile.y,inject);
       vf.xyz=mix(vf.xyz,jet/simExtent,inject);
     }else{
     float gasFeed=brush*(1.0-exp(-1.8*delta))*fuelProfile.x;
     float pulse=.72+.28*sin(clock*47.0);
     if(emitterKind==1||emitterKind==2||emitterKind==5)pulse=mix(.72,1.08,texture(noiseTex,vec2(clock*.27+.13,clock*.07+.7)).r);
     float nozzle=clamp(brush*delta*20.0*pulse*fuelProfile.x,0.0,1.0);
-    fuel=mix(fuel,.22,gasFeed);
+    fuel=mix(fuel,smokeOnly>.5?0.:.22,gasFeed);
     oxygen=mix(oxygen,.80,gasFeed);
-    temp=mix(temp,.80,gasFeed);
-    fuel=mix(fuel,emitterKind==2?.42:.95,nozzle);
+    temp=mix(temp,smokeOnly>.5?.06:.80*sourceHeat,gasFeed);
+    fuel=mix(fuel,smokeOnly>.5?0.:emitterKind==2?.42:.95,nozzle);
     if(emitterKind==2)oxygen=mix(oxygen,.8,nozzle);
     else oxygen*=1.0-nozzle;
-    temp=mix(temp,emitterKind==2?.50:.85,nozzle);
+    temp=mix(temp,smokeOnly>.5?.06:(emitterKind==2?.50:.85)*sourceHeat,nozzle);
+    if(smokeOnly>.5)soot=mix(soot,.8*fuelProfile.y,nozzle);
     jet/=simExtent;
     jet.xy+=clamp(pointerMotion*.12,vec2(-.24),vec2(.24));
     vf.xyz=mix(vf.xyz,jet,nozzle);
@@ -225,7 +264,17 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     }
     }
 
-    float activation=sourceEnabled<.5&&emitterKind==6?smoothstep(.65,1.05,temp):sourceEnabled<.5&&emitterKind==2?clamp((temp-.25)/.24,0.,1.):clamp((temp-.15)/.22,0.,1.);
+    // Ambient cells retain transported/projected velocity, but need no
+    // combustion, turbulence or buoyancy work. Test after source injection so
+    // ignition is never skipped, and retain oxygen deficits until they mix out.
+    if(fuel+temp+soot<=.00001 && oxygen>=.99999){
+      vf.xyz*=exp(-delta*.30);
+      if(worldZ<.10)vf.y=max(vf.y,0.);
+      outVF=vec4(clamp(vf.xyz,vec3(-1.),vec3(1.)),0.);
+      outChem=vec4(0.,1.,0.,0.);
+      return;
+    }
+    float activation=smokeOnly>.5?0.:sourceEnabled<.5&&emitterKind==6?smoothstep(.65,1.05,temp):sourceEnabled<.5&&emitterKind==2?clamp((temp-.25)/.24,0.,1.):clamp((temp-.15)/.22,0.,1.);
     // Dilute transported remnants should extinguish instead of lighting up
     // long sub-voxel trails. Apply the smooth mixing limit in combustion.
     if(sourceEnabled<.5&&emitterKind==2)activation*=smoothstep(.015,.07,fuel)*smoothstep(.025,.12,oxygen);
@@ -233,24 +282,33 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     fuel=max(0.0,fuel-burn);
     oxygen=clamp(oxygen-burn/.7,0.0,1.0);
     float cooling=sourceEnabled>.5?1.15:emitterKind==1?2.2:emitterKind==2?2.5:emitterKind==3||emitterKind==4?3.2:emitterKind==6?.72:1.15;
-    temp=min(3.0,(temp+burn*5.5)*exp(-cooling*delta));
+    temp=min(3.0,(temp+burn*5.5)*exp(-cooling*coolingScale*delta));
     // Soot travels with the same corrected flow as heat and fuel. Fuel-rich
     // burning produces more soot; hot oxygen oxidizes it. Cold smoke survives
     // cooling, rather than disappearing with the flame's temperature.
-    float sootYield=mix(.45,1.55,1.0-oxygen)*fuelProfile.y;
+    float fuelBed=sourceEnabled<.5&&emitterKind==1?1.:0.;
+    float sootYield=mix(.45,1.55,1.0-oxygen)*fuelProfile.y*mix(1.,.75,fuelBed);
     soot+=burn*sootYield;
     float oxidized=soot*(1.0-exp(-1.2*oxygen*smoothstep(.7,1.8,temp)*delta));
     oxidized=min(oxidized,oxygen/.08);
-    soot=clamp((soot-oxidized)*exp(-.055*delta),0.0,8.0);
+    soot=clamp((soot-oxidized)*exp(-mix(.055,.22,fuelBed)*delta),0.0,8.0);
     oxygen=max(0.0,oxygen-oxidized*.08);
     temp=min(3.0,temp+oxidized*.3);
 
     // Buoyancy, resolved swirl and an interactive force all modify the live state.
     float n1=texture(noiseTex,p*vec2(1.6,1.2)+vec2(clock*.037,depth*.41)).r;
-    float n2=texture(noiseTex,p*vec2(4.2,3.0)+vec2(-clock*.08,depth*.83)).g;
+    // Reuse the second noise lookup for a finer, depth-varying velocity field.
+    // It folds the transported heat/reaction fronts instead of drawing detail
+    // on top of the final image or adding another full-screen sample pass.
+    vec2 fineNoise=textureLod(noiseTex,p*vec2(7.6,6.2)+vec2(-clock*.12,depth*1.37),1.5).rg;
+    float n2=fineNoise.g;
     float curl=(n1-n2)*(.035+.13*temp);
     vf.x+=curl*delta*(sourceEnabled<.5&&emitterKind==2?.8:5.0);
-    float buoyancy=sourceEnabled>.5?6.5:emitterKind==1?3.2:emitterKind==2?3.:emitterKind==3||emitterKind==4?.35:6.5;
+    if(emitterKind!=6 && smokeOnly<.5 && temp>.2){
+      vec2 fineFlow=vec2(fineNoise.r-.5,.5-fineNoise.g);
+      vf.xy+=fineFlow*delta*smoothstep(.2,1.2,temp)*vec2(3.2,2.4)/simExtent.xy;
+    }
+    float buoyancy=sourceEnabled>.5?6.5:emitterKind==1?3.2*sourceLift:emitterKind==2?3.:emitterKind==3||emitterKind==4?.35:emitterKind>=7?presetBuoyancy:6.5;
     if(sourceEnabled<.5 && emitterKind==6)buoyancy=mix(.3,3.6,smoothstep(.2,1.2,burstAge));
     vf.y+=(temp*buoyancy-soot*.32)*delta/simExtent.y;
     if(sourceEnabled<.5 && emitterKind==6 && temp>.18){
@@ -315,6 +373,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   uniform float customLighting;
   uniform float viewZoom;
   uniform vec2 viewPan;
+  uniform float inspectSmoke;
   layout(location=0) out vec4 outColor;
   vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.0,1.0);}
   void main(){
@@ -353,8 +412,10 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       float temp=c.b, soot=c.a;
       if(temp<=0.0 && soot<=0.0) continue;
       float reaction=fineDepth?field(vfTex,vec3(p,z/float(${DEPTH-1}))).a:layer(vfTex,p,z).a;
-      float sigma=clamp(sootExtinction(soot)+reaction*.025,0.0,24.0);
-      vec3 emission=fireEmission(reaction,temp)+sootEmission(soot,temp);
+      // Reacting gas absorbs as well as emits. A nearly transparent flame
+      // stacks dozens of bright layers into one pale sheet and hides gaps.
+      float sigma=clamp(sootExtinction(soot)+(1.-inspectSmoke)*reaction*(visibleEmitter==1?.42:.025),0.0,24.0);
+      vec3 emission=(1.-inspectSmoke)*(fireEmission(reaction,temp)+sootEmission(soot,temp));
       float stepLength=fireExtent.z/float(sampleCount)/(roomEnabled>.5?max(-ray.z,.1):1.);
       float opacity=1.0-exp(-sigma*stepLength);
       // Light is attenuated by the advected soot above this point. This gives
@@ -480,12 +541,24 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     bind(pressure.getCorrection(), 5, uniform(simProgram, 'pressureCorrectionTex'));
     bind(predictor, 6, uniform(simProgram, 'mcPredictorTex'));
     bind(vorticity.texture, 7, uniform(simProgram, 'vortexTex'));
+    gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_3D,objectTexture);gl.uniform1i(uniform(simProgram,'objectTex'),14);
     gl.activeTexture(gl.TEXTURE15);gl.bindTexture(gl.TEXTURE_3D,turbulenceTexture);gl.uniform1i(uniform(simProgram,'turbulenceTex'),15);
     gl.uniform3fv(uniform(simProgram, 'vortexOrigin'), vorticity.origin);
     gl.uniform3fv(uniform(simProgram, 'vortexSpan'), vorticity.span);
     gl.uniform1i(uniform(simProgram,'emitterKind'),emitterKind);
     gl.uniform1f(uniform(simProgram,'burstAge'),elapsed-burstStart);
-    gl.uniform3fv(uniform(simProgram,'fuelProfile'),fuelProfiles[fuelControl.value]);
+    const sourceShape=shapeFor(activePreset),profile=sharedPresets.get(activePreset);
+    gl.uniform1i(uniform(simProgram,'sourceEffectKind'),profile?.effect[0]??-1);
+    gl.uniform1f(uniform(simProgram,'objectVariation'),profile?.ignition==='all'?1:profile?.moisture==='damp'?2:profile?.ignition==='crown'?3:0);
+    gl.uniform1f(uniform(simProgram,'burstDuration'),profile?.effect[2]||.10);
+    const fuel=fuelProfiles[fuelControl.value];
+    gl.uniform3f(uniform(simProgram,'fuelProfile'),fuel[0]*sourceShape[2]*(profile?.chemistry[0]||1),fuel[1]*(profile?.chemistry[2]||1),fuel[2]);
+    gl.uniform1f(uniform(simProgram,'sourceScale'),sourceShape[0]);
+    gl.uniform1f(uniform(simProgram,'sourceLift'),sourceShape[1]);
+    gl.uniform1f(uniform(simProgram,'presetBuoyancy'),(profile?.dynamics[3]||1)*4.);
+    gl.uniform1f(uniform(simProgram,'sourceHeat'),profile?.chemistry[1]||1);
+    gl.uniform1f(uniform(simProgram,'coolingScale'),1/Math.max(.4,profile?.chemistry[1]||1));
+    gl.uniform1f(uniform(simProgram,'smokeOnly'),profile?.smokeSimulation||activePreset==='smoke-burst'?1:0);
     gl.uniform1f(uniform(simProgram, 'clock'), elapsed);
     gl.uniform1f(uniform(simProgram, 'delta'), STEP);
     gl.uniform2f(uniform(simProgram, 'pointer'), pointer.x, pointer.y);
@@ -502,7 +575,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     current = 1 - current;
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, null);
     const blastAge=elapsed-burstStart;
-    const expansion=freeMode&&emitterKind===6?1.25+380.*Math.exp(-Math.max(blastAge,0)*14.):0;
+    const expansion=freeMode&&emitterKind===6?1.25+380.*(sharedPresets.get(activePreset)?.dynamics[1]||1)*Math.exp(-Math.max(blastAge,0)*14.):freeMode&&emitterKind===1?1.2:0;
     pressure.update(targets[current].vf,expansion);
     stateRevision++;
     pointer.vx *= .48; pointer.vy *= .48;
@@ -510,10 +583,11 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   function draw() {
     // Camera changes do not change emission or soot. Reuse their illumination
     // while paused so inspecting the volume does not rebuild all shadow maps.
-    const hasProps=freeMode&&(emitterKind===1||emitterKind===2);
+    const hasProps=freeMode&&(emitterKind===1||emitterKind===2||(emitterKind>=16&&emitterKind<=20));
     const litVolume=roomEnabled||window.SceneLights.active;
     if(lightingRevision!==window.SceneLights.revision||(litVolume?roomLightRevision!==stateRevision:hasProps&&propLightRevision!==stateRevision)){
-      room.update(targets[current].vf,targets[current].chem,fuelControl.value==='gas'?1:0,litVolume,roomEnabled);
+      const color=FIRE_COLORS.find(c=>c.id===flameColor);
+      room.update(targets[current].vf,targets[current].chem,fuelControl.value==='gas'?1:0,litVolume,roomEnabled,color?.rgb||[1,1,1],flameColor==='natural'?0:1,fireLight/24);
       propLightRevision=stateRevision;roomLightRevision=litVolume?stateRevision:-1;lightingRevision=window.SceneLights.revision;
     }
     if(!litVolume && smokeLightRevision!==stateRevision){
@@ -523,14 +597,20 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     gl.viewport(0, 0, RW, RH);
     bind(targets[current].vf, 0, uniform(renderProgram, 'vfTex'));
     bind(targets[current].chem, 1, uniform(renderProgram, 'chemTex'));
+    gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_3D,objectTexture);gl.uniform1i(uniform(renderProgram,'objectTex'),14);
     bind(smokeLight.texture, 8, uniform(renderProgram, 'smokeLightTex'));
     room.bind(renderProgram,uniform);
     window.SceneLights.bind(gl,name=>uniform(renderProgram,name),roomEnabled);
     gl.uniform1f(uniform(renderProgram,'customLighting'),window.SceneLights.active?1:0);
     gl.uniform1f(uniform(renderProgram,'gasFlame'),fuelControl.value==='gas'?1:0);
+    const tint=FIRE_COLORS.find(c=>c.id===flameColor);
+    gl.uniform3fv(uniform(renderProgram,'flameTint'),tint?.rgb||[1,1,1]);
+    gl.uniform1f(uniform(renderProgram,'tintStrength'),flameColor==='natural'?0:1);
+    gl.uniform1f(uniform(renderProgram,'inspectSmoke'),inspectSmoke?1:0);
     gl.uniform1i(uniform(renderProgram,'visibleEmitter'),freeMode?emitterKind:0);
     gl.uniform1f(uniform(renderProgram,'inspectionLight'),litVolume?0:1);
     gl.uniform2f(uniform(renderProgram,'sourcePosition'),brush.x,brush.y);
+    gl.uniform1f(uniform(renderProgram,'sourceScale'),shapeFor(activePreset)[0]);
     gl.uniform1f(uniform(renderProgram,'roomEnabled'),roomEnabled?1:0);
     gl.uniform1f(uniform(renderProgram,'cameraTan'),lensTan());
     gl.uniform1f(uniform(renderProgram,'viewZoom'),viewZoom);
@@ -554,12 +634,33 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const fuelControl=document.querySelector('#fuel');
   const burstButton=document.querySelector('#burst');
   const fuelProfiles={wood:[1,1,1],gas:[.85,.22,1.25],oil:[1.15,2.4,.85]};
-  const presets={sigil:0,free:0,campfire:1,torch:2,ring:3,sphere:4,wall:5,explosion:6};
+  const sharedPresets=new Map(FIRE_PRESETS.map(p=>[p.id,p]));
+  // Three distinct wood beds share the same coupled fluid and combustion.
+  // Scale the fuel footprint, log receiver and lift together.
+  const sourceShapes={campfire:[1,1,1],bonfire:[1.48,.82,1.12],hearth:[.68,.64,.78]};
+  async function loadObject(name){
+    if(objectModels.has(name))return objectModels.get(name);
+    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=95fcf488354ba45d');
+    if(!response.ok)throw new Error('Object geometry missing: '+name);
+    const bytes=await response.arrayBuffer();
+    if(bytes.byteLength!==64*64*64*8)throw new Error('Object geometry has an invalid size: '+name);
+    const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,texture);
+    gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T,gl.TEXTURE_WRAP_R])gl.texParameteri(gl.TEXTURE_3D,axis,gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,64,64,64,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array(bytes));
+    objectModels.set(name,texture);return texture;
+  }
+  const presets={sigil:0,free:0,campfire:1,bonfire:1,hearth:1,torch:2,ring:3,sphere:4,wall:5,explosion:6};
+  const shapeFor=key=>sourceShapes[key]||[sharedPresets.get(key)?.effect[1]||1,Math.max(.35,Math.min(2,(sharedPresets.get(key)?.dynamics[0]||.5)/.5)),1];
   function describeSource(){
     const name=presetControl.selectedOptions[0].textContent;
-    message.textContent=emitterKind===6?'Explosion · click to burst again':`${name} · drag to move the source`;
+    message.textContent=emitterKind===6?`${name} · click to burst again`:`${name} · drag to move the source`;
     help.textContent=emitterKind===6
       ? 'Click to detonate at the cursor, or use Trigger burst. Each burst adds to the live smoke. Pause to inspect the expansion.'
+      : emitterKind>=16&&emitterKind<=20
+      ? 'Original uses the object distance field and a simpler finite surface burn. Choose 3D volume to inspect detailed moisture, char and damage.'
       : 'Click or drag to place the source. Release to keep burning. Stop fuel lets the flame die while its smoke drifts.';
     canvas.setAttribute('aria-label',`${name}. ${help.textContent}`);
   }
@@ -570,17 +671,24 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     document.querySelector('#pause').textContent='Pause';
     describeSource();
   }
-  function selectPreset(key,frameSource=true){
-    if((key==='explosion')!==domain.blast){onRemount(key);return;}
-    activePreset=key;presetControl.value=key;emitterKind=presets[key];freeMode=key!=='sigil';
+  async function selectPreset(key,frameSource=true){
+    const profile=sharedPresets.get(key);
+    if(((profile?.effect[0]===0)||false)!==domain.blast||!!profile?.object!==domain.object){onRemount(key);return;}
+    objectTexture=profile?.object?await loadObject(profile.object):emptyObjectTexture;
+    activePreset=key;presetControl.value=key;emitterKind=presets[key]??emitterKindFor(profile);
+    fuelControl.value=profile?.fuel||'wood';
+    flameColor=profile?.color||'natural';colorControl.value=flameColor;
+    inspectSmoke=!!profile?.smokeSimulation||key==='smoke-burst';smokeControl.checked=inspectSmoke;
+    measurement=null;benchmarkButton.disabled=false;
+    freeMode=!['sigil','sigil-cybr','violet-sigil'].includes(key);
     pointer.down=false;pointer.id=null;pointer.active=false;endPan();setTool(false);
     reset();burstStart=-100;
     extinguishButton.hidden=!freeMode;
     burstButton.hidden=emitterKind!==6;
     restartButton.textContent=key==='free'?'Clear fire':'Restart';
     focusButton.disabled=true;
-    brush.x=brush.fromX=.5;
-    const height=key==='ring'?1.65:key==='sphere'?1.6:key==='explosion'?.5:key==='torch'?1.1:key==='campfire'?.36:.2;
+    brush.x=brush.fromX=((profile?.source?.[0]??0)-MINX)/WX;
+    const height=profile?.source?.[1]??(key==='ring'?1.65:key==='sphere'?1.6:emitterKind===6?.5:key==='torch'?1.1:key==='hearth'?.28:emitterKind===1?.36:.2);
     brush.y=brush.fromY=(height-MINY)/WY;
     paused=false;document.querySelector('#pause').textContent='Pause';lastFrame=performance.now();
     if(freeMode && key!=='free')ignite();
@@ -616,7 +724,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   }
   function point(e) {
     const at=scenePoint(e);
-    const base=emitterKind===1?.36:emitterKind===2?1.0:emitterKind===3?1.5:emitterKind===4?.85:.08;
+    const base=Math.max(sharedPresets.get(activePreset)?.minHeight||0,emitterKind===1?.36:emitterKind===2?1.0:emitterKind===3?1.5:emitterKind===4?.85:.08);
     const x=Math.max(.02,Math.min(.98,at.x)),y=Math.max((base-MINY)/WY,Math.min(.96,at.y));
     const now = performance.now();
     const dt = Math.max(.01, (now - pointer.last) / 1000);
@@ -718,7 +826,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     if(!freeMode)return;
     const lift=emitterKind===3?.15:emitterKind===4?0:emitterKind===1||emitterKind===2?.65:emitterKind===6?1.65:1.1;
     panX=MINX+brush.x*WX;panY=MINY+brush.y*WY+lift-2.4;
-    viewZoom=emitterKind===4?2.5:emitterKind===3?1.55:emitterKind===5?1.3:emitterKind===6?1.25:2.25;
+    viewZoom=emitterKind===4?2.5:emitterKind===3?1.55:emitterKind===5?1.3:emitterKind===6?1.25:activePreset==='bonfire'?1.85:activePreset==='hearth'?2.5:2.25;
     updateView();
   }
   focusButton.onclick=focusSource;
@@ -728,13 +836,19 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   };
   on(document,'fullscreenchange',()=>{fullscreenButton.textContent=document.fullscreenElement?'Exit fullscreen':'Fullscreen';needsDraw=true;});
   updateView();
-  const updateLightLabel=()=>{sceneLabel.textContent=roomEnabled?(window.SceneLights.active?'Scene lighting · etched stone':'Fire-lit room · etched stone'):'Fire and smoke · black background';};
+  const updateLightLabel=()=>{
+    sceneLabel.textContent=roomEnabled?(window.SceneLights.active?'Scene lighting · etched stone':'Fire-lit room · etched stone'):'Fire and smoke · black background';
+    fireLightControl.disabled=!roomEnabled&&!window.SceneLights.active;
+    document.querySelector('.fire-light-control small').textContent=fireLightControl.disabled
+      ? 'Enable the room or scene lights to inspect fire illumination. Black view uses smoke inspection fill.'
+      : 'Light cast by the flame onto smoke, props and the room.';
+  };
   on(window,'scene-light-change',()=>{needsDraw=true;updateLightLabel();});
   updateLightLabel();
   roomToggle.onchange=()=>{
     roomLightRevision=-1;lightingRevision=-1;
     roomEnabled=roomToggle.checked;orbitControl.disabled=!roomEnabled;needsDraw=true;
-    sceneLabel.textContent=roomEnabled?'Fire-lit room · etched stone':'Fire and smoke · black background';
+    updateLightLabel();
   };
   orbitControl.oninput=()=>{viewAngle=Number(orbitControl.value);updateView();};
   document.querySelector('#pause').onclick = () => { paused = !paused; document.querySelector('#pause').textContent = paused ? 'Resume' : 'Pause'; };
@@ -780,6 +894,21 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     }
     const drawn=steps>0||needsDraw;
     if (drawn) { draw(); observedDraws++; needsDraw = false; }
+    if(measurement){
+      if(paused){measurement=null;benchmarkButton.disabled=false;document.querySelector('#gpu-status').textContent='Measurement stopped while paused.';}
+      else {
+        measurement.steps+=steps;
+        if(drawn){
+          if(measurement.last!==null)measurement.intervals.push(now-measurement.last);
+          measurement.last=now;
+          if(measurement.intervals.length===179){
+            const duration=(now-measurement.start)/1000,sorted=[...measurement.intervals].sort((a,b)=>a-b);
+            document.querySelector('#gpu-status').textContent=`Render submissions ${(179000/measurement.intervals.reduce((sum,v)=>sum+v,0)).toFixed(1)} fps · frame interval p95 ${sorted[Math.ceil(sorted.length*.95)-1].toFixed(1)} ms · ${(measurement.steps/duration/30).toFixed(2)}× realtime. Browser frame pacing; GPU execution is not measured.`;
+            measurement=null;benchmarkButton.disabled=false;
+          }
+        }
+      }
+    }
     if(probing)probe.end({time:elapsed,steps,drawn});
     if (now - observedStart > 800) {
       const span = (now - observedStart) / 1000;
@@ -834,6 +963,10 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      // The fine velocity forcing samples a filtered mip to avoid sub-cell
+      // noise folding into a stationary grid pattern at the live resolution.
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       turbulenceTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,turbulenceTexture);
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T,gl.TEXTURE_WRAP_R])gl.texParameteri(gl.TEXTURE_3D,axis,gl.REPEAT);
       gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -841,9 +974,13 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       for(let z=0;z<64;z++)for(let y=0;y<64;y++)for(let x=0;x<64;x++)for(let c=0;c<4;c++)
         turbulence[((z*64+y)*64+x)*4+c]=Math.round(hash(x+z*71,y+z*37,c)*255);
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA8,64,64,64,0,gl.RGBA,gl.UNSIGNED_BYTE,turbulence);
+      emptyObjectTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,emptyObjectTexture);
+      gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
+      objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=95fcf488354ba45d').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=95fcf488354ba45d').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);
@@ -858,8 +995,9 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
         : 'Live GPU simulation · click to create fire';
       if(freeMode && pendingBrush)describeSource();
       const initialParams=new URL(location.href).searchParams;
+      await selectPreset(initialPreset);
       if(initialParams.has('fuel')&&fuelProfiles[initialParams.get('fuel')])fuelControl.value=initialParams.get('fuel');
-      selectPreset(initialPreset);
+      setFireLight(fireLight);
       scope.schedule(frame);
     } catch (err) {
       await scope.stop();
@@ -872,9 +1010,16 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   await start();
   return {
     async dispose(){await scope.stop();gl.getExtension('WEBGL_lose_context')?.loseContext();},
-    setVisible:scope.setVisible,
+    setVisible(value){if(!value)cancelMeasurement();scope.setVisible(value);},
     fire:selectPreset,
-    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:false,room:roomEnabled,camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
-    look(item){if(item.fuel)fuelControl.value=item.fuel;if(typeof item.room==='boolean'){roomToggle.checked=item.room;roomToggle.dispatchEvent(new Event('change'));}if(item.camera){viewZoom=item.camera.zoom??viewZoom;viewAngle=Math.max(-30,Math.min(30,item.camera.angle??viewAngle));[panX,panY]=item.camera.pan??[panX,panY];updateView();}}
+    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:inspectSmoke,color:flameColor,fireLight,room:roomEnabled,camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
+    look(item){
+      if(item.fuel)fuelControl.value=item.fuel;
+      if(FIRE_COLORS.some(c=>c.id===item.color)){flameColor=item.color;colorControl.value=flameColor;markAppearance();}
+      if(typeof item.smoke==='boolean'){inspectSmoke=item.smoke;smokeControl.checked=inspectSmoke;needsDraw=true;}
+      if(item.fireLight!==undefined)setFireLight(item.fireLight);
+      if(typeof item.room==='boolean'){roomToggle.checked=item.room;roomToggle.dispatchEvent(new Event('change'));}
+      if(item.camera){viewZoom=item.camera.zoom??viewZoom;viewAngle=Math.max(-30,Math.min(30,item.camera.angle??viewAngle));[panX,panY]=item.camera.pan??[panX,panY];updateView();}
+    }
   };
 }

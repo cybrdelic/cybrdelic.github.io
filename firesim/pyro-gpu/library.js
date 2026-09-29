@@ -1,6 +1,6 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=studio-rc-3';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=studio-rc-3';
-import { lookStore } from '../look-storage.js?v=studio-rc-3';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=95fcf488354ba45d';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=95fcf488354ba45d';
+import { lookStore } from '../look-storage.js?v=95fcf488354ba45d';
 
 const CATEGORIES = ['Demos', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [
@@ -14,16 +14,29 @@ const LIGHTING = [
   'bounce-check',
 ];
 
+export function filterLibrary(items, term = '', simulation = 'all', currentFire = '') {
+  const selected = simulation === 'current'
+    ? (currentFire.startsWith('legacy:') ? 'legacy' : 'volume') : simulation;
+  const query = term.trim().toLowerCase();
+  return items.filter((item) => {
+    const original = (item.fire || item.id || '').startsWith('legacy:');
+    return (item.kind === 'lighting' || selected === 'all' || original === (selected === 'legacy')) &&
+      [item.name, item.description, item.family, original ? 'original' : '3d volume']
+        .filter(Boolean).join(' ').toLowerCase().includes(query);
+  });
+}
+
 export function mountLibrary(api) {
   const library = document.createElement('div');
   library.id = 'preset-library';
   library.innerHTML = [
     '<div class="library-heading"><div><h1>Preset library</h1><p id="category-description"></p></div><span id="library-count"></span></div>',
     '<div class="library-toolbar"><label>Collection<select id="library-category" aria-label="Preset collection"></select></label>',
-    '<label class="library-search-label">Find a preset<input id="library-search" type="search" aria-label="Search presets" placeholder="Search this collection"></label></div>',
-    '<div class="preset-grid"></div><p id="library-status" role="status"></p>',
+    '<label id="library-simulation-label">Simulation<select id="library-simulation"><option value="current">Current simulation</option><option value="legacy">Original</option><option value="volume">3D volume · experimental</option><option value="all">All simulations</option></select></label>',
+    '<label class="library-search-label">Search<input id="library-search" type="search" aria-label="Search presets" aria-controls="preset-grid"></label></div>',
+    '<div class="preset-grid" id="preset-grid" aria-label="Presets"></div><p id="library-status" role="status" aria-live="polite"></p>',
     '<details class="saved-tools"><summary>Save &amp; manage looks</summary>',
-    '<form class="save-look"><label>Name this look<input id="look-name" type="text" maxlength="80" placeholder="My fire setup" required></label><button type="submit">Save current look</button><button type="button" id="export-looks">Export saved</button><label class="import-looks">Import saved<input type="file" id="import-looks" accept="application/json,.json"></label></form>',
+    '<form class="save-look"><label>Name this look<input id="look-name" type="text" maxlength="80" autocomplete="off" required></label><button type="submit">Save current look</button><button type="button" id="export-looks">Export saved</button><label class="import-looks">Import saved<input type="file" id="import-looks" accept="application/json,.json"></label></form>',
     '<p>Saved in this browser. Export a copy to use on another device.</p></details>',
   ].join('');
   document.querySelector('#library-panel').append(library);
@@ -31,7 +44,8 @@ export function mountLibrary(api) {
   const grid = $('.preset-grid'),
     status = $('#library-status'),
     search = $('#library-search'),
-    categoryControl = $('#library-category');
+    categoryControl = $('#library-category'),
+    simulationControl = $('#library-simulation');
   let category = 'Demos',
     activeScene = '',
     applying = false,
@@ -42,10 +56,10 @@ export function mountLibrary(api) {
   const saved = lookStore(storage, ALL_FIRE_PRESETS);
   categoryControl.append(...CATEGORIES.map((name) => new Option(name, name)));
   const descriptions = {
-    Demos: 'Complete starting scenes. Choose one, then use Present for a clean stage.',
-    Sources: 'Individual fire and smoke sources. Each card identifies its simulation.',
-    Lighting: 'A focused set of lighting rigs for presentation and inspection.',
-    Tests: 'Controlled inspections with fixed cameras, lighting, and instructions.',
+    Demos: 'Starting scenes for the selected simulation. Present hides the controls.',
+    Sources: 'Fire, smoke, sigils, and shapes. Switch the simulation filter to compare sources.',
+    Lighting: 'Light the current scene with a key, rim, ambient fill, or room bounce.',
+    Tests: 'Fixed cameras and lighting for checking smoke transport, shadows, and combustion.',
     Experiments: 'Work in progress. Geometry, effect quality, and performance vary.',
     Saved: 'Your fire, lighting, room, and camera combinations.',
   };
@@ -75,7 +89,9 @@ export function mountLibrary(api) {
     if (applying) return;
     const appliedCategory = category;
     applying = true;
-    render();
+    grid.setAttribute('aria-busy', 'true');
+    for (const button of grid.querySelectorAll('button')) button.disabled = true;
+    status.textContent = 'Applying ' + item.name + '…';
     try {
       if (item.kind === 'lighting') window.SceneLights.apply(item.id);
       else if (item.fire) await api.look({ ...item, lights: item.lights || item.lighting });
@@ -95,19 +111,19 @@ export function mountLibrary(api) {
   function render() {
     categoryControl.value = category;
     $('#category-description').textContent = descriptions[category];
-    const term = search.value.trim().toLowerCase();
-    const items = collection().filter((p) =>
-      (p.name + ' ' + (p.description || '')).toLowerCase().includes(term),
-    );
-    $('#library-count').textContent = items.length + (items.length === 1 ? ' preset' : ' presets');
-    grid.replaceChildren();
     const snapshot = api.snapshot();
+    $('#library-simulation-label').hidden = category === 'Lighting';
+    const items = filterLibrary(collection(), search.value, simulationControl.value, snapshot.fire);
+    $('#library-count').textContent = items.length + (items.length === 1 ? ' preset' : ' presets');
+    grid.setAttribute('aria-busy', String(applying));
+    grid.replaceChildren();
     for (const item of items) {
       const card = document.createElement('article');
       card.className = 'preset-card';
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'preset-apply';
+      button.dataset.preset = item.id;
       button.disabled = applying;
       button.setAttribute(
         'aria-pressed',
@@ -115,7 +131,7 @@ export function mountLibrary(api) {
           item.fire
             ? activeScene === category + item.id && snapshot.fire === item.fire
             : item.kind === 'lighting'
-              ? document.querySelector('#lighting-preset').value === item.id
+              ? document.querySelector('#lighting-preset')?.value === item.id
               : snapshot.fire === item.id,
         ),
       );
@@ -126,13 +142,16 @@ export function mountLibrary(api) {
           ? 'LIGHTING'
           : (item.fire || item.id).startsWith('legacy:')
             ? 'ORIGINAL'
-            : '3D VOLUME';
+            : '3D VOLUME · EXPERIMENTAL';
+      const source = ALL_FIRE_PRESETS.find((preset) => preset.id === (item.fire || item.id));
+      if (source?.id.startsWith('legacy:') && isExperimental(source)) type.textContent += ' · EXPERIMENTAL';
       if (item.preview) {
         const image = document.createElement('img');
         image.src = item.preview;
-        image.alt = 'Source geometry';
+        image.alt = item.name + ' source geometry';
         image.loading = 'lazy';
         image.className = 'source-preview';
+        image.onerror = () => { image.hidden = true; };
         button.append(image);
       }
       if (item.kind === 'lighting') {
@@ -153,7 +172,7 @@ export function mountLibrary(api) {
       heading.textContent = item.name;
       const description = document.createElement('span');
       description.className = 'preset-description';
-      description.textContent = item.description;
+      description.textContent = (item.description || '').replace(/^(Original|3D) simulation · /, '');
       button.append(type, heading, description);
       button.onclick = () => apply(item);
       card.append(button);
@@ -162,6 +181,7 @@ export function mountLibrary(api) {
         remove.type = 'button';
         remove.className = 'remove-look';
         remove.textContent = 'Remove';
+        remove.disabled = applying;
         remove.setAttribute('aria-label', 'Remove ' + item.name);
         remove.onclick = () => {
           try {
@@ -182,7 +202,18 @@ export function mountLibrary(api) {
       empty.textContent =
         category === 'Saved' && !saved.items.length
           ? 'No saved looks yet. Save your current setup below.'
-          : 'No matching presets. Try a different search.';
+          : 'No matching presets. Change the search or simulation filter.';
+      if (!search.value.trim() && category !== 'Lighting' && simulationControl.value !== 'all' && collection().length) {
+        const showAll = document.createElement('button');
+        showAll.type = 'button';
+        showAll.textContent = 'Show all simulations';
+        showAll.onclick = () => {
+          simulationControl.value = 'all';
+          render();
+          simulationControl.focus();
+        };
+        empty.append(showAll);
+      }
       grid.append(empty);
     }
   }
@@ -193,8 +224,13 @@ export function mountLibrary(api) {
     render();
   };
   search.oninput = render;
+  simulationControl.onchange = render;
   $('.save-look').onsubmit = (event) => {
     event.preventDefault();
+    if (applying) {
+      status.textContent = 'Wait for the scene to finish loading before saving its look.';
+      return;
+    }
     try {
       const item = saved.add({ ...api.snapshot(), name: $('#look-name').value });
       $('#look-name').value = '';
