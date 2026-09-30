@@ -17,7 +17,7 @@ function loadScript(file) {
       file,
       new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = new URL(file + '?v=95fcf488354ba45d', import.meta.url).href;
+        script.src = new URL(file + '?v=dd9ec2cce4c70695', import.meta.url).href;
         script.onload = resolve;
         script.onerror = () => {
           scripts.delete(file);
@@ -32,7 +32,7 @@ function loadScript(file) {
 }
 
 export async function loadRuntime(kind) {
-  if (kind === 'volume') return (await import('./pyro-gpu/app.js?v=95fcf488354ba45d')).mountVolume;
+  if (kind === 'volume') return (await import('./pyro-gpu/app.js?v=dd9ec2cce4c70695')).mountVolume;
   await Promise.all(legacyScripts.map(loadScript));
-  return (await import('./fire.js?v=95fcf488354ba45d')).mountLegacy;
+  return (await import('./fire.js?v=dd9ec2cce4c70695')).mountLegacy;
 }

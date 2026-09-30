@@ -1,8 +1,8 @@
-import {runtimeScope} from './runtime-scope.js?v=95fcf488354ba45d';
-import {legacyProbe} from './legacy-qa.js?v=95fcf488354ba45d';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=95fcf488354ba45d';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=95fcf488354ba45d';
-import {emitterKindFor} from './original-source-profile.js?v=95fcf488354ba45d';
+import {runtimeScope} from './runtime-scope.js?v=dd9ec2cce4c70695';
+import {legacyProbe} from './legacy-qa.js?v=dd9ec2cce4c70695';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=dd9ec2cce4c70695';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=dd9ec2cce4c70695';
+import {emitterKindFor} from './original-source-profile.js?v=dd9ec2cce4c70695';
 export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -85,7 +85,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   if (!gl) { await scope.stop(); throw new Error('WebGL 2 is unavailable in this browser session. Reload or reopen the browser.'); }
   if (!gl.getExtension('EXT_color_buffer_float')) { await scope.stop(); gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('Floating point GPU targets are unavailable in this browser.'); }
   const probe=legacyProbe(gl);
-  gl.getExtension('OES_texture_float_linear');
+  const halfFloatLinear = !!gl.getExtension('OES_texture_float_linear');
 
   const vertex = `#version 300 es
   precision highp float;
@@ -640,7 +640,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const sourceShapes={campfire:[1,1,1],bonfire:[1.48,.82,1.12],hearth:[.68,.64,.78]};
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=95fcf488354ba45d');
+    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=dd9ec2cce4c70695');
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
     if(bytes.byteLength!==64*64*64*8)throw new Error('Object geometry has an invalid size: '+name);
@@ -979,8 +979,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=95fcf488354ba45d').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=95fcf488354ba45d').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=dd9ec2cce4c70695').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=dd9ec2cce4c70695').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);

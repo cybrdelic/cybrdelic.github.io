@@ -1,4 +1,4 @@
-import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=95fcf488354ba45d';
+import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=dd9ec2cce4c70695';
 const KEY = 'cybr-pyro-library-v1';
 const bounded = (value, min, max, fallback) =>
   value !== null && value !== '' && Number.isFinite(Number(value))

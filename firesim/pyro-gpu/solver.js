@@ -3,12 +3,12 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=95fcf488354ba45d';
-import { ForestMesh } from './forest-mesh.js?v=95fcf488354ba45d';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=95fcf488354ba45d';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=95fcf488354ba45d';
-import { simulationShaders, pressureShaders } from './shaders.js?v=95fcf488354ba45d';
-import { rendererShaders, dilateWGSL, ROOM_SIZE } from './renderer.js?v=95fcf488354ba45d';
+} from './objects.js?v=dd9ec2cce4c70695';
+import { ForestMesh } from './forest-mesh.js?v=dd9ec2cce4c70695';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=dd9ec2cce4c70695';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=dd9ec2cce4c70695';
+import { simulationShaders, pressureShaders } from './shaders.js?v=dd9ec2cce4c70695';
+import { rendererShaders, dilateWGSL, ROOM_SIZE } from './renderer.js?v=dd9ec2cce4c70695';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -174,7 +174,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=95fcf488354ba45d', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=dd9ec2cce4c70695', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -326,7 +326,7 @@ export class PyroSolver {
       tree = requested === 'cybr-tree';
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin?v=95fcf488354ba45d', import.meta.url),
+        new URL('./objects/' + requested + '.rgba16.bin?v=dd9ec2cce4c70695', import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
