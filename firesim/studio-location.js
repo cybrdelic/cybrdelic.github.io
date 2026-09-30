@@ -1,5 +1,6 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=db13e8bbd389db1b';
+import { cleanLights } from './look-storage.js?v=0c4b630ed586cdec';
+import { modeForFire } from './simulation-modes.js?v=0c4b630ed586cdec';
 
 export function readLook(params, camera) {
   const look = {};
@@ -35,7 +36,9 @@ export function readLook(params, camera) {
 
 export function writeLook(url, state) {
   const original = state.fire.startsWith('legacy:');
-  url.searchParams.set('simulation', original ? 'legacy' : 'volume');
+  url.searchParams.set('simulation', modeForFire(state.fire, state.simulation));
+  // Old brick URLs are accepted on entry; the share link uses one mode key.
+  url.searchParams.delete('bricks');
   url.searchParams.set(original ? 'preset' : 'firePreset', state.fire.replace(/^legacy:/, ''));
   url.searchParams.delete(original ? 'firePreset' : 'preset');
   url.searchParams.set('room', state.room ? '1' : '0');

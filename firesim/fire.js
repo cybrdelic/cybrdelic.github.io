@@ -1,11 +1,11 @@
-import {runtimeScope} from './runtime-scope.js?v=db13e8bbd389db1b';
-import {legacyProbe} from './legacy-qa.js?v=db13e8bbd389db1b';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=db13e8bbd389db1b';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=db13e8bbd389db1b';
-import {emitterKindFor} from './original-source-profile.js?v=db13e8bbd389db1b';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=db13e8bbd389db1b';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=db13e8bbd389db1b';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=db13e8bbd389db1b';
+import {runtimeScope} from './runtime-scope.js?v=0c4b630ed586cdec';
+import {legacyProbe} from './legacy-qa.js?v=0c4b630ed586cdec';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=0c4b630ed586cdec';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=0c4b630ed586cdec';
+import {emitterKindFor} from './original-source-profile.js?v=0c4b630ed586cdec';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=0c4b630ed586cdec';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=0c4b630ed586cdec';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=0c4b630ed586cdec';
 export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -656,7 +656,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const sourceShapes={campfire:[1,1,1],bonfire:[1.48,.82,1.12],hearth:[.68,.64,.78]};
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=db13e8bbd389db1b');
+    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=0c4b630ed586cdec');
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
     if(bytes.byteLength!==64*64*64*8)throw new Error('Object geometry has an invalid size: '+name);
@@ -1034,8 +1034,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=db13e8bbd389db1b').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=db13e8bbd389db1b').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=0c4b630ed586cdec').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=0c4b630ed586cdec').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);

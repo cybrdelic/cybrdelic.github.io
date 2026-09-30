@@ -1,6 +1,7 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=db13e8bbd389db1b';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=db13e8bbd389db1b';
-import { lookStore } from '../look-storage.js?v=db13e8bbd389db1b';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=0c4b630ed586cdec';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=0c4b630ed586cdec';
+import { lookStore } from '../look-storage.js?v=0c4b630ed586cdec';
+import { modeForFire } from '../simulation-modes.js?v=0c4b630ed586cdec';
 
 const CATEGORIES = ['Demos', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [
@@ -15,14 +16,29 @@ const LIGHTING = [
   'bounce-check',
 ];
 
-export function filterLibrary(items, term = '', simulation = 'all', currentFire = '') {
-  const selected = simulation === 'current'
-    ? (currentFire.startsWith('legacy:') ? 'legacy' : 'volume') : simulation;
+function selectedSimulation(simulation, currentFire, currentSimulation) {
+  return simulation === 'current' ? modeForFire(currentFire, currentSimulation) : simulation;
+}
+
+// Shared source IDs can run in either volume mode. Saved looks retain the mode
+// they were recorded in; an explicit library filter chooses the shared source's mode.
+export function libraryItemSimulation(item, simulation = 'current', currentFire = '', currentSimulation = '') {
+  const preferred = item.simulation || (simulation === 'all'
+    ? modeForFire(currentFire, currentSimulation)
+    : selectedSimulation(simulation, currentFire, currentSimulation));
+  return modeForFire(item.fire || item.id || '', preferred);
+}
+
+export function filterLibrary(items, term = '', simulation = 'all', currentFire = '', currentSimulation = '') {
+  const selected = selectedSimulation(simulation, currentFire, currentSimulation);
   const query = term.trim().toLowerCase();
   return items.filter((item) => {
     const original = (item.fire || item.id || '').startsWith('legacy:');
-    return (item.kind === 'lighting' || selected === 'all' || original === (selected === 'legacy')) &&
-      [item.name, item.description, item.family, original ? 'original' : '3d volume']
+    const explicitMode = item.simulation ? modeForFire(item.fire || item.id || '', item.simulation) : null;
+    const searchableMode = original ? 'original' : explicitMode === 'sparse' ? 'sparse voxels' : explicitMode === 'volume' ? '3d volume' : '3d volume sparse voxels';
+    return (item.kind === 'lighting' || selected === 'all' ||
+      (original === (selected === 'legacy') && (!explicitMode || explicitMode === selected))) &&
+      [item.name, item.description, item.family, searchableMode]
         .filter(Boolean).join(' ').toLowerCase().includes(query);
   });
 }
@@ -33,7 +49,7 @@ export function mountLibrary(api) {
   library.innerHTML = [
     '<div class="library-heading"><div><h1>Preset library</h1><p id="category-description"></p></div><span id="library-count"></span></div>',
     '<div class="library-toolbar"><label>Collection<select id="library-category" aria-label="Preset collection"></select></label>',
-    '<label id="library-simulation-label">Simulation<select id="library-simulation"><option value="current">Current simulation</option><option value="legacy">Original</option><option value="volume">3D volume · experimental</option><option value="all">All simulations</option></select></label>',
+    '<label id="library-simulation-label">Simulation<select id="library-simulation"><option value="current">Current simulation</option><option value="legacy">Original</option><option value="volume">3D volume · experimental</option><option value="sparse">Sparse volume · experimental</option><option value="all">All simulations</option></select></label>',
     '<label class="library-search-label">Search<input id="library-search" type="search" aria-label="Search presets" aria-controls="preset-grid"></label></div>',
     '<div class="preset-grid" id="preset-grid" aria-label="Presets"></div><p id="library-status" role="status" aria-live="polite"></p>',
     '<details class="saved-tools"><summary>Save &amp; manage looks</summary>',
@@ -62,7 +78,7 @@ export function mountLibrary(api) {
     Lighting: 'Light the current scene with a key, rim, ambient fill, or room bounce.',
     Tests: 'Fixed cameras and lighting for checking smoke transport, shadows, and combustion.',
     Experiments: 'Work in progress. Geometry, effect quality, and performance vary.',
-    Saved: 'Your fire, lighting, room, and camera combinations.',
+    Saved: 'Your simulation, fire, lighting, room, and camera combinations.',
   };
 
   function collection() {
@@ -94,9 +110,11 @@ export function mountLibrary(api) {
     for (const button of grid.querySelectorAll('button')) button.disabled = true;
     status.textContent = 'Applying ' + item.name + '…';
     try {
+      const snapshot = api.snapshot();
+      const simulation = libraryItemSimulation(item, simulationControl.value, snapshot.fire, snapshot.simulation);
       if (item.kind === 'lighting') window.SceneLights.apply(item.id);
-      else if (item.fire) await api.look({ ...item, lights: item.lights || item.lighting });
-      else await api.fire(item.id);
+      else if (item.fire) await api.look({ ...item, simulation, lights: item.lights || item.lighting });
+      else await api.fire(item.id, simulation);
       activeScene = appliedCategory + item.id;
       status.textContent = item.name + ' applied';
       api.applied?.(appliedCategory);
@@ -114,11 +132,13 @@ export function mountLibrary(api) {
     $('#category-description').textContent = descriptions[category];
     const snapshot = api.snapshot();
     $('#library-simulation-label').hidden = category === 'Lighting';
-    const items = filterLibrary(collection(), search.value, simulationControl.value, snapshot.fire);
+    const items = filterLibrary(collection(), search.value, simulationControl.value, snapshot.fire, snapshot.simulation);
     $('#library-count').textContent = items.length + (items.length === 1 ? ' preset' : ' presets');
     grid.setAttribute('aria-busy', String(applying));
     grid.replaceChildren();
     for (const item of items) {
+      const simulation = libraryItemSimulation(item, simulationControl.value, snapshot.fire, snapshot.simulation);
+      const currentSimulation = modeForFire(snapshot.fire, snapshot.simulation);
       const card = document.createElement('article');
       card.className = 'preset-card';
       const button = document.createElement('button');
@@ -130,10 +150,10 @@ export function mountLibrary(api) {
         'aria-pressed',
         String(
           item.fire
-            ? activeScene === category + item.id && snapshot.fire === item.fire
+            ? activeScene === category + item.id && snapshot.fire === item.fire && currentSimulation === simulation
             : item.kind === 'lighting'
               ? document.querySelector('#lighting-preset')?.value === item.id
-              : snapshot.fire === item.id,
+              : snapshot.fire === item.id && currentSimulation === simulation,
         ),
       );
       const type = document.createElement('span');
@@ -141,9 +161,9 @@ export function mountLibrary(api) {
       type.textContent =
         item.kind === 'lighting'
           ? 'LIGHTING'
-          : (item.fire || item.id).startsWith('legacy:')
+          : simulation === 'legacy'
             ? 'ORIGINAL'
-            : '3D VOLUME · EXPERIMENTAL';
+            : simulation === 'sparse' ? 'SPARSE VOLUME · EXPERIMENTAL' : '3D VOLUME · EXPERIMENTAL';
       const source = ALL_FIRE_PRESETS.find((preset) => preset.id === (item.fire || item.id));
       if (source?.id.startsWith('legacy:') && isExperimental(source)) type.textContent += ' · EXPERIMENTAL';
       if (item.preview) {

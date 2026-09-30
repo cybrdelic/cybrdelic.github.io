@@ -4,7 +4,7 @@ Interactive fire and smoke, source geometry, lighting and camera controls in one
 
 [Hosted demo](https://cybrdelic.github.io/firesim/)
 
-The default Volume path keeps the validated dense flow, pressure, chemistry and reference lighting. Coarse/fine flow, pooled chemistry, pressure work lists and precise incident-light receivers remain development options. See the [adaptive solver architecture and acceptance evidence](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/ADAPTIVE_SOLVER.md) in the source repository.
+The standard 3D volume path keeps dense flow, pressure, chemistry and reference lighting. **Sparse volume · experimental** is a third selection on the same page: it uses the Volume engine with pooled chemistry while keeping global flow, pressure and full voxel spacing. It retains dense fallback backing and has not established a speed or quality-equivalence advantage. See the [Sparse mode guide](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/SPARSE_MODE.md) and [adaptive solver evidence](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/ADAPTIVE_SOLVER.md) in the source repository.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ Open [Fire Studio](http://127.0.0.1:8767/elements/motion/bending/sigils/02/fire-
 
 ## Use
 
-- **Scene:** choose Original or experimental 3D volume, a source, fuel and color. Click to place fire and drag to move its source. Stop fuel lets the existing gas burn out; Restart replenishes the source.
+- **Scene:** choose Original, **3D volume · experimental** or **Sparse volume · experimental**, then a source, fuel and color. The two Volume modes share their source catalog. Click to place fire and drag to move its source. Stop fuel lets the existing gas burn out; Restart replenishes the source.
 - **Camera:** scroll to zoom; Shift-drag or right-drag pans. The controls also provide an angle slider and camera reset. Touch interaction and keyboard controls are described beside the scene.
 - **Library:** choose a complete demo scene, an individual source, a lighting rig, an inspection test or a saved look. Tests use temporary lighting and camera settings.
 - **Lighting:** adjust external light sources and approximate room bounce while the fire remains visible. Fire itself illuminates the gas, room and source props.
@@ -30,13 +30,17 @@ Open [Fire Studio](http://127.0.0.1:8767/elements/motion/bending/sigils/02/fire-
 
 The [fuel and inspection guide](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/FUEL_AND_INSPECTION.md) describes these controls and their verification scope.
 
-Sources carry stable IDs across both simulations. Each engine implements them using its own flow and source model. Prototype object and burst studies are identified as experiments; the Include experiments control exposes them in the Source picker. Saved looks use local browser storage and version 1 JSON import/export.
+Sources carry stable IDs across both engines. Each engine implements them using its own flow and source model. Prototype object and burst studies are identified as experiments; the Include experiments control exposes them in the Source picker. Saved looks use local browser storage and version 1 JSON import/export.
+
+Sparse volume keeps the same lighting, camera, smoke, Show sigil and floor-fuel controls. Shared URLs and saved looks retain the selected mode. Placed fuel and evolving gas are transient simulation state, not saved-look contents. If sparse storage reaches its capacity or safety limit, chemistry continues in dense storage until Restart.
+
+A sparse inspection entry is `?simulation=sparse&firePreset=sigil-cybr&room=1&lighting=fully-lit&guide=1`. Older `simulation=volume&bricks=1` links select the same mode and are rewritten to the canonical sparse URL.
 
 Repeatable entries include `?scene=demo-sigil&present=1`, `?scene=demo-campfire`, `?scene=demo-torch`, `?scene=demo-ring`, `?scene=demo-bonfire` and `?scene=demo-smoke`. The last two select 3D volume. The older `pyro-gpu/` URL redirects into this same page and preserves its query settings.
 
 ## Graphics requirements and scope
 
-Original requires WebGL 2, floating point render targets and linear filtering of float textures. 3D volume requires a working WebGPU adapter with sufficient texture and buffer limits. The page provides recovery controls when the selected engine cannot start. A WebGPU API being present does not establish that its adapter can submit frames.
+Original requires WebGL 2, floating point render targets and linear filtering of float textures. Both Volume modes require a working WebGPU adapter with sufficient texture and buffer limits. Sparse volume retains the **384 MiB** dense chemistry backing and adds a **96 MiB** chemistry atlas; other GPU resources add to that total. This is not a mobile memory reduction. The page provides recovery controls when the selected engine cannot start. A WebGPU API being present does not establish that its adapter can submit frames.
 
 Both engines transport heat, fuel and soot in evolving flow. Flame emission and extinction share their state with fire illumination. Original uses an atlas volume with a coarse pressure solve; 3D volume uses a dense MAC velocity field, multilevel pressure projection and a separate chemistry grid. These are visual combustion models with accelerated, uncalibrated coefficients. Creative colors are art direction.
 
@@ -46,17 +50,17 @@ Object studies use finite fuel, local heating and char. Volume trees use geometr
 
 ## Development options
 
-These switches use the same `fire-live/?simulation=volume` page, controls and library. They are independent so a component can be compared against its reference.
+These switches use the same page, controls and library. Sparse volume enables the chemistry pool only; it does not also enable coarse/fine flow, pressure work lists or lighting experiments. The independent switches remain available to compare components against their references.
 
 | Query setting | Effect | Release status |
 | --- | --- | --- |
 | `solver=adaptive` | Global 64³ flow with local 128³ overrides and sticky dense fallback | Experimental; disabled by default |
-| `bricks=1` | Direct chemistry atlas, stable page ownership and lossless dense fallback | Experimental; disabled by default |
+| `bricks=1` | Direct chemistry atlas, stable page ownership and a lossless transition to dense fallback | Experimental; selected by Sparse volume; off in standard 3D volume |
 | `pressureWork=1` | Exact fine pressure smoothing work lists within the global hierarchy | Experimental; disabled by default |
 | `lightWork=1` | Generic compact incident-light work queue | Experimental; disabled by default; overrides precise receivers |
 | `receivers=1` | Precise incident-light receivers with identical tested pixels | Experimental; disabled pending stable complete-frame cost gate |
 
-All five mark the engine as experimental. The chemistry pool currently retains dense backing and adds memory. Matched native RTX 60-frame host-command replays found flow, pool and combined candidates slower than the dense reference. These options have not passed the replacement gate. Simulation spacing, ray detail and reaction coefficients do not adapt downward.
+All five mark the engine as experimental. Historical native RTX 60-frame host-command replays found flow, pool and combined candidates slower than the dense reference. Atlas filtering also left an unresolved quality-equivalence gate. The rc.13 Sparse selection has no new performance result yet. These options have not passed the replacement gate. Simulation spacing, ray detail and reaction coefficients do not adapt downward.
 
 ## Verify and package
 
@@ -85,6 +89,9 @@ node tools/fire-studio/sigil-guide.test.mjs
 node tools/fire-studio/scene-light-presets.test.mjs
 node tools/fire-studio/smoke-lifecycle.test.mjs
 node tools/fire-studio/original-smoke.test.mjs
+node tools/fire-studio/simulation-modes.test.mjs
+node tools/fire-studio/simulation-look.test.mjs
+node tools/fire-studio/sparse-app.test.mjs
 node tools/fire-studio/telemetry.test.mjs
 node tools/fire-studio/check-volume-telemetry.mjs
 node tools/fire-studio/check-volume-queries.mjs
@@ -98,7 +105,7 @@ Package validation executes Original initialization with a DOM/WebGL fixture and
 
 Package validation also executes the seven adaptive fixtures listed above against source, the completed build and directory verification. They record actual host methods, fixed resource lifetimes, pool ownership/migration, dense fallback, independent lighting support, restart and disposal. Set `FIRE_STUDIO_ROOT` to a build directory to run these fixtures against packaged modules. Their CPU recording checks are separate from native shader, field and pixel comparisons.
 
-The four fuel, sigil and lighting fixtures bring the packaged runtime checks to 17 runners. rc.12 native checks also verify cold deposits, finite ignition through production combustion, surface stock/char accounting and sigil intersections at several angles. See the fuel and inspection guide for the evidence; these checks do not certify browser interaction or frame pacing.
+The six fuel, sigil, lighting and smoke-lifetime fixtures and three mode fixtures bring the packaged runtime checks to 22 runners. All 150 CPU tests pass. rc.12 native checks verify cold deposits, finite ignition through production combustion, surface stock/char accounting and sigil intersections at several angles. rc.13 adds four short Intel/RTX command replays for the selectable sparse mode, including observed dense fallback. Costs are mixed by GPU; the mode retains dense backing and is not a proven speed or memory upgrade. These checks do not certify browser interaction or frame pacing. Evidence and remaining gates are tracked in the fuel/inspection and Sparse mode guides.
 
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 
@@ -116,7 +123,7 @@ Offline film detail parity, sustained browser pacing, mobile support and the lat
 
 | Module | Responsibility |
 | --- | --- |
-| `studio.js`, `studio-location.js` | Engine/preset transitions, shared state and URLs |
+| `studio.js`, `studio-location.js`, `simulation-modes.js` | Same-page mode/preset transitions, shared state and URLs |
 | `studio-ui.js`, `studio.css` | Workspace, presentation and recovery controls |
 | `runtime-loader.js`, `runtime-scope.js` | Lazy engine loading and animation/listener cleanup |
 | `demo-presets.js`, `source-picker.js`, `preset-pairs.js` | Demo collection and shared source selection |

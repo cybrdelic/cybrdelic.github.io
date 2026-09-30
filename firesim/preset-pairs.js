@@ -1,4 +1,4 @@
-import { FIRE_PRESETS } from './pyro-gpu/presets.js?v=db13e8bbd389db1b';
+import { FIRE_PRESETS } from './pyro-gpu/presets.js?v=0c4b630ed586cdec';
 
 // Shared authored IDs have independent implementations in both solvers.
 const originalToVolume = Object.freeze({
@@ -25,7 +25,7 @@ const volumeToOriginal = Object.freeze({
 });
 
 export function matchingPreset(targetEngine, currentFire) {
-  if (targetEngine === 'volume' && currentFire?.startsWith('legacy:'))
+  if (targetEngine !== 'legacy' && currentFire?.startsWith('legacy:'))
     return originalToVolume[currentFire.slice(7)] ||
       (FIRE_PRESETS.some(p => p.id === currentFire.slice(7)) ? currentFire.slice(7) : null);
   if (targetEngine === 'legacy' && currentFire && !currentFire.startsWith('legacy:')) {
@@ -33,5 +33,6 @@ export function matchingPreset(targetEngine, currentFire) {
       (FIRE_PRESETS.some(p => p.id === currentFire) ? currentFire : null);
     return original ? 'legacy:' + original : null;
   }
+  if (targetEngine !== 'legacy' && FIRE_PRESETS.some(p => p.id === currentFire)) return currentFire;
   return null;
 }

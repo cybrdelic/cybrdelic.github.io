@@ -1,12 +1,14 @@
-import { FIRE_COLORS } from './fire-colors.js?v=db13e8bbd389db1b';
-import { PyroSolver } from './solver.js?v=db13e8bbd389db1b';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=db13e8bbd389db1b';
-import { runtimeScope } from '../runtime-scope.js?v=db13e8bbd389db1b';
-import { outputSize } from './output-size.js?v=db13e8bbd389db1b';
-import { gpuSessionTimeout } from './gpu-session.js?v=db13e8bbd389db1b';
-import { floorHit } from '../fuel-ground.js?v=db13e8bbd389db1b';
+import { FIRE_COLORS } from './fire-colors.js?v=0c4b630ed586cdec';
+import { PyroSolver } from './solver.js?v=0c4b630ed586cdec';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=0c4b630ed586cdec';
+import { runtimeScope } from '../runtime-scope.js?v=0c4b630ed586cdec';
+import { outputSize } from './output-size.js?v=0c4b630ed586cdec';
+import { gpuSessionTimeout } from './gpu-session.js?v=0c4b630ed586cdec';
+import { floorHit } from '../fuel-ground.js?v=0c4b630ed586cdec';
+import { volumeOptions } from '../simulation-modes.js?v=0c4b630ed586cdec';
 export async function mountVolume({
   initialPreset = 'explosion',
+  simulation = 'volume',
   onFailure = () => {},
 } = {}) {
   const scope = runtimeScope(onFailure),
@@ -108,7 +110,8 @@ export async function mountVolume({
   $('#smoke-only').checked = smoke;
   $('#smoke-only').title =
     'Hide visible flame without resetting the flow or removing fire illumination. Use scene lighting to reveal cooled smoke.';
-  $('#gpu-status').textContent = 'Compiling the 3D solver…';
+  $('#gpu-status').textContent = simulation === 'sparse'
+    ? 'Compiling the active-brick 3D solver…' : 'Compiling the 3D solver…';
   $('#room').checked = params.get('room') !== '0';
   $('#orbit').min = -75;
   $('#orbit').max = 75;
@@ -147,6 +150,32 @@ export async function mountVolume({
       ? 'WebGPU · smoke inspection'
       : 'WebGPU · live combustion';
     markDirty();
+  }
+  function runtimeStatus() {
+    if (!solver?.useBrickPool) {
+      return solver?.adaptive || solver?.pressureWork || solver?.useLightWork || solver?.useLightReceivers
+        ? 'Experimental solver · ' : '';
+    }
+    const label = simulation === 'sparse' ? 'Sparse volume (experimental)' : 'Active bricks (experimental)';
+    // Readbacks describe the most recent completed topology sample. A failed
+    // readback must not leave an earlier sparse sample displayed as current.
+    if (solver.poolTelemetryAvailable === false) return label + ' · status unavailable · ';
+    const pool = solver.latestTelemetry?.brickPool;
+    if (!pool) return label + ' · telemetry pending · ';
+    if (pool.migrationPending) return label + ' · dense migration pending · ';
+    if (pool.mode === 'dense') {
+      const reasons = [];
+      if (pool.overflow & 1) reasons.push('atlas capacity');
+      if (pool.overflow & 2) reasons.push('brick coverage limit');
+      if (pool.overflow & 4) reasons.push('atlas memory policy');
+      if (pool.overflow & 8) reasons.push('slot generation limit');
+      return label + ' · dense fallback' + (reasons.length ? ' (' + reasons.join(', ') + ')' : '') + ' · ';
+    }
+    return label + ` · active bricks ${pool.resident}/${pool.capacity} pages · `;
+  }
+  function presentationStatus() {
+    $('#gpu-status').textContent = runtimeStatus() +
+      (solver.adapter.description || solver.adapter.device || solver.adapter.vendor);
   }
   function color(hex) {
     return [1, 3, 5].map((i) => {
@@ -273,6 +302,7 @@ export async function mountVolume({
         solver.camera(viewUniform());
         await solver.frame(1 / 60);
         await gpuSessionTimeout(solver.drain(), 'source presentation', 8000);
+        presentationStatus();
       } finally {
         releaseBusy();
       }
@@ -460,10 +490,11 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-12',
+      build: 'fire-studio-rc-13',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
+        simulation,
         render: [canvas.width, canvas.height],
         firePreset: activeFire.id,
         color: flameColor,
@@ -659,7 +690,7 @@ export async function mountVolume({
         ? 'Measurement cancelled'
         : 'Measurement complete - ' + (passed ? '60 FPS gate passed' : '60 FPS gate not met');
       $('#gpu-status').textContent =
-        `${solver.adapter.vendor} ${solver.adapter.architecture} - ${fps.toFixed(1)} drained FPS - submission p95 ${report.frameIntervalMs.p95.toFixed(1)} ms - simulation ${report.simulationToWallRatio.toFixed(2)}x realtime`;
+        `${runtimeStatus()}${solver.adapter.vendor} ${solver.adapter.architecture} - ${fps.toFixed(1)} drained FPS - submission p95 ${report.frameIntervalMs.p95.toFixed(1)} ms - simulation ${report.simulationToWallRatio.toFixed(2)}x realtime`;
       await save((params.get('qa') || 'bench') + '-benchmark', report);
     } catch (e) {
       message.textContent = e.message;
@@ -716,7 +747,7 @@ export async function mountVolume({
               ? `GPU sample ${((result.gpu.simulation || 0) + (result.gpu.lighting || 0) + (result.gpu.render || 0)).toFixed(1)} ms · ${solver.time.toFixed(2)} s`
               : `GPU timing pending · ${solver.time.toFixed(2)} s`;
             $('#gpu-status').textContent =
-              `${solver.adaptive||solver.useBrickPool||solver.pressureWork||solver.useLightWork||solver.useLightReceivers?'Experimental solver · ':''}${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · frame cadence p95 ${report.frameIntervalMs?.p95.toFixed(1) || '—'} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps · ${queueLimitedRafs} queue-limited display ticks`;
+              `${runtimeStatus()}${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · frame cadence p95 ${report.frameIntervalMs?.p95.toFixed(1) || '—'} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps · ${queueLimitedRafs} queue-limited display ticks`;
             queueLimitedRafs = 0;
           }
           if (
@@ -748,13 +779,9 @@ export async function mountVolume({
     scope.schedule(frame);
   }
   try {
-    solver = await PyroSolver.create(canvas,{
-      adaptive:params.get('solver')==='adaptive', pressureWork:params.get('pressureWork')==='1',
-      brickPool:params.get('bricks')==='1', lightWork:params.get('lightWork')==='1',
-      lightReceivers:params.get('receivers')==='1',
-    });
+    solver = await PyroSolver.create(canvas, volumeOptions(params, simulation));
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=db13e8bbd389db1b');
+      const { pressureCheck } = await import('./pressure-check.js?v=0c4b630ed586cdec');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -769,6 +796,7 @@ export async function mountVolume({
     solver.camera(viewUniform());
     await solver.frame(1 / 60);
     await gpuSessionTimeout(solver.drain(), 'first presentation', 8000);
+    presentationStatus();
     scope.schedule(frame);
   } catch (e) {
     resizeObserver.disconnect();
@@ -789,6 +817,8 @@ export async function mountVolume({
     setVisible: scope.setVisible,
     fire: applyFire,
     snapshot: () => ({
+      simulation,
+      tool: activeTool,
       fire: activeFire.id,
       color: flameColor,
       embers,
@@ -828,6 +858,7 @@ export async function mountVolume({
         pan = [...(item.camera.pan ?? pan)];
       }
       configureFire();
+      if (['fire', 'fuel', 'pan'].includes(item.tool)) tool(item.tool);
       sync();
     },
   };

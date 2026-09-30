@@ -3,20 +3,20 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=db13e8bbd389db1b';
-import { ForestMesh } from './forest-mesh.js?v=db13e8bbd389db1b';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=db13e8bbd389db1b';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=db13e8bbd389db1b';
-import { simulationShaders, pressureShaders } from './shaders.js?v=db13e8bbd389db1b';
-import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=db13e8bbd389db1b';
-import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=db13e8bbd389db1b';
-import { AdaptivePressure } from './adaptive-pressure.js?v=db13e8bbd389db1b';
-import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=db13e8bbd389db1b';
-import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=db13e8bbd389db1b';
-import { pooledChemistryConsumer } from './pooled-coupling.js?v=db13e8bbd389db1b';
-import { FuelBrush } from '../fuel-ground.js?v=db13e8bbd389db1b';
-import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=db13e8bbd389db1b';
-import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=db13e8bbd389db1b';
+} from './objects.js?v=0c4b630ed586cdec';
+import { ForestMesh } from './forest-mesh.js?v=0c4b630ed586cdec';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=0c4b630ed586cdec';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=0c4b630ed586cdec';
+import { simulationShaders, pressureShaders } from './shaders.js?v=0c4b630ed586cdec';
+import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=0c4b630ed586cdec';
+import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=0c4b630ed586cdec';
+import { AdaptivePressure } from './adaptive-pressure.js?v=0c4b630ed586cdec';
+import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=0c4b630ed586cdec';
+import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=0c4b630ed586cdec';
+import { pooledChemistryConsumer } from './pooled-coupling.js?v=0c4b630ed586cdec';
+import { FuelBrush } from '../fuel-ground.js?v=0c4b630ed586cdec';
+import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=0c4b630ed586cdec';
+import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=0c4b630ed586cdec';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -208,7 +208,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=db13e8bbd389db1b', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=0c4b630ed586cdec', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -513,7 +513,7 @@ export class PyroSolver {
       tree = requested === 'cybr-tree';
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin?v=db13e8bbd389db1b', import.meta.url),
+        new URL('./objects/' + requested + '.rgba16.bin?v=0c4b630ed586cdec', import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());

@@ -1,7 +1,7 @@
-import {objectWGSL} from './objects.js?v=db13e8bbd389db1b';
-import {combustionWGSL} from './combustion.js?v=db13e8bbd389db1b';
-import {floorFuelWGSL} from './floor-fuel.js?v=db13e8bbd389db1b';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=db13e8bbd389db1b';
+import {objectWGSL} from './objects.js?v=0c4b630ed586cdec';
+import {combustionWGSL} from './combustion.js?v=0c4b630ed586cdec';
+import {floorFuelWGSL} from './floor-fuel.js?v=0c4b630ed586cdec';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=0c4b630ed586cdec';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
