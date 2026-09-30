@@ -1,5 +1,5 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=dd9ec2cce4c70695';
+import { cleanLights } from './look-storage.js?v=414ea72e283b8dd5';
 
 export function readLook(params, camera) {
   const look = {};

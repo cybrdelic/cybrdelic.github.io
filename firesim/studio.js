@@ -1,13 +1,13 @@
-import { readLook, writeLook } from './studio-location.js?v=dd9ec2cce4c70695';
-import { createFireDomain } from './fire-domain.js?v=dd9ec2cce4c70695';
-import { inspectionState } from './inspection-state.js?v=dd9ec2cce4c70695';
-import { loadRuntime } from './runtime-loader.js?v=dd9ec2cce4c70695';
-import { studioUI } from './studio-ui.js?v=dd9ec2cce4c70695';
-import { DEMO_PRESETS } from './demo-presets.js?v=dd9ec2cce4c70695';
-import { matchingPreset } from './preset-pairs.js?v=dd9ec2cce4c70695';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=dd9ec2cce4c70695';
-import { mountLibrary } from './pyro-gpu/library.js?v=dd9ec2cce4c70695';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=dd9ec2cce4c70695';
+import { readLook, writeLook } from './studio-location.js?v=414ea72e283b8dd5';
+import { createFireDomain } from './fire-domain.js?v=414ea72e283b8dd5';
+import { inspectionState } from './inspection-state.js?v=414ea72e283b8dd5';
+import { loadRuntime } from './runtime-loader.js?v=414ea72e283b8dd5';
+import { studioUI } from './studio-ui.js?v=414ea72e283b8dd5';
+import { DEMO_PRESETS } from './demo-presets.js?v=414ea72e283b8dd5';
+import { matchingPreset } from './preset-pairs.js?v=414ea72e283b8dd5';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=414ea72e283b8dd5';
+import { mountLibrary } from './pyro-gpu/library.js?v=414ea72e283b8dd5';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=414ea72e283b8dd5';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -75,11 +75,42 @@ function fail(error, kind = engine) {
   ui.failure(error, kind);
 }
 
+function setApplying(value) {
+  applying = value;
+  $('main').setAttribute('aria-busy', String(value));
+  $('#simulation').disabled = $('#preset').disabled = value;
+  // Runtime handlers still update capability states while mounting. Inert
+  // prevents competing user edits without overriding those disabled states.
+  $('#scene-panel').toggleAttribute('inert', value);
+  $('#lighting-panel').toggleAttribute('inert', value);
+}
+
+function transitionLook(kind, chosen, old, force) {
+  const previous = remembered.get(kind);
+  const counterpart = matchingPreset(kind, old.fire)?.replace(/^legacy:/, '');
+  if (engine && engine !== kind && counterpart === chosen.id.replace(/^legacy:/, '')) {
+    const state = {
+      fuel: old.fuel,
+      room: old.room,
+      smoke: old.smoke,
+      color: old.color,
+      fireLight: old.fireLight,
+    };
+    // Each solver keeps its own framing. A previous source's camera would
+    // overwrite the source selected by this transition.
+    if (previous?.fire === chosen.id) {
+      state.camera = previous.camera;
+      if (kind === 'volume') state.embers = previous.embers;
+    }
+    return state;
+  }
+  if (force && old.fire === chosen.id) return old;
+  return { room: old.room, fireLight: old.fireLight, fuel: chosen.fuel };
+}
+
 async function mount(kind, chosen, plain, old, look) {
   const original = kind === 'legacy';
   ui.loading();
-  $('main').setAttribute('aria-busy', 'true');
-  $('#simulation').disabled = $('#preset').disabled = true;
   try {
     if (runtime) {
       if (healthy) remembered.set(engine, old);
@@ -127,21 +158,10 @@ async function mount(kind, chosen, plain, old, look) {
     });
     if (!runtime) throw new Error('The simulation could not start in this browser.');
     engine = kind;
-    const previous = remembered.get(kind);
-    const state =
-      look ||
-      (previous && {
-        ...previous,
-        fuel: previous.fire === chosen.id ? previous.fuel : chosen.fuel,
-        smoke: !!chosen.smokeSimulation || plain === 'smoke-burst',
-      });
-    if (state) runtime.look({ ...state, room: look ? state.room : (old.room ?? state.room) });
-    else if (old.room !== undefined) runtime.look({ room: old.room, fuel: chosen.fuel });
+    if (look) runtime.look(look);
     healthy = true;
     ui.ready();
   } finally {
-    $('main').setAttribute('aria-busy', 'false');
-    $('#simulation').disabled = $('#preset').disabled = false;
     refreshSources(kind, plain);
     $('#preset').onchange = activateSourceSelection;
   }
@@ -151,7 +171,7 @@ function activate(kind, key, look, force = false) {
   transition = transition
     .catch(() => {})
     .then(async () => {
-      applying = true;
+      setApplying(true);
       try {
         const original = kind === 'legacy',
           plain = key.replace(/^legacy:/, '');
@@ -185,6 +205,7 @@ function activate(kind, key, look, force = false) {
             color: chosen.color || 'natural',
             room: restored.room ?? old.room ?? true,
           };
+        else if (!look) look = transitionLook(kind, chosen, old, force);
         if (look?.lights || look?.lighting) window.SceneLights.apply(look.lights || look.lighting);
         const remount =
           force ||
@@ -194,8 +215,10 @@ function activate(kind, key, look, force = false) {
             window.FireDomain?.object !== !!chosen.object));
         if (remount) await mount(kind, chosen, plain, old, look);
         else {
+          ui.loading();
           await runtime.fire(plain);
           if (look) runtime.look(look);
+          ui.ready();
         }
         refreshSources(kind, plain);
         $('#test-instructions').hidden = !look?.test;
@@ -206,7 +229,7 @@ function activate(kind, key, look, force = false) {
         updateLocation(kind, plain, look);
         library.refresh();
       } finally {
-        applying = false;
+        setApplying(false);
       }
     })
     .catch((error) => {
@@ -240,7 +263,8 @@ $('#simulation').onchange = () => {
 $('#show-experiments').onchange = () => refreshSources();
 $('#retry-runtime').onclick = () =>
   requestActivate($('#simulation').value, $('#preset').value, undefined, true);
-$('#use-original').onclick = () => requestActivate('legacy', 'sigil', undefined, true);
+$('#use-original').onclick = () =>
+  requestActivate('legacy', matchingPreset('legacy', snapshot().fire) || 'sigil', undefined, true);
 if (params.has('lighting')) window.SceneLights.apply(params.get('lighting'));
 ui.showPanel('scene');
 const initialScene = [...DEMO_PRESETS, ...SCENES].find((p) => p.id === params.get('scene'));

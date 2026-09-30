@@ -87,20 +87,13 @@ window.FireEmitters = `
     float r2=dot(local/vec2(.42,.18),local/vec2(.42,.18))+pow((depth-center)/.15,2.);
     jet=vec3(shear*.35,2.8+shear*.30,sin(local.x*23.+local.y*19.+clock*13.)*1.1);
     float sourceDuty=1.;
-    if(emitterKind==1){ // Separate, asynchronously burning pockets along the fuel bed.
+    if(emitterKind==1){ // Three resolved tongues above the crossed logs.
       vec2 bed=local/sourceScale;
-      float pocket=floor(clamp((bed.x+1.20)/.40,0.,5.99));
-      float seed=fract(sin(pocket*23.17+4.2)*43758.5453);
-      float lateral=-1.0+pocket*.40+(seed-.5)*.13;
-      float offset=.16*sin(pocket*17.3);
-      float feedNoise=texture(noiseTex,vec2(clock*.11+pocket*.137,clock*.18-pocket*.193)).g;
-      sourceDuty=mix(.38,1.32,smoothstep(.23,.73,feedNoise));
-      r2=pow((bed.x-lateral)/(.21+.035*seed),2.)
-        +pow((bed.y-(.11+.06*seed))/.105,2.)
-        +pow((depth/sourceScale-offset)/.19,2.);
-      jet=vec3(shear*.20+sin(clock*3.1+pocket*2.7)*.27,
-        (1.15+.72*seed+shear*.14)*sourceLift,
-        sin(local.x*12.+clock*8.+pocket*1.8)*.62);
+      float pocket=floor(clamp(bed.x/.60+1.5,0.,2.99))-1.;
+      r2=pow((bed.x-pocket*.60)/.27,2.)+pow((bed.y-.18)/.13,2.)
+        +pow((depth/sourceScale-pocket*.18)/.26,2.);
+      jet=vec3(shear*.19,(.8+shear*.15)*sourceLift,
+        sin(local.x*12.+clock*8.)*.45);
     } else if(emitterKind==2){ // A narrow, fast torch jet.
       // Gas exits a thin opening instead of a spherical glowing reservoir.
       r2=pow(local.x/.16,2.)+pow((local.y-.06)/.045,2.)+pow(depth/.15,2.);

@@ -1,9 +1,9 @@
-import { FIRE_COLORS } from './fire-colors.js?v=dd9ec2cce4c70695';
-import { PyroSolver } from './solver.js?v=dd9ec2cce4c70695';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=dd9ec2cce4c70695';
-import { runtimeScope } from '../runtime-scope.js?v=dd9ec2cce4c70695';
-import { outputSize } from './output-size.js?v=dd9ec2cce4c70695';
-import { gpuSessionTimeout } from './gpu-session.js?v=dd9ec2cce4c70695';
+import { FIRE_COLORS } from './fire-colors.js?v=414ea72e283b8dd5';
+import { PyroSolver } from './solver.js?v=414ea72e283b8dd5';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=414ea72e283b8dd5';
+import { runtimeScope } from '../runtime-scope.js?v=414ea72e283b8dd5';
+import { outputSize } from './output-size.js?v=414ea72e283b8dd5';
+import { gpuSessionTimeout } from './gpu-session.js?v=414ea72e283b8dd5';
 export async function mountVolume({
   initialPreset = 'explosion',
   onFailure = () => {},
@@ -42,6 +42,8 @@ export async function mountVolume({
     testStopped = false;
   let revision = 0,
     resetQueued = false,
+    resetWaiters = [],
+    resetCompletion = null,
     benchmarkQueued = false,
     benchmarkActive = false,
     cancelBenchmark = false;
@@ -208,30 +210,61 @@ export async function mountVolume({
       0,
     ];
   }
-  async function restart() {
-    if (!solver) return;
+  function releaseBusy() {
+    busy = false;
+    if (!resetQueued) return;
+    if (scope.disposed) {
+      resetQueued = false;
+      const error = new Error('The simulation was closed before its reset completed.');
+      for (const waiter of resetWaiters.splice(0)) waiter.reject(error);
+    } else {
+      restart().catch(onFailure);
+    }
+  }
+  function restart() {
+    if (!solver || scope.disposed) return Promise.resolve();
     if (busy) {
       resetQueued = true;
-      return;
+      return new Promise((resolve, reject) => resetWaiters.push({ resolve, reject }));
     }
     resetQueued = false;
     busy = true;
-    try {
-      await solver.reset();
-      solver.burst();
-      if (testScenario) {
-        solver.seed = 2;
-        solver.source = sourceOrigin(activeFire);
+    const waiters = resetWaiters.splice(0);
+    const task = (async () => {
+      try {
+        await solver.prepareSource();
+        if (scope.disposed) return;
+        await solver.reset();
+        if (scope.disposed) return;
+        solver.burst();
+        if (testScenario) {
+          solver.seed = 2;
+          solver.source = sourceOrigin(activeFire);
+        }
+        testStopped = false;
+        trace = [];
+        captureIndex = 0;
+        saved = false;
+        paused = false;
+        sync();
+        if (pendingOutput) {
+          solver.resizeOutput(...pendingOutput);
+          pendingOutput = null;
+        }
+        solver.smoke = !!activeFire.smokeSimulation || activeFire.id === 'smoke-burst';
+        solver.camera(viewUniform());
+        await solver.frame(1 / 60);
+        await gpuSessionTimeout(solver.drain(), 'source presentation', 8000);
+      } finally {
+        releaseBusy();
       }
-      testStopped = false;
-      trace = [];
-      captureIndex = 0;
-      saved = false;
-      paused = false;
-      sync();
-    } finally {
-      busy = false;
-    }
+    })();
+    resetCompletion = task;
+    task.then(
+      () => { for (const waiter of waiters) waiter.resolve(); },
+      (error) => { for (const waiter of waiters) waiter.reject(error); },
+    );
+    return task;
   }
   function burst() {
     if (!solver) return;
@@ -247,7 +280,7 @@ export async function mountVolume({
     paused = !paused;
     sync();
   };
-  $('#restart').onclick = restart;
+  $('#restart').onclick = () => restart().catch(onFailure);
   $('#burst').onclick = burst;
   $('#extinguish').onclick = () => {
     if (solver) solver.active = false;
@@ -371,7 +404,7 @@ export async function mountVolume({
         sync();
       }
     }
-    if (e.key.toLowerCase() === 'r') restart();
+    if (e.key.toLowerCase() === 'r') restart().catch(onFailure);
     if (e.key === '0') $('#reset-view').click();
     if (e.key.toLowerCase() === 'f') $('#fullscreen').click();
     if (e.key === 'Escape') tool(false);
@@ -397,7 +430,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-7',
+      build: 'fire-studio-rc-8',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -498,7 +531,7 @@ export async function mountVolume({
     url.searchParams.set('smoke', smoke ? '1' : '0');
     url.searchParams.set('fuel', preset.fuel);
     history.replaceState(null, '', url);
-    restart();
+    return restart();
   }
   function setFireLight(value) {
     fireLight = Math.max(0, Math.min(80, Number(value) || 0));
@@ -599,11 +632,11 @@ export async function mountVolume({
       message.textContent = e.message;
       console.error(e);
     } finally {
-      busy = false;
       paused = true;
       benchmarkActive = false;
       $('#benchmark').disabled = false;
       sync();
+      releaseBusy();
     }
   }
   async function frame() {
@@ -676,7 +709,7 @@ export async function mountVolume({
         dirty = false;
         onFailure(e);
       } finally {
-        busy = false;
+        releaseBusy();
       }
     }
     scope.schedule(frame);
@@ -684,7 +717,7 @@ export async function mountVolume({
   try {
     solver = await PyroSolver.create(canvas);
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=dd9ec2cce4c70695');
+      const { pressureCheck } = await import('./pressure-check.js?v=414ea72e283b8dd5');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -712,6 +745,8 @@ export async function mountVolume({
       resizeObserver.disconnect();
       cancelBenchmark = true;
       await scope.stop();
+      await Promise.allSettled([resetCompletion]);
+      releaseBusy();
       solver?.destroy();
     },
     setVisible: scope.setVisible,
