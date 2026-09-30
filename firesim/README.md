@@ -4,6 +4,8 @@ Interactive fire and smoke, source geometry, lighting and camera controls in one
 
 [Hosted demo](https://cybrdelic.github.io/firesim/)
 
+The default Volume path keeps the validated dense flow, pressure, chemistry and reference lighting. Coarse/fine flow, pooled chemistry, pressure work lists and precise incident-light receivers remain development options. See the [adaptive solver architecture and acceptance evidence](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/ADAPTIVE_SOLVER.md) in the source repository.
+
 ## Run locally
 
 From the repository root:
@@ -32,7 +34,23 @@ Original requires WebGL 2, floating point render targets and linear filtering of
 
 Both engines transport heat, fuel and soot in evolving flow. Flame emission and extinction share their state with fire illumination. Original uses an atlas volume with a coarse pressure solve; 3D volume uses a dense MAC velocity field, multilevel pressure projection and a separate chemistry grid. These are visual combustion models with accelerated, uncalibrated coefficients. Creative colors are art direction.
 
+Volume's optional precise receiver lighting computes incident illumination only where soot can receive it. Every positive-soot interpolation footprint remains covered, while camera and shadow support keep their existing full halo. The light texture, ray samples and lighting formulas are unchanged; inactive light texels are cleared on every lighting refresh. This is a lighting optimization, not a reduction in simulation detail.
+
 Object studies use finite fuel, local heating and char. Volume trees use geometry from the CYBR forest scene and add moisture, leaf loss and widening of existing fissures. They do not simulate physical branch fracture or collapse. Volume embers are flow-driven tracers and cannot ignite new fuel; Original does not implement them. Original's object model does not reproduce Volume's per-voxel surface state. External illumination and room bounce are approximations, not converged path tracing or calibrated global illumination.
+
+## Development options
+
+These switches use the same `fire-live/?simulation=volume` page, controls and library. They are independent so a component can be compared against its reference.
+
+| Query setting | Effect | Release status |
+| --- | --- | --- |
+| `solver=adaptive` | Global 64³ flow with local 128³ overrides and sticky dense fallback | Experimental; disabled by default |
+| `bricks=1` | Direct chemistry atlas, stable page ownership and lossless dense fallback | Experimental; disabled by default |
+| `pressureWork=1` | Exact fine pressure smoothing work lists within the global hierarchy | Experimental; disabled by default |
+| `lightWork=1` | Generic compact incident-light work queue | Experimental; disabled by default; overrides precise receivers |
+| `receivers=1` | Precise incident-light receivers with identical tested pixels | Experimental; disabled pending stable complete-frame cost gate |
+
+All five mark the engine as experimental. The chemistry pool currently retains dense backing and adds memory. Matched native RTX 60-frame host-command replays found flow, pool and combined candidates slower than the dense reference. These options have not passed the replacement gate. Simulation spacing, ray detail and reaction coefficients do not adapt downward.
 
 ## Verify and package
 
@@ -48,6 +66,13 @@ node tools/fire-studio/volume-reset.test.mjs
 node tools/fire-studio/volume-lighting.test.mjs
 node tools/fire-studio/volume-optical-mask.test.mjs
 node tools/fire-studio/volume-longrun.test.mjs
+node tools/fire-studio/adaptive-flow.test.mjs
+node tools/fire-studio/adaptive-pressure.test.mjs
+node tools/fire-studio/brick-pool.test.mjs
+node tools/fire-studio/pooled-coupling.test.mjs
+node tools/fire-studio/lighting-work.test.mjs
+node tools/fire-studio/adaptive-runtime.test.mjs
+node tools/fire-studio/adaptive-lifecycle.test.mjs
 node tools/fire-studio/telemetry.test.mjs
 node tools/fire-studio/check-volume-telemetry.mjs
 node tools/fire-studio/check-volume-queries.mjs
@@ -59,15 +84,19 @@ python tools/fire-studio/package.py
 
 Package validation executes Original initialization with a DOM/WebGL fixture and real source assets, the shared shell's engine/source transitions, Volume's actual reset functions with delayed GPU operation fixtures, its lighting bindings across normal/tree transitions, separate optical/transport mask ordering, and 10,000 display ticks with fixed quality and bounded GPU submissions. Those checks also run on the completed package and copied deployment directory. They check JavaScript behavior and resource ordering; they do not establish browser graphics or frame rate. The package also checks JavaScript syntax, local module/HTML/CSS/asset references, catalog previews and binary asset integrity, and rejects unreachable JavaScript. A content fingerprint normalizes module and asset cache keys in packaged files.
 
+Package validation also executes the seven adaptive fixtures listed above against source, the completed build and directory verification. They record actual host methods, fixed resource lifetimes, pool ownership/migration, dense fallback, independent lighting support, restart and disposal. Set `FIRE_STUDIO_ROOT` to a build directory to run these fixtures against packaged modules. Their CPU recording checks are separate from native shader, field and pixel comparisons.
+
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 
 Deployment instructions and the demonstration checklist are in `docs/fire-studio/RELEASE.md` in the source repository. Development notes and measurements are retained in `docs/fire-studio/` and `work/` rather than presented as product guarantees.
 
 ## Current verification limits
 
-Release packaging and automated state/lifecycle checks do not certify visual motion or sustained frame rate. The last recorded in-app browser selected Intel integrated graphics despite the high-performance adapter request. A September 27 short Original run observed about 30 rendered FPS; a 180-frame room-enabled Volume Bonfire run observed 12.3 completed FPS and 0.20 simulated seconds per wall second. These historical results fail the requested Volume performance gate and are not measurements of the latest edits.
+Release packaging and automated state/lifecycle checks do not certify visual motion or sustained frame rate. Historical browser measurements and adapter selection are retained in `docs/fire-studio/PERFORMANCE.md`; they do not measure the current release candidate.
 
-The September 30 rc.10 native sustained-run tests verified the packed velocity border correction through 60 simulated seconds, with fixed simulation/render settings and preserved detail. Matched RTX late-window cost fell from 54.45 to 22.06 ms; the final Intel native minute still measured about 100 ms per completed frame. These are offscreen results, not browser FPS. Offline film detail parity, sustained 60 FPS, mobile support and the latest live-browser motion comparison remain unverified. See `docs/fire-studio/PERFORMANCE.md` and `VOLUME_SUSTAINED.md` for measurement conditions and `docs/fire-studio/RELEASE.md` for the remaining gates.
+The September 30 rc.10 native sustained-run tests verified the packed velocity border correction through 60 simulated seconds, with fixed simulation/render settings and preserved detail. Matched RTX late-window cost fell from 54.45 to 22.06 ms; the final Intel native minute still measured about 100 ms per completed frame. The optional precise receiver path subsequently lowered the measured lighting stage cost by 8.7–14.2% on Intel UHD and 6.7–8.3% on RTX 4060, including support generation. All 34 paired real/synthetic views were pixel-identical. Actual host-command replays also matched reference chemistry and image hashes on both adapters. Held production lighting was also faster at 0.4 and 2 simulated seconds with identical pixels. Complete-frame timings varied sharply in unchanged physics kernels and did not establish a reliable speedup, so receivers remain opt-in. These are native offscreen stage and correctness results, not whole-solver speedups or browser frame-rate measurements. The newer 60-frame adaptive replays cover one simulated second, not the earlier 60-second sustained test.
+
+Offline film detail parity, sustained browser pacing, mobile support and the latest live-browser motion comparison remain unverified. See the [adaptive solver report](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/ADAPTIVE_SOLVER.md), `docs/fire-studio/PERFORMANCE.md` and `VOLUME_SUSTAINED.md` for measurement conditions, and `docs/fire-studio/RELEASE.md` for the remaining gates.
 
 ## Code map
 
@@ -82,4 +111,8 @@ The September 30 rc.10 native sustained-run tests verified the packed velocity b
 | `fire.js` and root shader helpers | Original WebGL simulation and rendering |
 | `pyro-gpu/app.js`, `solver.js` | Volume controls, GPU scheduling and diagnostics |
 | `pyro-gpu/shaders.js`, `renderer.js` | Volume transport, combustion and volume/room rendering |
+| `pyro-gpu/lighting-work.js` | Default precise incident-light receiver support and optional generic work queue |
+| `pyro-gpu/adaptive-flow.js` | Optional global coarse/local fine flow and sticky dense fallback |
+| `pyro-gpu/adaptive-pressure.js` | Optional exact fine smoothing work lists; pressure remains global |
+| `pyro-gpu/brick-pool.js`, `pooled-coupling.js` | Optional fixed chemistry pool, generation-safe sampling, migration and shared consumers |
 | `pyro-gpu/objects.js`, `forest-mesh.js` | Surface fuel and imported tree geometry |

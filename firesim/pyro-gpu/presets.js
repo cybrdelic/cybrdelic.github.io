@@ -12,7 +12,7 @@ const preset = (id, name, description, fuel, effect, dynamics, chemistry, option
   chemistry,
   preview:
     effect[0] >= 5 && effect[0] <= 12
-      ? new URL('./source-previews/' + id + '.jpg?v=86e0ab5a0c6c5992', import.meta.url).href
+      ? new URL('./source-previews/' + id + '.jpg?v=74c957d2f5b46187', import.meta.url).href
       : undefined,
   family: effect[0] >= 8 ? 'Sigils' : effect[0] >= 2 ? 'Shapes' : 'Fire',
   ...options,
@@ -105,7 +105,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.45, 0],
       minHeight: 0.45,
-      preview: new URL('./objects/logs.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
 
@@ -122,7 +122,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.64, 0],
       minHeight: 0.64,
-      preview: new URL('./objects/logs.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
 
@@ -305,7 +305,7 @@ export const FIRE_PRESETS = [
     [0.8, 1, 1.2, 0.75],
     {
       smokeSimulation: true,
-      preview: new URL('./source-previews/twin-jets.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./source-previews/twin-jets.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -341,7 +341,7 @@ export const FIRE_PRESETS = [
       object: 'house',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -358,7 +358,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -374,7 +374,7 @@ export const FIRE_PRESETS = [
       object: 'car',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -391,7 +391,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -408,7 +408,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/mannequin.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/mannequin.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -424,7 +424,7 @@ export const FIRE_PRESETS = [
       object: 'cybr-tree',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -441,7 +441,7 @@ export const FIRE_PRESETS = [
       moisture: 'damp',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -458,7 +458,7 @@ export const FIRE_PRESETS = [
       ignition: 'crown',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
   preset(
@@ -524,7 +524,7 @@ export const FIRE_PRESETS = [
       color: 'violet',
       source: [0, 1, 0],
       minHeight: 0.85,
-      preview: new URL('./source-previews/sigil-cybr.jpg?v=86e0ab5a0c6c5992', import.meta.url).href,
+      preview: new URL('./source-previews/sigil-cybr.jpg?v=74c957d2f5b46187', import.meta.url).href,
     },
   ),
 ];

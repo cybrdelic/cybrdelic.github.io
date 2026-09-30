@@ -1,8 +1,8 @@
-import {objectWGSL} from './objects.js?v=86e0ab5a0c6c5992';
-import {combustionWGSL} from './combustion.js?v=86e0ab5a0c6c5992';
+import {objectWGSL} from './objects.js?v=74c957d2f5b46187';
+import {combustionWGSL} from './combustion.js?v=74c957d2f5b46187';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
-export function simulationShaders(N=128,D=256){
+export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
 const common=`
 ${combustionWGSL}
 ${objectWGSL}
@@ -271,6 +271,9 @@ var<workgroup> opticalAlive:atomic<u32>;
  // soot/heat maxima, so a zero halo proves the fragment's early continue.
  // Bit 2 keeps every positive soot value for exact shadow extinction.
  if(c.x>=.000033||c.y>.3499){atomicOr(&opticalAlive,1u);}
+ ${flowSupport ? `// Fine flow follows soot, heat and fuel. Cold oxygen deficit alone
+ // does not require local refinement. This work is absent from the default.
+ if(any(c.xyz>vec3f(0))){atomicOr(&opticalAlive,4u);}` : ''}
  if(c.x>0.){atomicOr(&opticalAlive,2u);}workgroupBarrier();
  if(lane==0u){let B=D/8u;let index=brick.x+B*(brick.y+B*brick.z);
   if(atomicLoad(&alive)>0u){atomicStore(&occupied[index],1u);}

@@ -1,6 +1,7 @@
-import {objectWGSL} from './objects.js?v=86e0ab5a0c6c5992';
-import {combustionWGSL} from './combustion.js?v=86e0ab5a0c6c5992';
-import {sparseSamplerWGSL} from './sparse-field.js?v=86e0ab5a0c6c5992';
+import {objectWGSL} from './objects.js?v=74c957d2f5b46187';
+import {combustionWGSL} from './combustion.js?v=74c957d2f5b46187';
+import {sparseSamplerWGSL} from './sparse-field.js?v=74c957d2f5b46187';
+import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=74c957d2f5b46187';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -253,12 +254,14 @@ export const dilateWGSL=`
  destination[id.x+32u*(id.y+32u*id.z)]=alive;
 }`;
 
+export const dilateReceiversWGSL=withLightingReceiverSupport(dilateWGSL);
+
 // Build separate GPU pipelines. Ordinary fire never declares mesh targets,
 // mesh shadow textures, or the tree's voxel traversal branch.
 const families=new Map();
 export function rendererShaders(tree=false,sparse=false,fastSeams=false){
  const key=`${tree}:${sparse}:${fastSeams}`;
- if(!families.has(key)){const render=renderSource(tree,sparse,fastSeams);families.set(key,{render,light:lightSource(render),room:roomSource(render),gather:coarseSource(render),gatherAdaptive:adaptiveSource(render)});}
+ if(!families.has(key)){const render=renderSource(tree,sparse,fastSeams);families.set(key,{render,light:lightSource(render),lightWork:render+lightWorkEntryWGSL,lightReceivers:render+lightReceiverEntryWGSL,room:roomSource(render),gather:coarseSource(render),gatherAdaptive:adaptiveSource(render)});}
  return families.get(key);
 }
 export const {render:renderWGSL,light:lightWGSL,room:roomWGSL,gather:gatherWGSL,gatherAdaptive:gatherAdaptiveWGSL}=rendererShaders(true);

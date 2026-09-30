@@ -1,9 +1,9 @@
-import { FIRE_COLORS } from './fire-colors.js?v=86e0ab5a0c6c5992';
-import { PyroSolver } from './solver.js?v=86e0ab5a0c6c5992';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=86e0ab5a0c6c5992';
-import { runtimeScope } from '../runtime-scope.js?v=86e0ab5a0c6c5992';
-import { outputSize } from './output-size.js?v=86e0ab5a0c6c5992';
-import { gpuSessionTimeout } from './gpu-session.js?v=86e0ab5a0c6c5992';
+import { FIRE_COLORS } from './fire-colors.js?v=74c957d2f5b46187';
+import { PyroSolver } from './solver.js?v=74c957d2f5b46187';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=74c957d2f5b46187';
+import { runtimeScope } from '../runtime-scope.js?v=74c957d2f5b46187';
+import { outputSize } from './output-size.js?v=74c957d2f5b46187';
+import { gpuSessionTimeout } from './gpu-session.js?v=74c957d2f5b46187';
 export async function mountVolume({
   initialPreset = 'explosion',
   onFailure = () => {},
@@ -430,7 +430,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-10',
+      build: 'fire-studio-rc-11',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -564,7 +564,7 @@ export async function mountVolume({
     source.height = canvas.height;
     source
       .getContext('2d')
-      .putImageData(new ImageData(await solver.pixels(), canvas.width, canvas.height), 0, 0);
+      .putImageData(new ImageData(await solver.pixels(), source.width, source.height), 0, 0);
     out.getContext('2d').drawImage(source, 0, 0, 960, 540);
     const blob = await new Promise((resolve) => out.toBlob(resolve));
     await save(name, blob, 'png');
@@ -683,7 +683,7 @@ export async function mountVolume({
               ? `GPU sample ${((result.gpu.simulation || 0) + (result.gpu.lighting || 0) + (result.gpu.render || 0)).toFixed(1)} ms · ${solver.time.toFixed(2)} s`
               : `GPU timing pending · ${solver.time.toFixed(2)} s`;
             $('#gpu-status').textContent =
-              `${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · frame cadence p95 ${report.frameIntervalMs?.p95.toFixed(1) || '—'} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps · ${queueLimitedRafs} queue-limited display ticks`;
+              `${solver.adaptive||solver.useBrickPool||solver.pressureWork||solver.useLightWork||solver.useLightReceivers?'Experimental solver · ':''}${solver.adapter.description || solver.adapter.device || solver.adapter.vendor} · frame cadence p95 ${report.frameIntervalMs?.p95.toFixed(1) || '—'} ms · simulation ${(report.simulationToWallRatio || 0).toFixed(2)}x realtime · pressure residual ${((result.postDivergence / Math.max(result.preDivergence, 0.00001)) * 100).toFixed(2)}% · ${result.substeps} substeps · ${queueLimitedRafs} queue-limited display ticks`;
             queueLimitedRafs = 0;
           }
           if (
@@ -715,9 +715,13 @@ export async function mountVolume({
     scope.schedule(frame);
   }
   try {
-    solver = await PyroSolver.create(canvas);
+    solver = await PyroSolver.create(canvas,{
+      adaptive:params.get('solver')==='adaptive', pressureWork:params.get('pressureWork')==='1',
+      brickPool:params.get('bricks')==='1', lightWork:params.get('lightWork')==='1',
+      lightReceivers:params.get('receivers')==='1',
+    });
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=86e0ab5a0c6c5992');
+      const { pressureCheck } = await import('./pressure-check.js?v=74c957d2f5b46187');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
