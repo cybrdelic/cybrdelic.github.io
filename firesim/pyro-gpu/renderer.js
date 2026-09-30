@@ -1,6 +1,6 @@
-import {objectWGSL} from './objects.js?v=414ea72e283b8dd5';
-import {combustionWGSL} from './combustion.js?v=414ea72e283b8dd5';
-import {sparseSamplerWGSL} from './sparse-field.js?v=414ea72e283b8dd5';
+import {objectWGSL} from './objects.js?v=b44c2b05f3754d07';
+import {combustionWGSL} from './combustion.js?v=b44c2b05f3754d07';
+import {sparseSamplerWGSL} from './sparse-field.js?v=b44c2b05f3754d07';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -45,7 +45,11 @@ fn transmission(x:vec3f,l:vec3f,solidShadow:bool)->f32{
  if(solidShadow&&object.options.x>.5&&objectHit(x+ray*.035,ray,max(distance-.07,0.))<distance-.071){return 0.;}
  if(end<=start){return 1.;}let step=(end-start)/12.;var tau=0.;
  for(var i=0;i<12;i++){let at=x+ray*(start+(f32(i)+.5)*step);
-  tau+=extinction(field(at))*step;}
+  // The shared occupancy mask has a full-brick interpolation halo. A zero
+  // entry therefore proves this chemical sample is zero; retain the exact
+  // twelve-point lattice and the separate solid/mesh occlusion above.
+  let brick=clamp(vec3u((at-LO)*(32./6.)),vec3u(0),vec3u(31));
+  if(occupied[brick.x+32u*(brick.y+32u*brick.z)]!=0u){tau+=extinction(field(at))*step;}}
  return exp(-tau);
 }
 fn shadow(x:vec3f,l:vec3f)->f32{return transmission(x,l,true);}

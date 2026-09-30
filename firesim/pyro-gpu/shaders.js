@@ -1,5 +1,5 @@
-import {objectWGSL} from './objects.js?v=414ea72e283b8dd5';
-import {combustionWGSL} from './combustion.js?v=414ea72e283b8dd5';
+import {objectWGSL} from './objects.js?v=b44c2b05f3754d07';
+import {combustionWGSL} from './combustion.js?v=b44c2b05f3754d07';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256){
@@ -106,13 +106,29 @@ fn turbulence(x:vec3f)->vec3f{
  return vec3f(a.z-b.y,a.x-b.z,a.y-b.x);
 }
 `;
+// Predictor alpha caches a shared limiter donor: exact half-float codes 1..64,
+// or 0 for the original tracing path. Corrected alpha remains source expansion.
+// Near-integer coordinates fall back because separate kernels can round a
+// trace to opposite sides of a donor boundary.
 const advectVelocity=common+`
 @group(0) @binding(2) var v:texture_3d<f32>;
 @group(0) @binding(3) var dst:texture_storage_3d<rgba16float,write>;
 @compute @workgroup_size(8,4,4) fn main(@builtin(global_invocation_id) i:vec3u){
  if(any(i>vec3u(N))){return;}var out=vec3f(0);
- for(var k=0u;k<3u;k++){let x=face(i,k);out[k]=component(v,trace(v,x,p.step.x),k);}
- if(i.y==0u){out.y=0.;}textureStore(dst,vec3i(i),vec4f(out,0));
+ var donor=vec3i(0);var commonDonor=true;
+ for(var k=0u;k<3u;k++){
+  let x=face(i,k);let back=trace(v,x,p.step.x);out[k]=component(v,back,k);
+  var off=vec3f(.5);off[k]=0.;let q=(back-LO)/H-off;let cell=vec3i(floor(q));
+  let fraction=q-vec3f(cell);let margin=min(fraction,vec3f(1.)-fraction);
+  let tolerance=8.*1.1920929e-7*max(abs(q),vec3f(1.));
+  commonDonor=commonDonor&&all(margin>tolerance);
+  if(k==0u){donor=cell;}else{commonDonor=commonDonor&&all(donor==cell);}
+ }
+ let offset=donor-vec3i(i);var encoded=0u;
+ if(commonDonor&&all(offset>=vec3i(-2))&&all(offset<=vec3i(1))){
+  let q=vec3u(offset+vec3i(2));encoded=1u+q.x+4u*q.y+16u*q.z;
+ }
+ if(i.y==0u){out.y=0.;}textureStore(dst,vec3i(i),vec4f(out,f32(encoded)));
 }`;
 const curl=common+`
 @group(0) @binding(2) var v:texture_3d<f32>;
@@ -131,17 +147,31 @@ const correctVelocity=common+`
 @group(0) @binding(4) var chem:texture_3d<f32>;
 @group(0) @binding(5) var vort:texture_3d<f32>;
 @group(0) @binding(6) var dst:texture_storage_3d<rgba16float,write>;
-fn limited(x:vec3f,k:u32,value:f32)->f32{
- var off=vec3f(.5);off[k]=0.;let cell=vec3i(floor((x-LO)/H-off));var lo=1e20;var hi=-1e20;
+fn limitedCell(cell:vec3i,k:u32,value:f32)->f32{
+ var lo=1e20;var hi=-1e20;
  for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var a=0;a<2;a++){let v=loadV(old,cell+vec3i(a,y,z))[k];lo=min(lo,v);hi=max(hi,v);}}}
  return clamp(value,lo,hi);
 }
+fn limited(x:vec3f,k:u32,value:f32)->f32{
+ var off=vec3f(.5);off[k]=0.;return limitedCell(vec3i(floor((x-LO)/H-off)),k,value);
+}
 @compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id) i:vec3u){
  if(any(i>vec3u(N))){return;}var out=vec3f(0);
+ let encoded=loadV(pred,vec3i(i)).w;let hasDonor=encoded>=1.&&encoded<=64.;
+ let packed=u32(max(encoded-1.,0.));
+ let donor=vec3i(i)+vec3i(i32(packed&3u)-2,i32((packed>>2u)&3u)-2,i32((packed>>4u)&3u)-2);
  for(var k=0u;k<3u;k++){
-  let x=face(i,k);let back=trace(old,x,p.step.x);
-  let corrected=loadV(pred,vec3i(i))[k]+.5*(loadV(old,vec3i(i))[k]-component(pred,trace(old,x,-p.step.x),k));
-  out[k]=limited(back,k,corrected);
+  let x=face(i,k);
+  out[k]=loadV(pred,vec3i(i))[k]+.5*(loadV(old,vec3i(i))[k]-component(pred,trace(old,x,-p.step.x),k));
+ }
+ if(hasDonor){
+  var lo=vec3f(1e20);var hi=vec3f(-1e20);
+  for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var dx=0;dx<2;dx++){
+   let value=loadV(old,donor+vec3i(dx,y,z)).xyz;lo=min(lo,value);hi=max(hi,value);
+  }}}
+  out=clamp(out,lo,hi);
+ }else{
+  for(var k=0u;k<3u;k++){out[k]=limited(trace(old,face(i,k),p.step.x),k,out[k]);}
  }
  let x=LO+(vec3f(i)+.5)*H;let c=scalar(chem,x);
  let w=scalar(vort,x);let dx=vec3f(H,0,0);let dy=vec3f(0,H,0);let dz=vec3f(0,0,H);

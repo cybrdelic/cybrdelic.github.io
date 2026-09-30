@@ -1,6 +1,6 @@
 // The reviewed forest-surface asset is rasterized at its original topology.
 // A separate 64³ fuel/collision proxy is used by the fluid solver.
-import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=414ea72e283b8dd5';
+import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=b44c2b05f3754d07';
 export const forestMeshWGSL = `
 struct View{eye:vec4f,right:vec4f,up:vec4f,forward:vec4f,options:vec4f,ambient:vec4f,spotPos0:vec4f,spotDir0:vec4f,spotPower0:vec4f,spotPos1:vec4f,spotDir1:vec4f,spotPower1:vec4f};
 struct ObjectSettings{origin:vec4f,options:vec4f,tint:vec4f};
@@ -122,7 +122,7 @@ export class ForestMesh {
       d = s.device,
       base = new URL('./objects/forest-tree/', import.meta.url);
     const get = async (name) => {
-      const r = await fetch(new URL(name + '?v=414ea72e283b8dd5', base));
+      const r = await fetch(new URL(name + '?v=b44c2b05f3754d07', base));
       if (!r.ok) throw Error('Reviewed tree asset unavailable: ' + name);
       return r;
     };

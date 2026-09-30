@@ -1,13 +1,13 @@
-import { readLook, writeLook } from './studio-location.js?v=414ea72e283b8dd5';
-import { createFireDomain } from './fire-domain.js?v=414ea72e283b8dd5';
-import { inspectionState } from './inspection-state.js?v=414ea72e283b8dd5';
-import { loadRuntime } from './runtime-loader.js?v=414ea72e283b8dd5';
-import { studioUI } from './studio-ui.js?v=414ea72e283b8dd5';
-import { DEMO_PRESETS } from './demo-presets.js?v=414ea72e283b8dd5';
-import { matchingPreset } from './preset-pairs.js?v=414ea72e283b8dd5';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=414ea72e283b8dd5';
-import { mountLibrary } from './pyro-gpu/library.js?v=414ea72e283b8dd5';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=414ea72e283b8dd5';
+import { readLook, writeLook } from './studio-location.js?v=b44c2b05f3754d07';
+import { createFireDomain } from './fire-domain.js?v=b44c2b05f3754d07';
+import { inspectionState } from './inspection-state.js?v=b44c2b05f3754d07';
+import { loadRuntime } from './runtime-loader.js?v=b44c2b05f3754d07';
+import { studioUI } from './studio-ui.js?v=b44c2b05f3754d07';
+import { DEMO_PRESETS } from './demo-presets.js?v=b44c2b05f3754d07';
+import { matchingPreset } from './preset-pairs.js?v=b44c2b05f3754d07';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=b44c2b05f3754d07';
+import { mountLibrary } from './pyro-gpu/library.js?v=b44c2b05f3754d07';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=b44c2b05f3754d07';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;

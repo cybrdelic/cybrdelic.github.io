@@ -1,9 +1,9 @@
-import { FIRE_COLORS } from './fire-colors.js?v=414ea72e283b8dd5';
-import { PyroSolver } from './solver.js?v=414ea72e283b8dd5';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=414ea72e283b8dd5';
-import { runtimeScope } from '../runtime-scope.js?v=414ea72e283b8dd5';
-import { outputSize } from './output-size.js?v=414ea72e283b8dd5';
-import { gpuSessionTimeout } from './gpu-session.js?v=414ea72e283b8dd5';
+import { FIRE_COLORS } from './fire-colors.js?v=b44c2b05f3754d07';
+import { PyroSolver } from './solver.js?v=b44c2b05f3754d07';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=b44c2b05f3754d07';
+import { runtimeScope } from '../runtime-scope.js?v=b44c2b05f3754d07';
+import { outputSize } from './output-size.js?v=b44c2b05f3754d07';
+import { gpuSessionTimeout } from './gpu-session.js?v=b44c2b05f3754d07';
 export async function mountVolume({
   initialPreset = 'explosion',
   onFailure = () => {},
@@ -430,7 +430,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-8',
+      build: 'fire-studio-rc-9',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -717,7 +717,7 @@ export async function mountVolume({
   try {
     solver = await PyroSolver.create(canvas);
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=414ea72e283b8dd5');
+      const { pressureCheck } = await import('./pressure-check.js?v=b44c2b05f3754d07');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));

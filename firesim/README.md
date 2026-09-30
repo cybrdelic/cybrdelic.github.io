@@ -45,6 +45,7 @@ node tools/fire-studio/normal-regression.test.mjs
 node tools/fire-studio/original-startup.test.mjs
 node tools/fire-studio/control-transition.test.mjs
 node tools/fire-studio/volume-reset.test.mjs
+node tools/fire-studio/volume-lighting.test.mjs
 node tools/fire-studio/telemetry.test.mjs
 node tools/fire-studio/check-volume-telemetry.mjs
 node tools/fire-studio/check-volume-queries.mjs
@@ -54,7 +55,7 @@ python tools/fire-studio/package.py --check
 python tools/fire-studio/package.py
 ```
 
-Package validation executes Original initialization with a DOM/WebGL fixture and real source assets, the shared shell's engine/source transitions, and Volume's actual reset functions with delayed GPU operation fixtures. Those checks also run on the completed package and copied deployment directory. They check JavaScript behavior and resource ordering; they do not establish browser graphics or frame rate. The package also checks JavaScript syntax, local module/HTML/CSS/asset references, catalog previews and binary asset integrity, and rejects unreachable JavaScript. A content fingerprint normalizes module and asset cache keys in packaged files.
+Package validation executes Original initialization with a DOM/WebGL fixture and real source assets, the shared shell's engine/source transitions, Volume's actual reset functions with delayed GPU operation fixtures, and its lighting bindings across normal/tree transitions. Those checks also run on the completed package and copied deployment directory. They check JavaScript behavior and resource ordering; they do not establish browser graphics or frame rate. The package also checks JavaScript syntax, local module/HTML/CSS/asset references, catalog previews and binary asset integrity, and rejects unreachable JavaScript. A content fingerprint normalizes module and asset cache keys in packaged files.
 
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 
