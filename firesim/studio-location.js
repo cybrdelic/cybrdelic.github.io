@@ -1,8 +1,9 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=74c957d2f5b46187';
+import { cleanLights } from './look-storage.js?v=db13e8bbd389db1b';
 
 export function readLook(params, camera) {
   const look = {};
+  if(['0','1'].includes(params.get('guide')))look.sourceGuide=params.get('guide')==='1';
   for (const key of ['room', 'smoke', 'embers'])
     if (['0', '1'].includes(params.get(key))) look[key] = params.get(key) === '1';
   if (['wood', 'gas', 'oil'].includes(params.get('fuel'))) look.fuel = params.get('fuel');
@@ -39,6 +40,8 @@ export function writeLook(url, state) {
   url.searchParams.delete(original ? 'firePreset' : 'preset');
   url.searchParams.set('room', state.room ? '1' : '0');
   url.searchParams.set('fuel', state.fuel);
+  if(state.sourceGuide===undefined)url.searchParams.delete('guide');
+  else url.searchParams.set('guide',state.sourceGuide?'1':'0');
   for (const key of ['smoke', 'color', 'embers', 'fireLight']) {
     if ((original && key === 'embers') || state[key] === undefined) url.searchParams.delete(key);
     else url.searchParams.set(key, typeof state[key] === 'boolean' ? (state[key] ? '1' : '0') : state[key]);

@@ -1,13 +1,13 @@
-import { readLook, writeLook } from './studio-location.js?v=74c957d2f5b46187';
-import { createFireDomain } from './fire-domain.js?v=74c957d2f5b46187';
-import { inspectionState } from './inspection-state.js?v=74c957d2f5b46187';
-import { loadRuntime } from './runtime-loader.js?v=74c957d2f5b46187';
-import { studioUI } from './studio-ui.js?v=74c957d2f5b46187';
-import { DEMO_PRESETS } from './demo-presets.js?v=74c957d2f5b46187';
-import { matchingPreset } from './preset-pairs.js?v=74c957d2f5b46187';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=74c957d2f5b46187';
-import { mountLibrary } from './pyro-gpu/library.js?v=74c957d2f5b46187';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=74c957d2f5b46187';
+import { readLook, writeLook } from './studio-location.js?v=db13e8bbd389db1b';
+import { createFireDomain } from './fire-domain.js?v=db13e8bbd389db1b';
+import { inspectionState } from './inspection-state.js?v=db13e8bbd389db1b';
+import { loadRuntime } from './runtime-loader.js?v=db13e8bbd389db1b';
+import { studioUI } from './studio-ui.js?v=db13e8bbd389db1b';
+import { DEMO_PRESETS } from './demo-presets.js?v=db13e8bbd389db1b';
+import { matchingPreset } from './preset-pairs.js?v=db13e8bbd389db1b';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=db13e8bbd389db1b';
+import { mountLibrary } from './pyro-gpu/library.js?v=db13e8bbd389db1b';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=db13e8bbd389db1b';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -36,6 +36,7 @@ function snapshot() {
     fire: selected,
     room: $('#room').checked,
     fuel: $('#fuel').value,
+    sourceGuide: $('#source-guide').checked,
     ...runtime?.snapshot(),
     lights: window.SceneLights.snapshot,
     fireLight: Number($('#fire-light').value),
@@ -207,6 +208,7 @@ function activate(kind, key, look, force = false) {
           };
         else if (!look) look = transitionLook(kind, chosen, old, force);
         if (look?.lights || look?.lighting) window.SceneLights.apply(look.lights || look.lighting);
+        if(typeof look?.sourceGuide==='boolean')$('#source-guide').checked=look.sourceGuide;
         const remount =
           force ||
           !healthy ||
@@ -292,7 +294,7 @@ function syncLocation() {
   history.replaceState(null, '', url);
 }
 for (const type of ['input', 'change']) document.addEventListener(type, (event) => {
-  if (event.target.matches('#fuel, #room, #smoke-only, #flame-color, #embers, #fire-light, #zoom, #orbit')) syncLocation();
+  if (event.target.matches('#fuel, #room, #source-guide, #smoke-only, #flame-color, #embers, #fire-light, #zoom, #orbit')) syncLocation();
 });
 window.addEventListener('scene-light-change', syncLocation);
 $('#view').addEventListener('pointerup', syncLocation);

@@ -31,6 +31,7 @@
   };
   for(const [id,values] of Object.entries(variants))presets[id]={...presets.studio,...values};
   const diagnosticRigs={
+   'fully-lit':{ambient:1,tint:'#ffffff',bounce:.6,key:180,keyColor:'#ffffff',keyAz:-40,keyHeight:5.5,keyBeam:85,rim:140,rimColor:'#ffffff',rimAz:140,rimHeight:5,rimBeam:85,aimY:2},
    'material-white':{ambient:.18,tint:'#ffffff',bounce:0,key:190,keyColor:'#ffffff',keyAz:-35,keyHeight:4.5,keyBeam:85,rim:80,rimColor:'#ffffff',rimAz:135,rimHeight:4,rimBeam:85,aimY:1.4},
    'bark-rake':{ambient:.035,tint:'#ffffff',bounce:0,key:240,keyColor:'#ffffff',keyAz:-85,keyHeight:1.8,keyBeam:65,rim:0,aimY:1.1},
    'bark-rake-reverse':{ambient:.035,tint:'#ffffff',bounce:0,key:240,keyColor:'#ffffff',keyAz:85,keyHeight:1.8,keyBeam:65,rim:0,aimY:1.1},
@@ -39,10 +40,10 @@
    'overhead-white':{ambient:.02,tint:'#ffffff',bounce:0,key:300,keyColor:'#ffffff',keyAz:0,keyHeight:7,keyBeam:70,rim:0,aimY:1.5}
   };
   for(const [id,values] of Object.entries(diagnosticRigs))presets[id]={...presets.studio,...values};
-  Object.assign(names,{'material-white':'Material · neutral white','bark-rake':'Relief · left grazing','bark-rake-reverse':'Relief · right grazing','canopy-back':'Canopy · backlit','bounce-check':'Fire · bounce comparison','overhead-white':'Occlusion · overhead white'});
+  Object.assign(names,{'fully-lit':'Fully lit · neutral','material-white':'Material · neutral white','bark-rake':'Relief · left grazing','bark-rake-reverse':'Relief · right grazing','canopy-back':'Canopy · backlit','bounce-check':'Fire · bounce comparison','overhead-white':'Occlusion · overhead white'});
   const descriptions={transport:'Broad white lights reveal soot without a colored wash or room bounce.',side:'Grazing illumination reveals folds, thin edges and plume depth.',backlight:'A broad white rim tests smoke silhouettes and light transmission.',shadow:'One narrow white spotlight exposes self-shadowing and floor shadows.',cross:'Opposing white spotlights reveal thin sheets from both sides.',flat:'Uniform white ambient light isolates density from directional shadows.'};
-  Object.assign(descriptions,{'material-white':'Neutral key and restrained fill expose albedo, char and geometry without a colored wash.','bark-rake':'Low left light exposes raised bark, recesses and crack opening. No bounce.','bark-rake-reverse':'Exactly the same power and height as left grazing, with the direction reversed.','canopy-back':'White backlight separates individual leaves and smoke edges; a small neutral fill keeps the trunk readable.','bounce-check':'Same zero-external-light rig as Fire only, with one-bounce room illumination enabled.','overhead-white':'High white key tests branch overlap, cavities and cast shadows.',fire:'No external light or bounce. Check whether the fire alone illuminates the scene.'});
-  const diagnostic=new Set(['fire','material-white','bark-rake','bark-rake-reverse','canopy-back','overhead-white','transport','backlight','shadow','cross','flat','bounce-check']);
+  Object.assign(descriptions,{'fully-lit':'Bright neutral fill and broad white key and rim lights reveal room markings, source surfaces and cold smoke.','material-white':'Neutral key and restrained fill expose albedo, char and geometry without a colored wash.','bark-rake':'Low left light exposes raised bark, recesses and crack opening. No bounce.','bark-rake-reverse':'Exactly the same power and height as left grazing, with the direction reversed.','canopy-back':'White backlight separates individual leaves and smoke edges; a small neutral fill keeps the trunk readable.','bounce-check':'Same zero-external-light rig as Fire only, with one-bounce room illumination enabled.','overhead-white':'High white key tests branch overlap, cavities and cast shadows.',fire:'No external light or bounce. Check whether the fire alone illuminates the scene.'});
+  const diagnostic=new Set(['fire','fully-lit','material-white','bark-rake','bark-rake-reverse','canopy-back','overhead-white','transport','backlight','shadow','cross','flat','bounce-check']);
   let state={...presets.fire};
   try {const saved=JSON.parse(localStorage.getItem('cybr-fire-lights-v1'));if(saved&&typeof saved==='object')for(const k of Object.keys(state))if(typeof saved[k]===typeof state[k])state[k]=saved[k];} catch {}
   const panel=document.querySelector('#lighting-controls');

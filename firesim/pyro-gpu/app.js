@@ -1,9 +1,10 @@
-import { FIRE_COLORS } from './fire-colors.js?v=74c957d2f5b46187';
-import { PyroSolver } from './solver.js?v=74c957d2f5b46187';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=74c957d2f5b46187';
-import { runtimeScope } from '../runtime-scope.js?v=74c957d2f5b46187';
-import { outputSize } from './output-size.js?v=74c957d2f5b46187';
-import { gpuSessionTimeout } from './gpu-session.js?v=74c957d2f5b46187';
+import { FIRE_COLORS } from './fire-colors.js?v=db13e8bbd389db1b';
+import { PyroSolver } from './solver.js?v=db13e8bbd389db1b';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=db13e8bbd389db1b';
+import { runtimeScope } from '../runtime-scope.js?v=db13e8bbd389db1b';
+import { outputSize } from './output-size.js?v=db13e8bbd389db1b';
+import { gpuSessionTimeout } from './gpu-session.js?v=db13e8bbd389db1b';
+import { floorHit } from '../fuel-ground.js?v=db13e8bbd389db1b';
 export async function mountVolume({
   initialPreset = 'explosion',
   onFailure = () => {},
@@ -31,7 +32,7 @@ export async function mountVolume({
     zoom = 1.25,
     angle = Number(params.get('angle') || 16),
     pan = [0, 0],
-    panMode = false,
+    activeTool = 'fire',
     gesture = null,
     trace = [],
     captureIndex = 0,
@@ -132,6 +133,11 @@ export async function mountVolume({
     return { eye, forward, right, up: cross(right, forward), tan: 0.3443276133 / zoom };
   }
   function sync() {
+    const placed=!!solver?.hasFloorFuel;
+    $('#fuel-actions').hidden=activeTool!=='fuel'&&!placed;
+    $('#ignite-fuel').disabled=!placed||!!activeFire.smokeSimulation;
+    $('#ignite-fuel').title=activeFire.smokeSimulation?'Choose a fire source to ignite fuel.':'Apply a single ignition pulse to the placed fuel';
+    $('#clear-fuel').disabled=!placed;
     $('#zoom').value = zoom * 100;
     $('#zoom-value').value = Math.round(zoom * 100) + '%';
     $('#orbit').value = angle;
@@ -161,7 +167,7 @@ export async function mountVolume({
         ...c.eye,
         c.tan,
         ...c.right,
-        0,
+        solver?.hasFloorFuel ? 1 : 0,
         ...c.up,
         0,
         ...c.forward,
@@ -171,7 +177,7 @@ export async function mountVolume({
         l.bounce,
         fireLight,
         ...color(l.tint).map((v) => v * l.ambient),
-        0,
+        $('#source-guide').checked && activeFire.effect[0]===10 ? 10 : 0,
       ];
     for (const k of ['key', 'rim']) {
       const a = (l[k + 'Az'] * Math.PI) / 180,
@@ -209,6 +215,18 @@ export async function mountVolume({
       ),
       0,
     ];
+  }
+  function floorPoint(e) {
+    const r=canvas.getBoundingClientRect(),c=camera();
+    const x=2*(e.clientX-r.left)/r.width-1,y=1-2*(e.clientY-r.top)/r.height;
+    return floorHit(c.eye,c.forward.map((v,i)=>v+x*(16/9)*c.tan*c.right[i]+y*c.tan*c.up[i]));
+  }
+  function placeFuel(e) {
+    const at=floorPoint(e);
+    if(!at){if(gesture)gesture.fuelAt=null;message.textContent='Place fuel on the floor inside the simulation area.';return;}
+    solver.dropFuel(at,gesture?.fuelAt);if(gesture)gesture.fuelAt=at;
+    paused=false;sync();
+    message.textContent='Unlit fuel placed · nearby flame or Ignite fuel starts combustion';
   }
   function releaseBusy() {
     busy = false;
@@ -297,6 +315,9 @@ export async function mountVolume({
     if (solver) solver.fuel = { gas: 0, wood: 0.35, oil: 1 }[$('#fuel').value];
   };
   $('#room').onchange = markDirty;
+  $('#source-guide').onchange = markDirty;
+  $('#ignite-fuel').onclick=()=>{if(solver?.igniteFuel()){paused=false;sync();message.textContent='Fuel ignited · the finite patches burn down through normal combustion';}else message.textContent=solver?.smoke?'Choose a fire source to ignite fuel.':'Drop fuel on the floor first.';};
+  $('#clear-fuel').onclick = () => {solver?.clearFuel();sync();message.textContent='Placed fuel and burn marks cleared · existing smoke keeps drifting';};
   on(window, 'scene-light-change', markDirty);
   $('#orbit').oninput = () => {
     angle = Number($('#orbit').value);
@@ -331,24 +352,32 @@ export async function mountVolume({
     zoom = 1.4;
     sync();
   };
-  function tool(pan) {
-    panMode = pan;
-    $('#fire-tool').setAttribute('aria-pressed', !pan);
-    $('#pan-tool').setAttribute('aria-pressed', pan);
-    view.dataset.tool = pan ? 'pan' : 'fire';
+  function tool(next) {
+    if(gesture&&view.hasPointerCapture?.(gesture.id))view.releasePointerCapture(gesture.id);
+    gesture=null;
+    activeTool=next;
+    for(const id of ['fire','fuel','pan'])$('#'+id+'-tool').setAttribute('aria-pressed',id===next);
+    view.dataset.tool=next;
+    if(next==='fuel'){$('#room').checked=true;$('#room').dispatchEvent(new Event('change'));}
+    $('#help').textContent=next==='fuel'?'Click or drag across the floor to lay unlit fuel. Nearby flames or Ignite fuel ignite it. Fully lit reveals cold patches. Shift/right-drag pans; scroll zooms.':
+      'Drag to move the burning source. Shift/right-drag pans; scroll zooms.';
+    sync();
   }
-  $('#fire-tool').onclick = () => tool(false);
-  $('#pan-tool').onclick = () => tool(true);
+  $('#fire-tool').onclick = () => tool('fire');
+  $('#fuel-tool').onclick = () => tool('fuel');
+  $('#pan-tool').onclick = () => tool('pan');
+  tool('fire');
   on(view, 'pointerdown', (e) => {
     if (!solver) return;
     e.preventDefault();
     view.focus({ preventScroll: true });
-    const isPan = panMode || e.shiftKey || e.button === 2;
+    if(gesture||(e.pointerType==='mouse'&&e.button!==0&&e.button!==2))return;
+    const isPan = activeTool==='pan' || e.shiftKey || e.button === 2;
     gesture = { id: e.pointerId, pan: isPan, anchor: worldPoint(e) };
     view.setPointerCapture(e.pointerId);
     if (!isPan) {
-      solver.source = locationPoint(e);
-      burst();
+      if(activeTool==='fuel')placeFuel(e);
+      else {solver.source = locationPoint(e);burst();}
     }
   });
   on(view, 'pointermove', (e) => {
@@ -358,7 +387,8 @@ export async function mountVolume({
       pan[0] += gesture.anchor[0] - at[0];
       pan[1] += gesture.anchor[1] - at[1];
       sync();
-    } else solver.source = locationPoint(e);
+    } else if(activeTool==='fuel')placeFuel(e);
+    else solver.source = locationPoint(e);
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'])
     on(view, name, () => {
@@ -407,7 +437,7 @@ export async function mountVolume({
     if (e.key.toLowerCase() === 'r') restart().catch(onFailure);
     if (e.key === '0') $('#reset-view').click();
     if (e.key.toLowerCase() === 'f') $('#fullscreen').click();
-    if (e.key === 'Escape') tool(false);
+    if (e.key === 'Escape') tool('fire');
   });
   function summary(samples) {
     // A mapped GPU timing can span several submitted frames. Count that
@@ -430,7 +460,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-11',
+      build: 'fire-studio-rc-12',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -493,6 +523,8 @@ export async function mountVolume({
     }
   }
   function fireHelp() {
+    $('#source-guide').disabled=activeFire.effect[0]!==10;
+    $('#sigil-guide-control').hidden=activeFire.effect[0]!==10;
     const continuous = activeFire.effect[3] > 0.5;
     $('#burst').textContent = continuous ? 'Relight' : 'Trigger burst';
     message.textContent =
@@ -505,7 +537,8 @@ export async function mountVolume({
       'aria-label',
       activeFire.name + '. Drag to move the source, shift-drag to pan.',
     );
-    $('#help').textContent = continuous
+    $('#help').textContent = activeTool==='fuel'
+      ? 'Click or drag across the floor to lay unlit fuel. Nearby flames or Ignite fuel ignite it. Fully lit reveals cold patches. Shift/right-drag pans; scroll zooms.' : continuous
       ? 'Drag to move the burning source. Stop fuel lets the flame die. Shift/right-drag to pan; scroll to zoom.'
       : 'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom.';
   }
@@ -721,7 +754,7 @@ export async function mountVolume({
       lightReceivers:params.get('receivers')==='1',
     });
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=74c957d2f5b46187');
+      const { pressureCheck } = await import('./pressure-check.js?v=db13e8bbd389db1b');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -761,11 +794,13 @@ export async function mountVolume({
       embers,
       fuel: $('#fuel').value,
       smoke,
+      sourceGuide: $('#source-guide').checked,
       fireLight,
       room: $('#room').checked,
       camera: { zoom, angle, pan: [...pan] },
     }),
     look(item) {
+      if(typeof item.sourceGuide==='boolean')$('#source-guide').checked=item.sourceGuide;
       if (FIRE_COLORS.some((c) => c.id === item.color)) {
         flameColor = item.color;
         $('#flame-color').value = flameColor;

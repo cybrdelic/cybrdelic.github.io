@@ -22,7 +22,13 @@ Open [Fire Studio](http://127.0.0.1:8767/elements/motion/bending/sigils/02/fire-
 - **Camera:** scroll to zoom; Shift-drag or right-drag pans. The controls also provide an angle slider and camera reset. Touch interaction and keyboard controls are described beside the scene.
 - **Library:** choose a complete demo scene, an individual source, a lighting rig, an inspection test or a saved look. Tests use temporary lighting and camera settings.
 - **Lighting:** adjust external light sources and approximate room bounce while the fire remains visible. Fire itself illuminates the gas, room and source props.
+- **Fully lit:** choose **Fully lit · neutral** in Lighting or the library to inspect the room, source surfaces and cold smoke with broad white lights.
+- **Show sigil:** on a CYBR sigil source, show or hide the solid artwork beneath the flame. This changes its visibility; it does not add a combustion obstacle.
+- **Drop fuel:** in either engine, select this tool and click or drag on the floor inside the simulation area. It enables Room and places finite, unlit patches. Nearby flame can ignite them; **Ignite fuel** applies one ignition pulse. **Clear fuel** removes the patches and floor burn marks while existing gas and smoke continue. **Restart** resets the simulation and placed fuel.
+- **Smoke clearance:** after fuel stops, leave the simulation playing so smoke can rise, spread and gradually clear. A burning source continually replenishes smoke. Pause freezes it; char and floor burn marks remain until cleared or restarted. Smoke-only sources keep placed fuel unlit; choose a fire source to ignite it.
 - **Present:** hide editing controls for a demo. Escape returns to the workspace.
+
+The [fuel and inspection guide](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/FUEL_AND_INSPECTION.md) describes these controls and their verification scope.
 
 Sources carry stable IDs across both simulations. Each engine implements them using its own flow and source model. Prototype object and burst studies are identified as experiments; the Include experiments control exposes them in the Source picker. Saved looks use local browser storage and version 1 JSON import/export.
 
@@ -73,6 +79,12 @@ node tools/fire-studio/pooled-coupling.test.mjs
 node tools/fire-studio/lighting-work.test.mjs
 node tools/fire-studio/adaptive-runtime.test.mjs
 node tools/fire-studio/adaptive-lifecycle.test.mjs
+node tools/fire-studio/fuel-ground.test.mjs
+node tools/fire-studio/floor-fuel.test.mjs
+node tools/fire-studio/sigil-guide.test.mjs
+node tools/fire-studio/scene-light-presets.test.mjs
+node tools/fire-studio/smoke-lifecycle.test.mjs
+node tools/fire-studio/original-smoke.test.mjs
 node tools/fire-studio/telemetry.test.mjs
 node tools/fire-studio/check-volume-telemetry.mjs
 node tools/fire-studio/check-volume-queries.mjs
@@ -85,6 +97,8 @@ python tools/fire-studio/package.py
 Package validation executes Original initialization with a DOM/WebGL fixture and real source assets, the shared shell's engine/source transitions, Volume's actual reset functions with delayed GPU operation fixtures, its lighting bindings across normal/tree transitions, separate optical/transport mask ordering, and 10,000 display ticks with fixed quality and bounded GPU submissions. Those checks also run on the completed package and copied deployment directory. They check JavaScript behavior and resource ordering; they do not establish browser graphics or frame rate. The package also checks JavaScript syntax, local module/HTML/CSS/asset references, catalog previews and binary asset integrity, and rejects unreachable JavaScript. A content fingerprint normalizes module and asset cache keys in packaged files.
 
 Package validation also executes the seven adaptive fixtures listed above against source, the completed build and directory verification. They record actual host methods, fixed resource lifetimes, pool ownership/migration, dense fallback, independent lighting support, restart and disposal. Set `FIRE_STUDIO_ROOT` to a build directory to run these fixtures against packaged modules. Their CPU recording checks are separate from native shader, field and pixel comparisons.
+
+The four fuel, sigil and lighting fixtures bring the packaged runtime checks to 17 runners. rc.12 native checks also verify cold deposits, finite ignition through production combustion, surface stock/char accounting and sigil intersections at several angles. See the fuel and inspection guide for the evidence; these checks do not certify browser interaction or frame pacing.
 
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 
@@ -111,8 +125,10 @@ Offline film detail parity, sustained browser pacing, mobile support and the lat
 | `fire.js` and root shader helpers | Original WebGL simulation and rendering |
 | `pyro-gpu/app.js`, `solver.js` | Volume controls, GPU scheduling and diagnostics |
 | `pyro-gpu/shaders.js`, `renderer.js` | Volume transport, combustion and volume/room rendering |
-| `pyro-gpu/lighting-work.js` | Default precise incident-light receiver support and optional generic work queue |
+| `pyro-gpu/lighting-work.js` | Optional precise incident-light receiver support and generic work queue |
 | `pyro-gpu/adaptive-flow.js` | Optional global coarse/local fine flow and sticky dense fallback |
 | `pyro-gpu/adaptive-pressure.js` | Optional exact fine smoothing work lists; pressure remains global |
 | `pyro-gpu/brick-pool.js`, `pooled-coupling.js` | Optional fixed chemistry pool, generation-safe sampling, migration and shared consumers |
 | `pyro-gpu/objects.js`, `forest-mesh.js` | Surface fuel and imported tree geometry |
+| `fuel-ground.js`, `ground-fuel-gl.js`, `pyro-gpu/floor-fuel.js` | Shared floor input, finite inventory, ignition, char and floor material |
+| `pyro-gpu/sigil-guide.js` | Visible CYBR artwork using the native source contour |

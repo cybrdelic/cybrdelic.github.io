@@ -1,4 +1,4 @@
-import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=74c957d2f5b46187';
+import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=db13e8bbd389db1b';
 const KEY = 'cybr-pyro-library-v1';
 const bounded = (value, min, max, fallback) =>
   value !== null && value !== '' && Number.isFinite(Number(value))
@@ -37,6 +37,7 @@ export function cleanLook(value, presets) {
     lights: cleanLights(value.lights),
     fireLight: bounded(value.fireLight ?? 24, 0, 80, 24),
     room: value.room !== false,
+    sourceGuide: value.sourceGuide !== false,
     smoke: !!value.smoke,
     fuel: ['wood', 'oil', 'gas'].includes(value.fuel) ? value.fuel : preset.fuel,
     color: FIRE_COLORS.some((c) => c.id === value.color) ? value.color : 'natural',

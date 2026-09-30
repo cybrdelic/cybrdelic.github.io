@@ -3,17 +3,20 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=74c957d2f5b46187';
-import { ForestMesh } from './forest-mesh.js?v=74c957d2f5b46187';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=74c957d2f5b46187';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=74c957d2f5b46187';
-import { simulationShaders, pressureShaders } from './shaders.js?v=74c957d2f5b46187';
-import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=74c957d2f5b46187';
-import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=74c957d2f5b46187';
-import { AdaptivePressure } from './adaptive-pressure.js?v=74c957d2f5b46187';
-import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=74c957d2f5b46187';
-import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=74c957d2f5b46187';
-import { pooledChemistryConsumer } from './pooled-coupling.js?v=74c957d2f5b46187';
+} from './objects.js?v=db13e8bbd389db1b';
+import { ForestMesh } from './forest-mesh.js?v=db13e8bbd389db1b';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=db13e8bbd389db1b';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=db13e8bbd389db1b';
+import { simulationShaders, pressureShaders } from './shaders.js?v=db13e8bbd389db1b';
+import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=db13e8bbd389db1b';
+import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=db13e8bbd389db1b';
+import { AdaptivePressure } from './adaptive-pressure.js?v=db13e8bbd389db1b';
+import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=db13e8bbd389db1b';
+import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=db13e8bbd389db1b';
+import { pooledChemistryConsumer } from './pooled-coupling.js?v=db13e8bbd389db1b';
+import { FuelBrush } from '../fuel-ground.js?v=db13e8bbd389db1b';
+import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=db13e8bbd389db1b';
+import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=db13e8bbd389db1b';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -61,6 +64,7 @@ export class PyroSolver {
     this.useLightReceivers = lightReceivers && !lightWork;
     this.poolCapacity = poolCapacity;
     this.time = 0;
+    this.smokeDecayRemainder = 0;
     this.burstAge = 0;
     this.maxSpeed = 12;
     this.source = [0, 0.58, 0];
@@ -74,6 +78,10 @@ export class PyroSolver {
     this.objectId = null;
     this.color = 'natural';
     this.embers = true;
+    this.fuelBrush = new FuelBrush();
+    this.hasFloorFuel = false;
+    this.floorIgnition = false;
+    this.floorIndex = 0;
     this.si = 0;
     this.errors = [];
     this.stateEpoch = 0;
@@ -131,7 +139,7 @@ export class PyroSolver {
       addressModeW: 'clamp-to-edge',
     });
     this.params = Array.from({ length: 12 }, () =>
-      d.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      d.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
     );
     this.view = d.createBuffer({
       size: 192,
@@ -200,7 +208,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=74c957d2f5b46187', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=db13e8bbd389db1b', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -248,6 +256,7 @@ export class PyroSolver {
         ],
       },
     });
+    await this.initFloorFuel();
     const shaders = simulationShaders(this.N, this.D,{flowSupport:this.adaptive});
     if (this.chemistryPool) Object.assign(shaders,
       brickPoolScalarShaders(this.chemistryPool.plan,{N:this.N,shaders}),
@@ -326,9 +335,56 @@ export class PyroSolver {
     if (this.useLightWork) await this.initLightingWork();
     const setup = d.createCommandEncoder();
     this.chemistryPool?.encodeReset(setup);
+    this.clearFloorFuel(setup);
     this.resetSurface(setup);
     d.queue.submit([setup.finish()]);
   }
+  async initFloorFuel() {
+    const d=this.device, n=FLOOR_FUEL_SIZE;
+    const make=format=>{
+      const t=d.createTexture({size:[n,n],format,usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_DST});
+      this.resources.push(t);return {t,view:t.createView()};
+    };
+    this.floorFuel=[make('rgba32float'),make('rgba32float')];
+    this.floorDeposits=make('r32float');
+    this.floorUpload=new Float32Array(n*n);
+    this.floorUpdate=await this.pipeline(this.chemistryCode(floorFuelUpdateWGSL),'floor-fuel');
+    this.floorClear=await this.pipeline(floorFuelClearWGSL,'floor-fuel-clear');
+    this.floorDepositClear=await this.pipeline(floorDepositsClearWGSL,'floor-deposits-clear');
+  }
+  floorPass(encoder,pipeline,items) {
+    const pass=encoder.beginComputePass();pass.setPipeline(pipeline);
+    pass.setBindGroup(0,this.group(pipeline,items));
+    pass.dispatchWorkgroups(FLOOR_FUEL_SIZE/8,FLOOR_FUEL_SIZE/8);pass.end();
+  }
+  clearFloorFuel(encoder) {
+    this.floorPass(encoder,this.floorClear,[[0,this.floorFuel[0]],[1,this.floorFuel[1]],[2,this.floorDeposits]]);
+    this.floorIndex=0;this.hasFloorFuel=false;this.floorIgnition=false;this.fuelBrush.clear();
+  }
+  clearFuel() {
+    const encoder=this.device.createCommandEncoder();this.clearFloorFuel(encoder);
+    this.device.queue.submit([encoder.finish()]);this.lightReady=false;
+  }
+  dropFuel(at,previous=null) {
+    const changed=previous?this.fuelBrush.stroke(previous,at):this.fuelBrush.stamp(...at);
+    if(changed){this.hasFloorFuel=true;this.previousDt=0;this.lightReady=false;}
+    return changed;
+  }
+  igniteFuel(){
+    if(!this.hasFloorFuel||this.smoke)return false;
+    this.floorIgnition=true;this.previousDt=0;this.lightReady=false;return true;
+  }
+  updateFloorFuel(encoder,p,ci) {
+    if(!this.hasFloorFuel)return;
+    const packet=this.fuelBrush.consume();
+    if(packet)this.device.queue.writeTexture({texture:this.floorDeposits.t},expandFuelDeposits(packet.data,this.floorUpload),{bytesPerRow:FLOOR_FUEL_SIZE*4},[FLOOR_FUEL_SIZE,FLOOR_FUEL_SIZE]);
+    this.floorPass(encoder,this.floorUpdate,[[0,{buffer:p}],[1,this.sampler],[2,this.c[ci]],
+      [3,this.floorFuel[this.floorIndex]],[4,this.floorDeposits],[5,this.floorFuel[1-this.floorIndex]],...this.chemistryBindings(ci)]);
+    this.floorIndex=1-this.floorIndex;
+    this.floorIgnition=false;
+    if(packet)this.floorPass(encoder,this.floorDepositClear,[[0,this.floorDeposits]]);
+  }
+  floorBindings(){return [[32,this.floorFuel[this.floorIndex]]];}
   async initAdaptive() {
     const d = this.device, C = this.N / 2, T = (this.N / 8) ** 3;
     const storage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST;
@@ -388,14 +444,14 @@ export class PyroSolver {
   buildScalarWork(encoder,p,ci) {
     encoder.clearBuffer(this.indirect,0,4);
     this.dispatch(encoder,this.pipelines.buildBricks,[[0,{buffer:p}],[2,{buffer:this.masks[ci]}],
-      [3,{buffer:this.masks[1-ci]}],[4,{buffer:this.bricks}],[5,{buffer:this.indirect}],[1,this.sampler],...this.objectBindings()],this.D/8);
+      [3,{buffer:this.masks[1-ci]}],[4,{buffer:this.bricks}],[5,{buffer:this.indirect}],[1,this.sampler],...this.objectBindings(),...this.floorBindings()],this.D/8);
   }
   adaptiveVelocity(encoder,base,vi,ci) {
     const a=this.flowPipelines,k=this.pipelines;
     encoder.clearBuffer(this.flowChemArgs,0,4);
     const classify=(pipeline,items,name)=>this.indirectRun(encoder,pipeline,items,this.flowCommands,ADAPTIVE_FLOW_OFFSETS[name]);
     classify(a.sourceWork,[...base,[2,{buffer:this.opticalMasks[ci]}],[3,{buffer:this.opticalMasks[1-ci]}],
-      [4,{buffer:this.flowChemBricks}],[5,{buffer:this.flowChemArgs}],...this.objectBindings()],'sourceWork');
+      [4,{buffer:this.flowChemBricks}],[5,{buffer:this.flowChemArgs}],...this.objectBindings(),...this.floorBindings()],'sourceWork');
     classify(a.restrict,[[0,this.v[vi]],[1,this.coarseV[0]]],'restrict');
     encoder.clearBuffer(this.flowMask);
     classify(this.flowChemistryPipeline,[[2,{buffer:this.flowChemBricks}],[3,{buffer:this.flowChemArgs}],[4,{buffer:this.flowMask}]],'chemistry');
@@ -457,7 +513,7 @@ export class PyroSolver {
       tree = requested === 'cybr-tree';
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin?v=74c957d2f5b46187', import.meta.url),
+        new URL('./objects/' + requested + '.rgba16.bin?v=db13e8bbd389db1b', import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -630,6 +686,8 @@ export class PyroSolver {
     const warmPressure =
       this.effect[3] > 0.5 && this.burstAge > 0.12 && this.previousDt && stationary;
     const p = this.params[index];
+    const smokeDecay=advanceSmokeDecay(this.smokeDecayRemainder||0,dt);
+    this.smokeDecayRemainder=smokeDecay.remainder;
     this.device.queue.writeBuffer(
       p,
       0,
@@ -641,12 +699,13 @@ export class PyroSolver {
         ...this.source,
         this.active ? 1 : 0,
         this.seed,
-        6,
+        this.hasFloorFuel ? (this.floorIgnition ? 3 : 1) : 0,
         this.fuel,
         warmPressure ? dt / this.previousDt : 0,
         ...this.effect,
         ...this.dynamics,
         ...this.chemistry,
+        smokeDecay.decayDt,0,0,0,
       ]),
     );
     this.previousDt = dt;
@@ -658,6 +717,7 @@ export class PyroSolver {
       k = this.pipelines;
     const vi = this.vi,
       ci = this.ci;
+    this.updateFloorFuel(encoder,p,ci);
     if (this.chemistryPool) {
       this.buildScalarWork(encoder,p,ci);
       this.chemistryPool.encodeRequestsFromFineBricks(encoder,{bricks:this.bricks,indirect:this.indirect});
@@ -782,6 +842,7 @@ export class PyroSolver {
         [5, { buffer: this.indirect }],
         [1, this.sampler],
         ...this.objectBindings(),
+        ...this.floorBindings(),
       ],
       this.D / 8,
     );
@@ -809,6 +870,7 @@ export class PyroSolver {
       [8, this.sigilSource],
       ...this.objectBindings(true),
       ...this.scalarBindings(ci,true),
+      ...this.floorBindings(),
     ]);
     this.ci = 1 - ci;
     if (this.embers && !this.smoke) {
@@ -872,7 +934,7 @@ export class PyroSolver {
   }
   camera(data) {
     this.cameraValues = data;
-    const key = data.slice(16).join(',');
+    const key = [...data.slice(16,23),...data.slice(24)].join(',');
     if (key !== this.lightKey) {
       this.lightKey = key;
       this.lightReady = false;
@@ -901,6 +963,8 @@ export class PyroSolver {
         [6, this.roomTargets[0]],
         [7, this.roomTargets[1]],
         [9, { buffer: this.visibleBricks }],
+        [31,this.sigilSource],
+        ...this.floorBindings(),
         ...this.objectBindings(true),
         ...this.meshBindings(),
         ...this.meshShadowBindings(),
@@ -1278,6 +1342,7 @@ export class PyroSolver {
     this.lightReady = false;
     this.previousDt = 0;
     this.time = 0;
+    this.smokeDecayRemainder = 0;
     this.burstAge = 0;
     this.maxSpeed = 12;
     this.latestTelemetry = { maxSpeed: 12, preDivergence: 0, postDivergence: 0, gpu: null, sampleFrame: this.frameNumber };
@@ -1286,6 +1351,7 @@ export class PyroSolver {
     if (this.flowCommands) this.device.queue.writeBuffer(this.flowCommands,0,initialAdaptiveFlowCommands(this.N,this.D));
     encoder.clearBuffer(this.emberBuffer);
     this.chemistryPool?.encodeReset(encoder);
+    this.clearFloorFuel(encoder);
     this.resetSurface(encoder);
     for (const mask of this.masks) encoder.clearBuffer(mask);
     for (const mask of this.opticalMasks) encoder.clearBuffer(mask);

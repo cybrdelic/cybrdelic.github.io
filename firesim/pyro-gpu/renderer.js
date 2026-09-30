@@ -1,7 +1,9 @@
-import {objectWGSL} from './objects.js?v=74c957d2f5b46187';
-import {combustionWGSL} from './combustion.js?v=74c957d2f5b46187';
-import {sparseSamplerWGSL} from './sparse-field.js?v=74c957d2f5b46187';
-import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=74c957d2f5b46187';
+import {objectWGSL} from './objects.js?v=db13e8bbd389db1b';
+import {combustionWGSL} from './combustion.js?v=db13e8bbd389db1b';
+import {sparseSamplerWGSL} from './sparse-field.js?v=db13e8bbd389db1b';
+import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=db13e8bbd389db1b';
+import {sigilGuideWGSL} from './sigil-guide.js?v=db13e8bbd389db1b';
+import {floorFuelRenderWGSL} from './floor-fuel.js?v=db13e8bbd389db1b';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -29,6 +31,8 @@ struct FireLight{position:vec4f,power:vec4f,lower:vec4f,upper:vec4f};
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
 const ROOM_SIZE:f32=${ROOM_SIZE}.;
 ${sparse ? '' : 'fn field(x:vec3f)->vec4f{if(any(x<LO)||any(x>LO+EXT)){return vec4f(0);}return textureSampleLevel(chem,smp,(x-LO)/EXT,0);}' }
+${sigilGuideWGSL}
+${floorFuelRenderWGSL}
 fn extinction(c:vec4f)->f32{return c.x*3.0;}
 fn emission(c:vec4f)->vec3f{
  let reaction=flameActivity(c);
@@ -149,7 +153,16 @@ struct Vert{@builtin(position) pos:vec4f,@location(0) uv:vec2f};
  if(cam.options.x>.5){let hit=roomHit(eye,ray);limit=hit.w;let at=eye+ray*limit;
   var uv=at.xy;if(abs(hit.y)>.5){uv=at.xz;}else if(abs(hit.x)>.5){uv=at.zy;}
   let edge=abs(fract(uv*2.+.5)-.5)*.5;let aa=max(fwidth(uv),vec2f(.001));let line=clamp((.003+aa*.5-edge)/aa,vec2f(0),vec2f(1));
-  let albedo=vec3f(.115,.12,.125)*(1.-.5*max(line.x,line.y));surface=albedo*roomIrradiance(at,hit.xyz)/3.14159;
+  var albedo=vec3f(.115,.12,.125)*(1.-.5*max(line.x,line.y));var bed=vec4f(0);
+  if(cam.right.w>.5&&hit.y>.9){bed=floorFuelAt(at.xz);
+   let mass=smoothstep(.005,.12,bed.x);let char=clamp(bed.w*5.,0.,1.);
+   // Cold fuel is a dark material lit by the same room/fire irradiance.
+   // Heat emission and irreversible char come from the evolving fuel bed.
+   let material=mix(vec3f(.07,.033,.009),vec3f(.012,.011,.010),char);
+   albedo=mix(albedo,material,max(mass,char));
+  }
+  surface=albedo*roomIrradiance(at,hit.xyz)/3.14159;
+  surface+=colorEmission(vec3f(1,.14,.012))*pow(max(bed.y-.5,0.),3.)*min(1.,bed.x+bed.w)*.12;
  }
  let safe=select(vec3f(.000001),ray,abs(ray)>vec3f(.000001));let a=(LO-eye)/safe;let b=(LO+EXT-eye)/safe;
  let near=min(a,b);let far=max(a,b);let start=max(0.,max(near.x,max(near.y,near.z)));
@@ -166,6 +179,15 @@ ${tree?` let mesh=textureLoad(meshPosition,vec2i(v.pos.xy),0);
   let diffuse=objectAlbedo(material,state.w)*incoming(at+n*.035,n,true)/3.14159;
   let glow=colorEmission(vec3f(1,.14,.012))*pow(max(state.y-.5,0.),3.)*.22;
   surface=diffuse+glow;
+ }
+ let guide=sigilGuideHit(eye,ray,limit);
+ if(guide.w<limit){limit=guide.w;let at=eye+ray*limit;let n=guide.xyz;
+  let gas=field(at+n*.035);let char=clamp(gas.x*.7,0.,1.);
+  let albedo=mix(vec3f(.105,.077,.038),vec3f(.023,.019,.014),char);
+  surface=albedo*incoming(at+n*.035,n,true)/3.14159;
+  // The charcoal substrate responds to the current gas temperature. It is
+  // an optional source guide, not another flame or an animated emissive mask.
+  surface+=colorEmission(vec3f(1,.14,.012))*pow(max(gas.y-.55,0.),3.)*.065;
  }
  let end=min(limit,min(far.x,min(far.y,far.z)));
  var sum=vec3f(0);var T=1.;

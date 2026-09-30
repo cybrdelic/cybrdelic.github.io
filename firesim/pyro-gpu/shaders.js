@@ -1,5 +1,7 @@
-import {objectWGSL} from './objects.js?v=74c957d2f5b46187';
-import {combustionWGSL} from './combustion.js?v=74c957d2f5b46187';
+import {objectWGSL} from './objects.js?v=db13e8bbd389db1b';
+import {combustionWGSL} from './combustion.js?v=db13e8bbd389db1b';
+import {floorFuelWGSL} from './floor-fuel.js?v=db13e8bbd389db1b';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=db13e8bbd389db1b';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
@@ -8,10 +10,11 @@ ${combustionWGSL}
 ${objectWGSL}
 const N:u32=${N}u;const D:u32=${D}u;const H:f32=6.0/${N}.0;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
-struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f};
+struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f};
 @group(0) @binding(0) var<uniform> p:Params;
 @group(0) @binding(1) var smp:sampler;
 @group(0) @binding(8) var sigilSource:texture_2d<f32>;
+${floorFuelWGSL}
 fn hash(a:vec3f)->f32{return fract(sin(dot(a,vec3f(127.1,311.7,74.7)))*43758.5453);}
 fn noise(x:vec3f)->f32{let i=floor(x);let a=fract(x);let f=a*a*(3.0-2.0*a);return mix(mix(mix(hash(i),hash(i+vec3f(1,0,0)),f.x),mix(hash(i+vec3f(0,1,0)),hash(i+vec3f(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3f(0,0,1)),hash(i+vec3f(1,0,1)),f.x),mix(hash(i+vec3f(0,1,1)),hash(i+vec3f(1)),f.x),f.y),f.z);}
 fn mac(t:texture_3d<f32>,x:vec3f)->vec3f{
@@ -241,7 +244,9 @@ var<workgroup> opticalAlive:atomic<u32>;
  let burned=min(c.z,reactionRate(c)*(1.-exp(-4.*p.step.x))/4.);
  c.z=max(c.z-burned,0.);c.w=min(c.w+burned*.7,1.);
  c.y=(c.y+burned*3.2/(1.+c.z))*exp(-p.step.x*(.9+.7*max(c.y-1.4,0.)));
- c.x=(c.x+burned*mix(.12,1.8,p.shape.z)*p.chemistry.z)*exp(-p.step.x*.045);
+ // Accumulated 30 Hz decay survives half-float writes even when pressure
+ // needs many tiny substeps. It changes density, never display opacity.
+ c.x=(c.x+burned*mix(.12,1.8,p.shape.z)*p.chemistry.z)*exp(-p.lifecycle.x*.045);
  if(p.step.w>.5){c.z=0.;c.w=0.;c.y*=exp(-p.step.x*.12);}
  let s=charge(x);if(s>0.&&object.options.x>.5){
   // Add pyrolysis fuel and sensible heat; never overwrite existing gas state.
@@ -260,10 +265,14 @@ var<workgroup> opticalAlive:atomic<u32>;
  c.z=mix(c.z,select((.6+1.25*n)*p.chemistry.y,0.,p.step.w>.5),weight);
  c.w=mix(c.w,select(1.,0.,p.step.w>.5),weight);
  }
+ // Finite floor fuel supplies warmed vapor. Soot and flame are created only
+ // by the same gas combustion on the next step, never by a brush stamp.
+ let bed=floorFeed(x);let floorAdded=bed.x*p.step.x;
+ if(floorAdded>0.&&p.step.w<.5){let gasMass=1.+c.z;c.y=(c.y*gasMass+floorAdded*bed.y)/(gasMass+floorAdded);c.z+=floorAdded;}
  if(objectDistance(x)<-.02){c=vec4f(0);}
  // Quantize only numerical residue below the renderer's visible support.
  // Keeping half-float subnormals alive otherwise expands sparse work forever.
- c=select(c,vec4f(0),c<vec4f(.000001,.00001,.000001,.0001));
+ c=select(c,vec4f(0),c<vec4f(${SMOKE_CLEAR_DENSITY},.00001,.000001,.0001));
  textureStore(dst,vec3i(i),max(c,vec4f(0)));
  if(any(c>vec4f(0))){atomicOr(&alive,1u);}
  // Bit 1 covers the existing camera/light support; its margins include
@@ -373,7 +382,7 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
   let radius=halfBrick*1.733+.05*object.origin.w;
   sourceLive=d<.13*object.origin.w+radius&&d>-.02*object.origin.w-radius;
  }
- live=live||(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z)&&sourceLive);
+ live=live||(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z)&&sourceLive)||floorWork(at,halfBrick);
  if(live){let index=atomicAdd(&dispatch.x,1u);bricks[index]=vec4u(id,0u);}
 }`;
 const reduceStats=`

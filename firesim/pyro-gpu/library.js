@@ -1,11 +1,12 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=74c957d2f5b46187';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=74c957d2f5b46187';
-import { lookStore } from '../look-storage.js?v=74c957d2f5b46187';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=db13e8bbd389db1b';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=db13e8bbd389db1b';
+import { lookStore } from '../look-storage.js?v=db13e8bbd389db1b';
 
 const CATEGORIES = ['Demos', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [
   'fire',
   'studio',
+  'fully-lit',
   'moon',
   'material-white',
   'side',
