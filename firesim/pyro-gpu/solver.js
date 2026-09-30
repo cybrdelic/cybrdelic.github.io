@@ -3,12 +3,12 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=b44c2b05f3754d07';
-import { ForestMesh } from './forest-mesh.js?v=b44c2b05f3754d07';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=b44c2b05f3754d07';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=b44c2b05f3754d07';
-import { simulationShaders, pressureShaders } from './shaders.js?v=b44c2b05f3754d07';
-import { rendererShaders, dilateWGSL, ROOM_SIZE } from './renderer.js?v=b44c2b05f3754d07';
+} from './objects.js?v=86e0ab5a0c6c5992';
+import { ForestMesh } from './forest-mesh.js?v=86e0ab5a0c6c5992';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=86e0ab5a0c6c5992';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=86e0ab5a0c6c5992';
+import { simulationShaders, pressureShaders } from './shaders.js?v=86e0ab5a0c6c5992';
+import { rendererShaders, dilateWGSL, ROOM_SIZE } from './renderer.js?v=86e0ab5a0c6c5992';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -156,6 +156,14 @@ export class PyroSolver {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       }),
     );
+    // Transport keeps oxygen/cold fuel. The optical mask follows chemistry
+    // ping-pong separately so invisible state cannot fill the lighting mask.
+    this.opticalMasks = [0, 1].map(() =>
+      d.createBuffer({
+        size: (this.D / 8) ** 3 * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      }),
+    );
     this.bricks = d.createBuffer({ size: (this.D / 8) ** 3 * 16, usage: GPUBufferUsage.STORAGE });
     this.indirect = d.createBuffer({
       size: 12,
@@ -174,7 +182,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=b44c2b05f3754d07', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=86e0ab5a0c6c5992', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -326,7 +334,7 @@ export class PyroSolver {
       tree = requested === 'cybr-tree';
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin?v=b44c2b05f3754d07', import.meta.url),
+        new URL('./objects/' + requested + '.rgba16.bin?v=86e0ab5a0c6c5992', import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -636,6 +644,7 @@ export class PyroSolver {
       this.D / 8,
     );
     encoder.clearBuffer(this.masks[1 - ci]);
+    encoder.clearBuffer(this.opticalMasks[1 - ci]);
     this.sparse(encoder, k.advectScalar, [
       ...base,
       [2, this.v[vi]],
@@ -651,6 +660,7 @@ export class PyroSolver {
       [5, this.c[1 - ci]],
       [6, { buffer: this.bricks }],
       [7, { buffer: this.masks[1 - ci] }],
+      [10, { buffer: this.opticalMasks[1 - ci] }],
       [8, this.sigilSource],
       ...this.objectBindings(true),
     ]);
@@ -892,7 +902,7 @@ export class PyroSolver {
         encoder,
         this.dilatePipeline,
         [
-          [0, { buffer: this.masks[this.ci] }],
+          [0, { buffer: this.opticalMasks[this.ci] }],
           [1, { buffer: this.visibleBricks }],
         ],
         32,
@@ -1083,6 +1093,7 @@ export class PyroSolver {
     encoder.clearBuffer(this.emberBuffer);
     this.resetSurface(encoder);
     for (const mask of this.masks) encoder.clearBuffer(mask);
+    for (const mask of this.opticalMasks) encoder.clearBuffer(mask);
     for (const fields of [this.v, this.c])
       this.dispatch(
         encoder,

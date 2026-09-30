@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0-rc.9",
-  "build": "b44c2b05f3754d07",
+  "version": "0.1.0-rc.10",
+  "build": "86e0ab5a0c6c5992",
   "status": "release-candidate",
   "entry": "index.html",
   "files": [
@@ -22,7 +22,7 @@
     {
       "path": "fire-domain.js",
       "bytes": 768,
-      "sha256": "ce74ef9a3779e022ffd09d34fac692fc2763d1dd738cd698faec726557f334e6"
+      "sha256": "589fb234805666a845112f27e43f37dc2e91d6b1a8eb1913a03a7eb9df5c0ab4"
     },
     {
       "path": "fire-emitters.js",
@@ -47,7 +47,7 @@
     {
       "path": "fire.js",
       "bytes": 58361,
-      "sha256": "1671d8514e004b6bb56fe56b59e5a5568ca22426d04e67fc217f19c7b166a612"
+      "sha256": "9de6080597ab30bb30f9b20614164de7d0b18333b6934f4da08dce831e060620"
     },
     {
       "path": "icon.svg",
@@ -57,7 +57,7 @@
     {
       "path": "index.html",
       "bytes": 7818,
-      "sha256": "e961261aee4bac609e3e84545be03cd704d283afac82fb7682e90744321bece6"
+      "sha256": "04f4ca8f3b6efe9cbd007f3ef9504ff8c57e434be909492b80f18cef08fd6a53"
     },
     {
       "path": "inspection-state.js",
@@ -72,7 +72,7 @@
     {
       "path": "look-storage.js",
       "bytes": 4161,
-      "sha256": "15cec02b946ecfd5aabace2c9d47c323e741cc1d220ade600e8d8b1500d12b35"
+      "sha256": "bf304a3824bf0edaff3116cd1f89f9f7906515f2018fee32e0dfd09133a6d873"
     },
     {
       "path": "original-source-profile.js",
@@ -82,12 +82,12 @@
     {
       "path": "preset-pairs.js",
       "bytes": 1165,
-      "sha256": "0a606baf509d7a86ff62e3115f4badb16d0b4de818ce7c35cb46840e630802ad"
+      "sha256": "ef6402f32a964db2474c24118f10372ad22208f0b67277e3c6de92c3f82b8dc9"
     },
     {
       "path": "pyro-gpu/app.js",
-      "bytes": 28395,
-      "sha256": "abe6765953b21497b85f96b8e7753490ede1c0ba23cdefb98c308c34ddb4e91e"
+      "bytes": 28396,
+      "sha256": "61c8002f7a27e1f9c0494a945f860e6c23fe98bcbcc91e837630946c82cf2339"
     },
     {
       "path": "pyro-gpu/combustion.js",
@@ -96,8 +96,8 @@
     },
     {
       "path": "pyro-gpu/embers.js",
-      "bytes": 4164,
-      "sha256": "d1006bd48a493480d6356ba045bc8a17a36dbfb6973efe20567adb6dbc34a87e"
+      "bytes": 4273,
+      "sha256": "0b9f57532100691da256954a7e4e1be24d4054bf63e3b2f0ede2a083df5a8ebe"
     },
     {
       "path": "pyro-gpu/fire-colors.js",
@@ -107,7 +107,7 @@
     {
       "path": "pyro-gpu/forest-mesh.js",
       "bytes": 13567,
-      "sha256": "d72ec16555fa966530d7696d3858ec40ccf4a58b5b467938218ad0ee5b89a836"
+      "sha256": "0bcd8bffe1dc58fcecacc4da175841ce5a7499352249971b8a66410f7ea12cd7"
     },
     {
       "path": "pyro-gpu/gpu-session.js",
@@ -127,7 +127,7 @@
     {
       "path": "pyro-gpu/library.js",
       "bytes": 11652,
-      "sha256": "b667619c9b9fa98c313b8781784b12f290c750c6079278e593b03f0c779c6f7e"
+      "sha256": "d879f407ca17f6f4b0d86cb2e80e3cd177ac90f15e0195bc32d8f5d991bf1b24"
     },
     {
       "path": "pyro-gpu/objects/car.jpg",
@@ -222,7 +222,7 @@
     {
       "path": "pyro-gpu/objects.js",
       "bytes": 6018,
-      "sha256": "9c8668062f6d80302d402f627341161b94c3918ac394476d4e995a7c4289ca2d"
+      "sha256": "10ad3b3fac38b9949bc51b9d396cde91e4687583d7b2699154172ef2a927f047"
     },
     {
       "path": "pyro-gpu/output-size.js",
@@ -232,27 +232,27 @@
     {
       "path": "pyro-gpu/presets.js",
       "bytes": 23519,
-      "sha256": "a75328ccd0f8fd9e2cc704ff1b5d22c41838d2d7ed231b28dbfa652b821873b7"
+      "sha256": "20fa2872d9e9ae095c8717f3f33fde070ce66e849b820a8361e8c6e1c7edfaf0"
     },
     {
       "path": "pyro-gpu/pressure-check.js",
       "bytes": 2979,
-      "sha256": "7843633a1625b8a703f9d28b26bc80e48a047421a332ea416dd4b07f96804cc6"
+      "sha256": "57e911831ba901d0ff737be0a93af3d55f168ef2fabec7fb523bb6e151558678"
     },
     {
       "path": "pyro-gpu/renderer.js",
-      "bytes": 17826,
-      "sha256": "4a254bb3e34d43572ffd7452952c06eb0d3ad21d348d1278d1524ba047b18aea"
+      "bytes": 17844,
+      "sha256": "259fd4e9c2c9de78e9e563be331cc0611dad8d53439f2cd7563520220aca5281"
     },
     {
       "path": "pyro-gpu/shaders.js",
-      "bytes": 24966,
-      "sha256": "998b958a1ef624f02165106216b327be5dba215723b872b3ca5fb3b44953cd9b"
+      "bytes": 26193,
+      "sha256": "d293c3694d22c5df95434b209fe0b6402da4b1e0f37259da129aa018f1bf9991"
     },
     {
       "path": "pyro-gpu/solver.js",
-      "bytes": 39084,
-      "sha256": "a823223d17cfe4a7b483ee9907fe75caa0cbf866214dbe899868ff6bc13db93c"
+      "bytes": 39600,
+      "sha256": "068790f734dc8922ab7d783bd5d2cf9c992a6e4a6efd4785b27c0f0f0b78a424"
     },
     {
       "path": "pyro-gpu/source-previews/cube.jpg",
@@ -301,13 +301,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 7303,
-      "sha256": "efebeaea6f82ef86ba4c5af4ee9b79c6986a6d846c5011cc67bfad677d75e68e"
+      "bytes": 7823,
+      "sha256": "0e4a4ae3454c2517ff6057039785469d4c8425a8ab84a58df752615adc4b68ae"
     },
     {
       "path": "runtime-loader.js",
       "bytes": 1166,
-      "sha256": "108e386d6b949a24a9c8e1f697a24373d7e51a10cde628e4b9162b24beb438d2"
+      "sha256": "d96abcb74dc9ed054927fe39a19a40a98e058d11c68283faf27ddd1ee28a5bd7"
     },
     {
       "path": "runtime-scope.js",
@@ -337,12 +337,12 @@
     {
       "path": "source-picker.js",
       "bytes": 1635,
-      "sha256": "bc8cd013a8e979b1bbbc1f98e3d48cadd50f1f6673d4857cffe99b565b4f21e4"
+      "sha256": "5c6540ac06c4b36372ef819dc4791fdd7e2572f7c07d2c0b1ccb7d333f155f27"
     },
     {
       "path": "studio-location.js",
       "bytes": 2852,
-      "sha256": "9e7c5a7aba39b89648f5d9232c2f0cab427bde114dd7aff0902bf5bf4050a439"
+      "sha256": "d9eec48365ce6f54d4d3e8d805c193c7469c4752ffbe741fc3bafb7360ac80ea"
     },
     {
       "path": "studio-ui.js",
@@ -357,7 +357,7 @@
     {
       "path": "studio.js",
       "bytes": 12164,
-      "sha256": "d44903d7afda675a3e0bd7a6b8773a711f1d5e4283378767738aac53e8ced0a4"
+      "sha256": "53037c47f490d72c977f1b051a9bdd690704ed189bc785e00d8fefbb75c7ead7"
     },
     {
       "path": "vorticity.js",

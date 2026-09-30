@@ -1,5 +1,5 @@
-import {objectWGSL} from './objects.js?v=b44c2b05f3754d07';
-import {combustionWGSL} from './combustion.js?v=b44c2b05f3754d07';
+import {objectWGSL} from './objects.js?v=86e0ab5a0c6c5992';
+import {combustionWGSL} from './combustion.js?v=86e0ab5a0c6c5992';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256){
@@ -209,9 +209,11 @@ const correctScalar=common+`
 fn oldCell(i:vec3i)->vec4f{if(any(i<vec3i(0))||any(i>=vec3i(i32(D)))){return vec4f(0);}return textureLoad(old,i,0);}
 @group(0) @binding(6) var<storage,read> bricks:array<vec4u>;
 @group(0) @binding(7) var<storage,read_write> occupied:array<atomic<u32>>;
+@group(0) @binding(10) var<storage,read_write> opticalOccupied:array<atomic<u32>>;
 var<workgroup> alive:atomic<u32>;
+var<workgroup> opticalAlive:atomic<u32>;
 @compute @workgroup_size(4,4,4) fn main(@builtin(workgroup_id) group:vec3u,@builtin(local_invocation_id) local:vec3u,@builtin(local_invocation_index) lane:u32){
- if(lane==0u){atomicStore(&alive,0u);}workgroupBarrier();
+ if(lane==0u){atomicStore(&alive,0u);atomicStore(&opticalAlive,0u);}workgroupBarrier();
  let brick=bricks[group.x].xyz;let i=brick*8u+vec3u(group.y,group.z%2u,group.z/2u)*4u+local;
  let x=LO+(vec3f(i)+.5)*6./f32(D);let back=trace(v,x,p.step.x);
  let forward=textureLoad(pred,vec3i(i),0);var c=forward+.5*(textureLoad(old,vec3i(i),0)-scalar(pred,trace(v,x,-p.step.x)));
@@ -263,8 +265,17 @@ var<workgroup> alive:atomic<u32>;
  // Keeping half-float subnormals alive otherwise expands sparse work forever.
  c=select(c,vec4f(0),c<vec4f(.000001,.00001,.000001,.0001));
  textureStore(dst,vec3i(i),max(c,vec4f(0)));
- if(any(c>vec4f(0))){atomicOr(&alive,1u);}workgroupBarrier();
- if(lane==0u&&atomicLoad(&alive)>0u){let B=D/8u;atomicStore(&occupied[brick.x+B*(brick.y+B*brick.z)],1u);}
+ if(any(c>vec4f(0))){atomicOr(&alive,1u);}
+ // Bit 1 covers the existing camera/light support; its margins include
+ // half-float writes. A convex filtered sample cannot exceed its texels'
+ // soot/heat maxima, so a zero halo proves the fragment's early continue.
+ // Bit 2 keeps every positive soot value for exact shadow extinction.
+ if(c.x>=.000033||c.y>.3499){atomicOr(&opticalAlive,1u);}
+ if(c.x>0.){atomicOr(&opticalAlive,2u);}workgroupBarrier();
+ if(lane==0u){let B=D/8u;let index=brick.x+B*(brick.y+B*brick.z);
+  if(atomicLoad(&alive)>0u){atomicStore(&occupied[index],1u);}
+  if(atomicLoad(&opticalAlive)>0u){atomicOr(&opticalOccupied[index],atomicLoad(&opticalAlive));}
+ }
 }`;
 const rhs=common+`
 @group(0) @binding(2) var v:texture_3d<f32>;
@@ -291,6 +302,20 @@ fn phi(i:vec3i)->f32{
  vmax[lane]=0.;pre[lane]=0.;post[lane]=0.;counts[lane]=0.;
  if(all(id<=vec3u(N))){let i=vec3i(id);let q=loadV(v,i);
  var out=q.xyz-vec3f(phi(i)-phi(i-vec3i(1,0,0)),phi(i)-phi(i-vec3i(0,1,0)),phi(i)-phi(i-vec3i(0,0,1)))/H;
+ // Packed MAC channels have different valid tangential extents. Extrapolate
+ // their projected valid face instead of repeatedly projecting a ghost slot.
+ if(id.y==N||id.z==N){
+  let j=vec3i(i.x,min(i.y,i32(N)-1),min(i.z,i32(N)-1));
+  out.x=loadV(v,j).x-(phi(j)-phi(j-vec3i(1,0,0)))/H;
+ }
+ if(id.x==N||id.z==N){
+  let j=vec3i(min(i.x,i32(N)-1),i.y,min(i.z,i32(N)-1));
+  out.y=loadV(v,j).y-(phi(j)-phi(j-vec3i(0,1,0)))/H;
+ }
+ if(id.x==N||id.y==N){
+  let j=vec3i(min(i.x,i32(N)-1),min(i.y,i32(N)-1),i.z);
+  out.z=loadV(v,j).z-(phi(j)-phi(j-vec3i(0,0,1)))/H;
+ }
  if(id.y==0u){out.y=0.;}textureStore(dst,i,vec4f(out,q.w));
  vmax[lane]=length(out);
  if(all(id<vec3u(N))){

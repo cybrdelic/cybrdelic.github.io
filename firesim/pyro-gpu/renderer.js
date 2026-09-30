@@ -1,6 +1,6 @@
-import {objectWGSL} from './objects.js?v=b44c2b05f3754d07';
-import {combustionWGSL} from './combustion.js?v=b44c2b05f3754d07';
-import {sparseSamplerWGSL} from './sparse-field.js?v=b44c2b05f3754d07';
+import {objectWGSL} from './objects.js?v=86e0ab5a0c6c5992';
+import {combustionWGSL} from './combustion.js?v=86e0ab5a0c6c5992';
+import {sparseSamplerWGSL} from './sparse-field.js?v=86e0ab5a0c6c5992';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -45,11 +45,11 @@ fn transmission(x:vec3f,l:vec3f,solidShadow:bool)->f32{
  if(solidShadow&&object.options.x>.5&&objectHit(x+ray*.035,ray,max(distance-.07,0.))<distance-.071){return 0.;}
  if(end<=start){return 1.;}let step=(end-start)/12.;var tau=0.;
  for(var i=0;i<12;i++){let at=x+ray*(start+(f32(i)+.5)*step);
-  // The shared occupancy mask has a full-brick interpolation halo. A zero
-  // entry therefore proves this chemical sample is zero; retain the exact
-  // twelve-point lattice and the separate solid/mesh occlusion above.
+  // The soot shadow bit has a full-brick interpolation halo. A zero bit
+  // proves zero extinction, including faint soot below camera visibility.
+  // Keep the exact twelve-point lattice and separate solid/mesh occlusion.
   let brick=clamp(vec3u((at-LO)*(32./6.)),vec3u(0),vec3u(31));
-  if(occupied[brick.x+32u*(brick.y+32u*brick.z)]!=0u){tau+=extinction(field(at))*step;}}
+  if((occupied[brick.x+32u*(brick.y+32u*brick.z)]&2u)!=0u){tau+=extinction(field(at))*step;}}
  return exp(-tau);
 }
 fn shadow(x:vec3f,l:vec3f)->f32{return transmission(x,l,true);}
@@ -171,7 +171,7 @@ ${tree?` let mesh=textureLoad(meshPosition,vec2i(v.pos.xy),0);
  if(end>start){let step=6./256.;let count=u32(ceil((end-start)/step));
   for(var i=0u;i<512u;i++){if(i>=count||T<.003){break;}let at=eye+ray*(start+(f32(i)+.5)*step);
    let brick=clamp(vec3i(floor((at-LO)*(32./6.))),vec3i(0),vec3i(31));
-   if(occupied[u32(brick.x+32*(brick.y+32*brick.z))]==0u){
+   if((occupied[u32(brick.x+32*(brick.y+32*brick.z))]&1u)==0u){
     // Skip to the next brick without changing the fine sampling lattice.
     // Occupancy already has a full-brick halo, including trilinear support.
     let edge=LO+(vec3f(brick)+select(vec3f(0),vec3f(1),ray>vec3f(0)))*(6./32.);
@@ -198,7 +198,7 @@ const lightSource=base=>base+`
 @group(0) @binding(4) var lightOut:texture_storage_3d<rgba16float,write>;
 @compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id) id:vec3u){
  if(any(id>=vec3u(64))){return;}let at=LO+(vec3f(id)+.5)*6./64.;
- let b=id/2u;let litRegion=occupied[b.x+32u*(b.y+32u*b.z)]!=0u;
+ let b=id/2u;let litRegion=(occupied[b.x+32u*(b.y+32u*b.z)]&1u)!=0u;
  var light=vec3f(0);if(litRegion){light=incoming(at,vec3f(0),false);}
  textureStore(lightOut,vec3i(id),vec4f(light,1));
 }`;

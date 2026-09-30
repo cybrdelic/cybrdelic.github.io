@@ -1,4 +1,4 @@
-import {combustionWGSL} from './combustion.js?v=b44c2b05f3754d07';
+import {combustionWGSL} from './combustion.js?v=86e0ab5a0c6c5992';
 // One-way Lagrangian tracers: born in reacting soot, carried by the actual
 // MAC velocity, with inertia, gravity and cooling. No screen-space spawner.
 export const emberComputeWGSL=`
@@ -47,6 +47,8 @@ struct V{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) heat:f3
  let size=.007+f32(id%5u)*.0012;let at=a.pos.xyz+cam.right.xyz*corner.x*size+cam.up.xyz*corner.y*size;
  let rel=at-cam.eye.xyz;let depth=dot(rel,cam.forward.xyz);var o:V;
  o.pos=vec4f(dot(rel,cam.right.xyz)/(cam.eye.w*16./9.),dot(rel,cam.up.xyz)/cam.eye.w,depth*.5,depth);o.uv=corner;o.heat=a.pos.w;o.visibility=select(0.,1.,a.velocity.w>0.&&depth>0.);
+ // Fully transparent particles cannot contribute, regardless of occlusion.
+ if(o.visibility==0.){return o;}
  // Integrate soot between camera and particle; solids also occlude sparks.
  let distance=length(rel);let ray=rel/max(distance,.001);var tau=0.;
  for(var j=0;j<24;j++){let x=cam.eye.xyz+ray*(distance*(f32(j)+.5)/24.);let uv=(x-vec3f(-3,0,-3))/6.;
