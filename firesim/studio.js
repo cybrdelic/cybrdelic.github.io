@@ -1,15 +1,15 @@
-import { readLook, writeLook } from './studio-location.js?v=0d1cf64e7f96e456';
-import { createFireDomain } from './fire-domain.js?v=0d1cf64e7f96e456';
-import { inspectionState } from './inspection-state.js?v=0d1cf64e7f96e456';
-import { loadRuntime } from './runtime-loader.js?v=0d1cf64e7f96e456';
-import { studioUI } from './studio-ui.js?v=0d1cf64e7f96e456';
-import { DEMO_PRESETS } from './demo-presets.js?v=0d1cf64e7f96e456';
-import { matchingPreset } from './preset-pairs.js?v=0d1cf64e7f96e456';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=0d1cf64e7f96e456';
-import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=0d1cf64e7f96e456';
-import { mountLibrary } from './pyro-gpu/library.js?v=0d1cf64e7f96e456';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=0d1cf64e7f96e456';
-import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=0d1cf64e7f96e456';
+import { readLook, writeLook } from './studio-location.js?v=7a3bf1fa893730f2';
+import { createFireDomain } from './fire-domain.js?v=7a3bf1fa893730f2';
+import { inspectionState } from './inspection-state.js?v=7a3bf1fa893730f2';
+import { loadRuntime } from './runtime-loader.js?v=7a3bf1fa893730f2';
+import { studioUI } from './studio-ui.js?v=7a3bf1fa893730f2';
+import { DEMO_PRESETS } from './demo-presets.js?v=7a3bf1fa893730f2';
+import { matchingPreset } from './preset-pairs.js?v=7a3bf1fa893730f2';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=7a3bf1fa893730f2';
+import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=7a3bf1fa893730f2';
+import { mountLibrary } from './pyro-gpu/library.js?v=7a3bf1fa893730f2';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=7a3bf1fa893730f2';
+import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=7a3bf1fa893730f2';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -191,6 +191,7 @@ async function mount(kind, chosen, plain, old, look) {
     }
     runtime = await createRuntime({
       initialPreset: plain,
+      initialPowers: look?.powers,
       simulation: kind,
       onRemount: (key) => requestActivate('legacy', key),
       onFailure: (error) => fail(error, kind),
@@ -256,6 +257,7 @@ function activate(kind, key, look, force = false) {
         if (remount) await mount(kind, chosen, plain, old, look);
         else {
           ui.loading();
+          if(look?.powers)runtime.look({powers:look.powers});
           await runtime.fire(plain);
           if (look) runtime.look(look);
           ui.ready();

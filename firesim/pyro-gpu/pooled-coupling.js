@@ -1,4 +1,4 @@
-import { brickPoolWGSL, brickPoolFieldWGSL } from './brick-pool.js?v=0d1cf64e7f96e456';
+import { brickPoolWGSL, brickPoolFieldWGSL } from './brick-pool.js?v=7a3bf1fa893730f2';
 
 // Keep one owner for chemistry across buoyancy, object damage, particles and
 // radiance. Dense backing is used only after the GPU's acknowledged migration.

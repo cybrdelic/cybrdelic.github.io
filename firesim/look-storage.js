@@ -1,6 +1,6 @@
-import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=0d1cf64e7f96e456';
-import { modeForFire } from './simulation-modes.js?v=0d1cf64e7f96e456';
-import { normalizePowerSettings } from './fire-powers.js?v=0d1cf64e7f96e456';
+import { FIRE_COLORS } from './pyro-gpu/fire-colors.js?v=7a3bf1fa893730f2';
+import { modeForFire } from './simulation-modes.js?v=7a3bf1fa893730f2';
+import { normalizePowerSettings } from './fire-powers.js?v=7a3bf1fa893730f2';
 const KEY = 'cybr-pyro-library-v1';
 const bounded = (value, min, max, fallback) =>
   value !== null && value !== '' && Number.isFinite(Number(value))

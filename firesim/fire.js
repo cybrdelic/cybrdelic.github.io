@@ -1,16 +1,16 @@
-import {runtimeScope} from './runtime-scope.js?v=0d1cf64e7f96e456';
-import {legacyProbe} from './legacy-qa.js?v=0d1cf64e7f96e456';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=0d1cf64e7f96e456';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=0d1cf64e7f96e456';
-import {emitterKindFor} from './original-source-profile.js?v=0d1cf64e7f96e456';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=0d1cf64e7f96e456';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=0d1cf64e7f96e456';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=0d1cf64e7f96e456';
-import {WOOD_THERMO} from './wood-thermo.js?v=0d1cf64e7f96e456';
-import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=0d1cf64e7f96e456';
-import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=0d1cf64e7f96e456';
-import {powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=0d1cf64e7f96e456';
-export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
+import {runtimeScope} from './runtime-scope.js?v=7a3bf1fa893730f2';
+import {legacyProbe} from './legacy-qa.js?v=7a3bf1fa893730f2';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=7a3bf1fa893730f2';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=7a3bf1fa893730f2';
+import {emitterKindFor} from './original-source-profile.js?v=7a3bf1fa893730f2';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=7a3bf1fa893730f2';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=7a3bf1fa893730f2';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=7a3bf1fa893730f2';
+import {WOOD_THERMO} from './wood-thermo.js?v=7a3bf1fa893730f2';
+import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=7a3bf1fa893730f2';
+import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=7a3bf1fa893730f2';
+import {powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=7a3bf1fa893730f2';
+export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
   'use strict';
@@ -691,7 +691,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const brush = { x: .5, y: .5, fromX: .5, fromY: .5, active: false };
   let freeMode = false, activePreset = initialPreset;
   let emitterKind=0, burstStart=-100,powerOriginZ=0,powerTrailLast=null;
-  let powers=normalizePowerSettings({strength:qaParams.get('powerStrength')??1,heading:qaParams.get('powerHeading')??0,elevation:qaParams.get('powerElevation')??9});
+  let powers=normalizePowerSettings(initialPowers??{strength:qaParams.get('powerStrength')??1,heading:qaParams.get('powerHeading')??0,elevation:qaParams.get('powerElevation')??9});
   let launchedPowers={...powers};
   const powerKind=()=>emitterKind>=22&&emitterKind<=27?emitterKind-21:0;
   const finitePower=()=>[1,2,6].includes(powerKind());
@@ -717,7 +717,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   }
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=0d1cf64e7f96e456':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=0d1cf64e7f96e456':name+'.rgba16.bin?v=0d1cf64e7f96e456';
+    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=7a3bf1fa893730f2':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=7a3bf1fa893730f2':name+'.rgba16.bin?v=7a3bf1fa893730f2';
     const response=await fetch('pyro-gpu/objects/'+thermalPath);
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
@@ -1162,8 +1162,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=0d1cf64e7f96e456').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=0d1cf64e7f96e456').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=7a3bf1fa893730f2').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=7a3bf1fa893730f2').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);

@@ -1,5 +1,5 @@
-import {combustionWGSL} from './combustion.js?v=0d1cf64e7f96e456';
-import {woodCollisionSampleWGSL} from './wood-collision.js?v=0d1cf64e7f96e456';
+import {combustionWGSL} from './combustion.js?v=7a3bf1fa893730f2';
+import {woodCollisionSampleWGSL} from './wood-collision.js?v=7a3bf1fa893730f2';
 // One-way Lagrangian tracers: born in reacting soot, carried by the actual
 // MAC velocity, with inertia, gravity and cooling. No screen-space spawner.
 export const emberComputeWGSL=`

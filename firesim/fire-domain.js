@@ -1,5 +1,5 @@
 /* Burst sources get a deeper volume with the same in-plane voxel spacing. */
-import { FIRE_PRESETS } from './pyro-gpu/presets.js?v=0d1cf64e7f96e456';
+import { FIRE_PRESETS } from './pyro-gpu/presets.js?v=7a3bf1fa893730f2';
 export function createFireDomain(preset){
   if(preset==='campfire')preset='bonfire';
   const params=new URL(location.href).searchParams;
