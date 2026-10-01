@@ -1,11 +1,12 @@
-import { FIRE_COLORS } from './fire-colors.js?v=5316305f3032d241';
-import { PyroSolver } from './solver.js?v=5316305f3032d241';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=5316305f3032d241';
-import { runtimeScope } from '../runtime-scope.js?v=5316305f3032d241';
-import { outputSize } from './output-size.js?v=5316305f3032d241';
-import { gpuSessionTimeout } from './gpu-session.js?v=5316305f3032d241';
-import { floorHit } from '../fuel-ground.js?v=5316305f3032d241';
-import { volumeOptions } from '../simulation-modes.js?v=5316305f3032d241';
+import { FIRE_COLORS } from './fire-colors.js?v=0d1cf64e7f96e456';
+import { PyroSolver } from './solver.js?v=0d1cf64e7f96e456';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=0d1cf64e7f96e456';
+import { runtimeScope } from '../runtime-scope.js?v=0d1cf64e7f96e456';
+import { outputSize } from './output-size.js?v=0d1cf64e7f96e456';
+import { gpuSessionTimeout } from './gpu-session.js?v=0d1cf64e7f96e456';
+import { floorHit } from '../fuel-ground.js?v=0d1cf64e7f96e456';
+import { volumeOptions } from '../simulation-modes.js?v=0d1cf64e7f96e456';
+import { powerDefinition, normalizePowerSettings, powerDirection } from '../fire-powers.js?v=0d1cf64e7f96e456';
 export async function mountVolume({
   initialPreset = 'explosion',
   simulation = 'volume',
@@ -39,6 +40,7 @@ export async function mountVolume({
     trace = [],
     captureIndex = 0,
     saved = false;
+  let powers=normalizePowerSettings({strength:params.get('powerStrength')??1,heading:params.get('powerHeading')??0,elevation:params.get('powerElevation')??9});
   let frameCount = 0,
     queueLimitedRafs = 0,
     testScenario = null,
@@ -267,6 +269,12 @@ export async function mountVolume({
     paused=false;sync();
     message.textContent='Unlit fuel placed · nearby flame or Ignite fuel starts combustion';
   }
+  function powerPoint(e) {
+    const definition=powerDefinition(activeFire);
+    if(!definition?.floor)return locationPoint(e);
+    const at=floorPoint(e);
+    return at ? [at[0],activeFire.source?.[1]??.18,at[1]] : null;
+  }
   function releaseBusy() {
     busy = false;
     if (!resetQueued) return;
@@ -293,7 +301,7 @@ export async function mountVolume({
         if (scope.disposed) return;
         await solver.reset();
         if (scope.disposed) return;
-        solver.burst();
+        triggerSource();
         if (testScenario) {
           solver.seed = 2;
           solver.source = sourceOrigin(activeFire);
@@ -324,9 +332,13 @@ export async function mountVolume({
     );
     return task;
   }
+  function triggerSource() {
+    if(powerDefinition(activeFire))return solver.castPower(solver.source,powerDirection(powers),powers.strength);
+    solver.burst();return true;
+  }
   function burst() {
     if (!solver) return;
-    solver.burst();
+    triggerSource();
     paused = false;
     sync();
   }
@@ -342,7 +354,7 @@ export async function mountVolume({
   $('#burst').onclick = burst;
   $('#extinguish').onclick = () => {
     if (solver) solver.active = false;
-    message.textContent = activeFire.object ? 'Ignition stopped · hot material can keep burning' : 'Source stopped · smoke continues to drift';
+    message.textContent = activeFire.object ? 'Ignition stopped · hot material can keep burning' : activeFire.power ? 'Power stopped · released fire and smoke continue' : 'Source stopped · smoke continues to drift';
   };
   $('#smoke-only').onchange = () => {
     smoke = $('#smoke-only').checked;
@@ -417,7 +429,11 @@ export async function mountVolume({
     view.setPointerCapture(e.pointerId);
     if (!isPan) {
       if(activeTool==='fuel')placeFuel(e);
-      else {solver.source = locationPoint(e);burst();}
+      else if(activeFire.power) {
+        const at=powerPoint(e);
+        if(at){solver.source=at;burst();}
+        else message.textContent='Choose a floor point inside the simulation to cast this power.';
+      } else {solver.source = locationPoint(e);burst();}
     }
   });
   on(view, 'pointermove', (e) => {
@@ -428,7 +444,12 @@ export async function mountVolume({
       pan[1] += gesture.anchor[1] - at[1];
       sync();
     } else if(activeTool==='fuel')placeFuel(e);
-    else solver.source = locationPoint(e);
+    else if(activeFire.power) {
+      const at=powerPoint(e);
+      if(!at&&activeFire.power==='floor-trail')solver.powerTrailLast=null;
+      if(at&&solver.active)solver.movePower(at,powerDirection(powers));
+      markDirty();
+    } else solver.source = locationPoint(e);
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'])
     on(view, name, () => {
@@ -475,6 +496,7 @@ export async function mountVolume({
       }
     }
     if (e.key.toLowerCase() === 'r') restart().catch(onFailure);
+    if (e.key.toLowerCase() === 'b' && activeFire.power) {e.preventDefault();burst();}
     if (e.key === '0') $('#reset-view').click();
     if (e.key.toLowerCase() === 'f') $('#fullscreen').click();
     if (e.key === 'Escape') tool('fire');
@@ -500,7 +522,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-14',
+      build: 'fire-studio-rc-15',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -552,6 +574,7 @@ export async function mountVolume({
     solver.treeMoisture = activeFire.moisture || 'dry';
     solver.color = flameColor;
     solver.embers = embers;
+    solver.powerDirection=powerDirection(powers);solver.powerStrength=powers.strength;
   }
   function advanceTest() {
     if (testScenario?.stopAfter && !testStopped && solver.time >= testScenario.stopAfter) {
@@ -567,20 +590,22 @@ export async function mountVolume({
     $('#source-guide').disabled=activeFire.effect[0]!==10;
     $('#sigil-guide-control').hidden=activeFire.effect[0]!==10;
     const continuous = activeFire.effect[3] > 0.5;
-    $('#burst').textContent = continuous ? 'Relight' : 'Trigger burst';
-    $('#extinguish').textContent = activeFire.object ? 'Stop ignition' : 'Stop fuel';
+    const power=powerDefinition(activeFire);
+    $('#burst').textContent = power ? 'Cast power' : continuous ? 'Relight' : 'Trigger burst';
+    $('#extinguish').textContent = power ? 'Stop power' : activeFire.object ? 'Stop ignition' : 'Stop fuel';
     message.textContent =
       activeFire.name +
       (continuous ? ' · drag to move the burning source' : ' · click to detonate');
     if (activeFire.object)
       message.textContent =
         activeFire.name + ' · surface heats, releases fuel and chars · Restart restores fuel';
+    if(power)message.textContent=power.name+' · '+(power.continuous?'drag to move':'click or B to cast');
     canvas.setAttribute(
       'aria-label',
       activeFire.name + '. Drag to move the source, shift-drag to pan.',
     );
     $('#help').textContent = activeTool==='fuel'
-      ? 'Click or drag across the floor to lay unlit fuel. Nearby flames or Ignite fuel ignite it. Fully lit reveals cold patches. Shift/right-drag pans; scroll zooms.' : continuous
+      ? 'Click or drag across the floor to lay unlit fuel. Nearby flames or Ignite fuel ignite it. Fully lit reveals cold patches. Shift/right-drag pans; scroll zooms.' : power ? power.hint+' Shift/right-drag pans; scroll zooms.' : continuous
       ? (activeFire.object ? 'Drag to move the material. Stop ignition removes the starter; hot wood can keep burning. Restart restores fuel. Shift/right-drag pans; scroll zooms.' : 'Drag to move the burning source. Stop fuel lets the flame die. Shift/right-drag to pan; scroll to zoom.')
       : 'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom.';
   }
@@ -599,6 +624,7 @@ export async function mountVolume({
     $('#smoke-only').checked = smoke;
     configureFire();
     if (solver) solver.source = sourceOrigin(preset);
+    if(preset.power&&powerDefinition(preset)?.floor){$('#room').checked=true;}
     fireHelp();
     const url = new URL(location.href);
     url.searchParams.set('firePreset', id);
@@ -658,13 +684,13 @@ export async function mountVolume({
     message.textContent = 'Measuring 180 completed GPU frames…';
     try {
       await solver.reset();
-      solver.burst();
+      triggerSource();
       for (let i = 0; i < 12 && scope.visible && !scope.disposed; i++) {
         solver.camera(viewUniform());
         await solver.frame();
       }
       await solver.reset();
-      solver.burst();
+      triggerSource();
       testStopped = false;
       if (testScenario) {
         solver.seed = 2;
@@ -793,13 +819,17 @@ export async function mountVolume({
     solver = await PyroSolver.create(canvas, volumeOptions(params, simulation));
     solver.woodTimeScale = woodTimeScale;
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=5316305f3032d241');
+      const { pressureCheck } = await import('./pressure-check.js?v=0d1cf64e7f96e456');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
     }
     configureFire();
     solver.source = sourceOrigin(activeFire);
+    if(activeFire.power){
+      if(powerDefinition(activeFire)?.floor){$('#room').checked=true;}
+      solver.castPower(solver.source,powerDirection(powers),powers.strength);
+    }
     fireHelp();
     sync();
     // Confirm that the first volume image actually finishes on this browser
@@ -818,6 +848,7 @@ export async function mountVolume({
   }
 
   return {
+    castPower:()=>burst(),
     async dispose() {
       resizeObserver.disconnect();
       cancelBenchmark = true;
@@ -832,6 +863,7 @@ export async function mountVolume({
       simulation,
       tool: activeTool,
       woodTimeScale,
+      powers:{...powers},
       fire: activeFire.id,
       color: flameColor,
       embers,
@@ -843,6 +875,7 @@ export async function mountVolume({
       camera: { zoom, angle, pan: [...pan] },
     }),
     look(item) {
+      if(item.powers)powers=normalizePowerSettings({...powers,...item.powers});
       if (item.woodTimeScale !== undefined) setWoodTime(item.woodTimeScale);
       if(typeof item.sourceGuide==='boolean')$('#source-guide').checked=item.sourceGuide;
       if (FIRE_COLORS.some((c) => c.id === item.color)) {

@@ -1,6 +1,7 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=5316305f3032d241';
-import { modeForFire } from './simulation-modes.js?v=5316305f3032d241';
+import { cleanLights } from './look-storage.js?v=0d1cf64e7f96e456';
+import { modeForFire } from './simulation-modes.js?v=0d1cf64e7f96e456';
+import { normalizePowerSettings } from './fire-powers.js?v=0d1cf64e7f96e456';
 
 export function readLook(params, camera) {
   const look = {};
@@ -16,6 +17,8 @@ export function readLook(params, camera) {
   };
   if (params.has('fireLight')) look.fireLight = number('fireLight', 0, 80, 24);
   if (params.has('woodTimeScale')) look.woodTimeScale = number('woodTimeScale', 1, 24, 12);
+  if (['powerStrength','powerHeading','powerElevation'].some(key=>params.has(key)))
+    look.powers=normalizePowerSettings({strength:number('powerStrength',.25,2,1),heading:number('powerHeading',-180,180,0),elevation:number('powerElevation',-30,80,9)});
   if (params.has('lights')) {
     try {
       const payload = params.get('lights');
@@ -45,6 +48,10 @@ export function writeLook(url, state) {
   url.searchParams.set('room', state.room ? '1' : '0');
   url.searchParams.set('fuel', state.fuel);
   if (state.woodTimeScale !== undefined) url.searchParams.set('woodTimeScale', String(state.woodTimeScale));
+  const powers=state.powers ? normalizePowerSettings(state.powers) : null;
+  for(const [parameter,key] of [['powerStrength','strength'],['powerHeading','heading'],['powerElevation','elevation']]) {
+    if(powers)url.searchParams.set(parameter,String(powers[key]));else url.searchParams.delete(parameter);
+  }
   if(state.sourceGuide===undefined)url.searchParams.delete('guide');
   else url.searchParams.set('guide',state.sourceGuide?'1':'0');
   for (const key of ['smoke', 'color', 'embers', 'fireLight']) {

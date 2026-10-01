@@ -2,6 +2,7 @@
 export function emitterKindFor(preset) {
   if (!preset) throw new Error('Missing Original source preset');
   const type = preset.effect[0];
+  if (type >= 22 && type <= 27) return type;
   if (type === 0) return 6;
   if (type === 1) return preset.id === 'torch' ? 2 : 1;
   if (type === 2) return 3;

@@ -700,6 +700,15 @@ body[data-demo='true'] main:fullscreen .view {
 }
 
 /* Keep primary controls in view on laptop displays without changing canvas resolution. */
+.power-controls { border-block: 1px solid var(--line, #36332d); padding: .65rem 0; }
+.power-controls[hidden], .power-aim-fields[hidden] { display: none; }
+.power-strength { display: grid; grid-template-columns: auto minmax(100px, 1fr) 4ch; align-items: center; gap: .75rem; }
+.power-aim-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: .55rem; }
+.power-aim-fields label { display: grid; grid-template-columns: auto 1fr 4ch; align-items: center; gap: .5rem; }
+.power-controls p { margin: .55rem 0 0; font-size: .8rem; line-height: 1.45; color: var(--muted, #aaa69f); }
+.power-controls input { min-width: 0; width: 100%; }
+.power-controls output { font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 520px) { .power-aim-fields { grid-template-columns: 1fr; gap: .4rem; } }
 @media (min-width: 721px) {
   .view {
     width: min(100%, calc((100dvh - 320px) * 16 / 9));

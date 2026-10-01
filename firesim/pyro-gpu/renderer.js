@@ -1,10 +1,10 @@
-import {objectWGSL} from './objects.js?v=5316305f3032d241';
-import {combustionWGSL} from './combustion.js?v=5316305f3032d241';
-import {sparseSamplerWGSL} from './sparse-field.js?v=5316305f3032d241';
-import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=5316305f3032d241';
-import {sigilGuideWGSL} from './sigil-guide.js?v=5316305f3032d241';
-import {floorFuelRenderWGSL} from './floor-fuel.js?v=5316305f3032d241';
-import {woodMaterialWGSL} from '../wood-material.js?v=5316305f3032d241';
+import {objectWGSL} from './objects.js?v=0d1cf64e7f96e456';
+import {combustionWGSL} from './combustion.js?v=0d1cf64e7f96e456';
+import {sparseSamplerWGSL} from './sparse-field.js?v=0d1cf64e7f96e456';
+import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=0d1cf64e7f96e456';
+import {sigilGuideWGSL} from './sigil-guide.js?v=0d1cf64e7f96e456';
+import {floorFuelRenderWGSL} from './floor-fuel.js?v=0d1cf64e7f96e456';
+import {woodMaterialWGSL} from '../wood-material.js?v=0d1cf64e7f96e456';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -167,17 +167,22 @@ struct Vert{@builtin(position) pos:vec4f,@location(0) uv:vec2f};
 @fragment fn fragment(v:Vert)->@location(0) vec4f{
  let screen=v.uv*2.-1.;
  let eye=cam.eye.xyz;let ray=normalize(cam.forward.xyz+screen.x*(16./9.)*cam.eye.w*cam.right.xyz+screen.y*cam.eye.w*cam.up.xyz);
+ // Capture quad ray differentials in uniform entry-point control flow.
+ // Surface hits below may be conditional or found by divergent ray tracing.
+ let rayDx=dpdx(ray);let rayDy=dpdy(ray);
  var surface=vec3f(0);var limit=1e4;
  if(cam.options.x>.5){let hit=roomHit(eye,ray);limit=hit.w;let at=eye+ray*limit;
-  var uv=at.xy;if(abs(hit.y)>.5){uv=at.xz;}else if(abs(hit.x)>.5){uv=at.zy;}
-  let edge=abs(fract(uv*2.+.5)-.5)*.5;let aa=max(fwidth(uv),vec2f(.001));let line=clamp((.003+aa*.5-edge)/aa,vec2f(0),vec2f(1));
+  let roomDx=woodHitDifferential(ray,rayDx,hit.xyz,limit);let roomDy=woodHitDifferential(ray,rayDy,hit.xyz,limit);
+  var uv=at.xy;var uvDx=roomDx.xy;var uvDy=roomDy.xy;
+  if(abs(hit.y)>.5){uv=at.xz;uvDx=roomDx.xz;uvDy=roomDy.xz;}else if(abs(hit.x)>.5){uv=at.zy;uvDx=roomDx.zy;uvDy=roomDy.zy;}
+  let edge=abs(fract(uv*2.+.5)-.5)*.5;let aa=max(abs(uvDx)+abs(uvDy),vec2f(.001));let line=clamp((.003+aa*.5-edge)/aa,vec2f(0),vec2f(1));
   var albedo=vec3f(.115,.12,.125)*(1.-.5*max(line.x,line.y));var bed=vec4f(0);
   if(cam.right.w>.5&&hit.y>.9){bed=floorFuelAt(at.xz);
    let mass=smoothstep(.005,.12,bed.x);let char=clamp(bed.w*5.,0.,1.);
    // Cold fuel is a dark material lit by the same room/fire irradiance.
    // Heat emission and irreversible char come from the evolving fuel bed.
    var material=mix(vec3f(.07,.033,.009),vec3f(.012,.011,.010),char);
-   if(cam.up.w>.5){let wear=floorWearAt(at.xz);let initial=max(wear.x,.000001);material=woodMaterial(at.xzy,hit.xyz,bed.y,bed.x/initial,bed.w/initial,wear.w,0.).rgb;}
+   if(cam.up.w>.5){let wear=floorWearAt(at.xz);let initial=max(wear.x,.000001);material=woodRayMaterial(at.xzy,roomDx.xzy,roomDy.xzy,bed.y,bed.x/initial,bed.w/initial,wear.w,0.).rgb;}
    albedo=mix(albedo,material,max(mass,char));
   }
   surface=albedo*roomIrradiance(at,hit.xyz)/3.14159;
@@ -196,7 +201,18 @@ ${tree?` let mesh=textureLoad(meshPosition,vec2i(v.pos.xy),0);
 `:' let solidHit=objectHit(eye,ray,limit);'}
  if(solidHit<limit){limit=solidHit;let at=eye+ray*limit;var n=objectNormal(at);let state=surfaceState(at);let material=objectSample(at).w;
   var diffuse=objectAlbedo(material,state.w)*incoming(at+n*.035,n,true)/3.14159;
-  if(material>.5&&material<2.5){let wear=surfaceWear(at);let local=(at-object.origin.xyz)/object.origin.w;let wood=woodMaterial(local,n,state.y,state.x,state.w,wear.z,0.);n=woodNormal(local,n,state.x,state.w,wear.z,0.);diffuse=woodLit(at+n*.02,n,wood.rgb,wood.w,vec3f(0,1,0));}
+  if(material>.5&&material<2.5){
+   let wear=surfaceWear(at);let local=(at-object.origin.xyz)/object.origin.w;
+   let worldDx=woodHitDifferential(ray,rayDx,n,limit);let worldDy=woodHitDifferential(ray,rayDy,n,limit);
+   let localDx=worldDx/object.origin.w;let localDy=worldDy/object.origin.w;
+   let pixel=woodRayPixel(local,localDx,localDy);
+   let wood=woodMaterialFiltered(local,pixel.features,state.y,state.x,state.w,wear.z,0.);
+   let height=woodHeightFiltered(local,pixel.features,pixel.footprint,wear.z,0.);
+   let heightDx=woodHeightFiltered(local+localDx,pixel.neighborX,pixel.footprint,wear.z,0.)-height;
+   let heightDy=woodHeightFiltered(local+localDy,pixel.neighborY,pixel.footprint,wear.z,0.)-height;
+   n=woodSurfaceNormal(n,worldDx,worldDy,heightDx,heightDy);
+   diffuse=woodLit(at+n*.02,n,wood.rgb,wood.w,vec3f(0,1,0));
+  }
   let glow=colorEmission(vec3f(1,.14,.012))*pow(max(state.y-.5,0.),3.)*.22;
   surface=diffuse+glow;
  }

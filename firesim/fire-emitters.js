@@ -10,6 +10,9 @@ window.FireEmitters = `
   uniform highp sampler3D objectTex;
   uniform float objectVariation;
   uniform float burstDuration;
+  uniform vec3 powerDirection;
+  uniform float powerStrength;
+  uniform float powerOriginZ;
   float sourceSegment(vec2 p,vec2 a,vec2 b){
     vec2 d=b-a;return length(p-a-d*clamp(dot(p-a,d)/max(dot(d,d),.00001),0.,1.));
   }
@@ -40,6 +43,13 @@ window.FireEmitters = `
   }
   void emitter(vec2 local,float depth,out float density,out vec3 jet){
     density=0.;jet=vec3(0);
+    if(emitterKind>=22&&emitterKind<=27){
+      // Both engines sample the same world-space release and trajectory. These
+      // sources enter live gas; the display shader never draws a power shape.
+      vec3 origin=vec3(simMin.xy+brushTo*simExtent.xy,powerOriginZ);
+      vec4 release=powerSource(float(emitterKind-21),vec3(origin.xy+local,depth),origin,sourceScale,burstAge,clock,powerDirection,powerStrength);
+      density=release.w;jet=release.xyz;return;
+    }
     if(emitterKind==6){
       // One irregular finite charge. Expansion is solved from combustion in
       // the pressure pass; there are no moving spherical emission pockets.

@@ -1,4 +1,4 @@
-import { simulationShaders } from './shaders.js?v=5316305f3032d241';
+import { simulationShaders } from './shaders.js?v=0d1cf64e7f96e456';
 
 // Chemistry is always RGBA16F at the authored 256^3 voxel spacing. The pool
 // changes storage, not the soot/temperature/fuel/oxygen-deficit equations.
@@ -188,14 +188,17 @@ struct Page {slot:u32,generation:u32};
 @group(0) @binding(3) var<storage,read_write> meta:array<u32>;
 @group(0) @binding(4) var<storage,read_write> commands:array<u32>;
 var<workgroup> wanted:array<u32,256>;var<workgroup> needed:array<u32,256>;var<workgroup> available:array<u32,256>;
-var<workgroup> exhausted:array<u32,256>;var<workgroup> totals:vec4u;var<workgroup> failed:u32;
+var<workgroup> exhausted:array<u32,256>;var<workgroup> totals:vec4u;var<workgroup> failureFlags:u32;var<workgroup> mode:u32;
 ${commandHelpers}
 fn resident(index:u32,page:Page)->bool{if(page.slot==0u||page.slot>${C}u){return false;}let s=page.slot-1u;return meta[${O.owner}u+s]==index+1u&&meta[${O.generation}u+s]==page.generation;}
 @compute @workgroup_size(256) fn main(@builtin(local_invocation_index) lane:u32){
  let first=lane*${Math.ceil(P / 256)}u;let end=min(first+${Math.ceil(P / 256)}u,${P}u);
  for(var p=first;p<end;p++){next[p]=current[p];}
+ if(lane==0u){mode=meta[0];}
  storageBarrier();workgroupBarrier();
- if(meta[0]==1u){return;}
+ // Storage reads are not proven uniform by WGSL, even for one global mode.
+ // Broadcast the snapshot explicitly before any lane exits a barrier phase.
+ if(workgroupUniformLoad(&mode)==1u){return;}
  var w=0u;var n=0u;var f=0u;var overflow=0u;
  for(var p=first;p<end;p++){if(requested[p]!=0u){w++;if(!resident(p,current[p])){n++;}}}
  let slotFirst=lane*${Math.ceil(C / 256)}u;let slotEnd=min(slotFirst+${Math.ceil(C / 256)}u,${C}u);
@@ -204,13 +207,13 @@ fn resident(index:u32,page:Page)->bool{if(page.slot==0u||page.slot>${C}u){return
  workgroupBarrier();
  if(lane==0u){var ws=0u;var ns=0u;var fs=0u;var gs=0u;
   for(var t=0u;t<256u;t++){let ww=wanted[t];let nn=needed[t];let ff=available[t];wanted[t]=ws;needed[t]=ns;available[t]=fs;ws+=ww;ns+=nn;fs+=ff;gs|=exhausted[t];}
-  totals=vec4u(ws,ns,fs,gs);failed=0u;
-  if(ws>${C}u||ns>fs){failed|=1u;}if(ws>${plan.fallbackPages}u){failed|=2u;}
-  ${plan.viable ? '' : 'failed|=4u;'}if(ns>0u&&gs!=0u){failed|=8u;}
-  meta[1]=ws;meta[3]=0u;meta[5]=failed;meta[6]++;
-  if(failed!=0u){meta[0]=1u;meta[7]=1u;args(0u,0u,0u,0u);args(3u,0u,0u,0u);args(6u,64u,64u,64u);args(9u,64u,64u,64u);args(12u,0u,0u,0u);args(15u,0u,0u,0u);args(18u,0u,0u,0u);}
+  totals=vec4u(ws,ns,fs,gs);failureFlags=0u;
+  if(ws>${C}u||ns>fs){failureFlags|=1u;}if(ws>${plan.fallbackPages}u){failureFlags|=2u;}
+  ${plan.viable ? '' : 'failureFlags|=4u;'}if(ns>0u&&gs!=0u){failureFlags|=8u;}
+  meta[1]=ws;meta[3]=0u;meta[5]=failureFlags;meta[6]++;
+  if(failureFlags!=0u){meta[0]=1u;meta[7]=1u;args(0u,0u,0u,0u);args(3u,0u,0u,0u);args(6u,64u,64u,64u);args(9u,64u,64u,64u);args(12u,0u,0u,0u);args(15u,0u,0u,0u);args(18u,0u,0u,0u);}
  }
- workgroupBarrier();storageBarrier();if(failed!=0u){return;}
+ workgroupBarrier();storageBarrier();let failed=workgroupUniformLoad(&failureFlags);if(failed!=0u){return;}
  var freeRank=available[lane];
  for(var s=slotFirst;s<slotEnd;s++){let owner=meta[${O.owner}u+s];if(owner==0u||requested[owner-1u]==0u){meta[${O.free}u+freeRank]=s;freeRank++;meta[${O.owner}u+s]=0u;}}
  for(var p=first;p<end;p++){if(requested[p]==0u){next[p]=Page(0u,0u);}}

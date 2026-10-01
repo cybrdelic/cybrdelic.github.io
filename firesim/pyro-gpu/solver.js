@@ -3,23 +3,24 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=5316305f3032d241';
-import { ForestMesh } from './forest-mesh.js?v=5316305f3032d241';
-import {WoodStructure} from '../wood-structure.js?v=5316305f3032d241';
-import {WoodCollision} from './wood-collision.js?v=5316305f3032d241';
-import {WoodFlux} from './wood-flux.js?v=5316305f3032d241';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=5316305f3032d241';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=5316305f3032d241';
-import { simulationShaders, pressureShaders } from './shaders.js?v=5316305f3032d241';
-import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=5316305f3032d241';
-import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=5316305f3032d241';
-import { AdaptivePressure } from './adaptive-pressure.js?v=5316305f3032d241';
-import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=5316305f3032d241';
-import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=5316305f3032d241';
-import { pooledChemistryConsumer } from './pooled-coupling.js?v=5316305f3032d241';
-import { FuelBrush } from '../fuel-ground.js?v=5316305f3032d241';
-import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=5316305f3032d241';
-import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorWoodWearClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=5316305f3032d241';
+} from './objects.js?v=0d1cf64e7f96e456';
+import { ForestMesh } from './forest-mesh.js?v=0d1cf64e7f96e456';
+import {WoodStructure} from '../wood-structure.js?v=0d1cf64e7f96e456';
+import {WoodCollision} from './wood-collision.js?v=0d1cf64e7f96e456';
+import {WoodFlux} from './wood-flux.js?v=0d1cf64e7f96e456';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=0d1cf64e7f96e456';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=0d1cf64e7f96e456';
+import { simulationShaders, pressureShaders } from './shaders.js?v=0d1cf64e7f96e456';
+import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=0d1cf64e7f96e456';
+import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=0d1cf64e7f96e456';
+import { AdaptivePressure } from './adaptive-pressure.js?v=0d1cf64e7f96e456';
+import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=0d1cf64e7f96e456';
+import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=0d1cf64e7f96e456';
+import { pooledChemistryConsumer } from './pooled-coupling.js?v=0d1cf64e7f96e456';
+import { FuelBrush } from '../fuel-ground.js?v=0d1cf64e7f96e456';
+import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=0d1cf64e7f96e456';
+import {powerDirection as authoredPowerDirection} from '../fire-powers.js?v=0d1cf64e7f96e456';
+import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorWoodWearClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=0d1cf64e7f96e456';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -76,6 +77,11 @@ export class PyroSolver {
     this.active = true;
     this.fuel = 0;
     this.effect = [0, 1, 0.085, 0];
+    this.powerDirection = authoredPowerDirection();
+    this.powerStrength = 1;
+    this.launchPowerDirection = null;
+    this.launchPowerStrength = null;
+    this.powerTrailLast = null;
     this.dynamics = [1, 1, 1, 1];
     this.chemistry = [1, 1, 1, 1];
     this.objectId = null;
@@ -142,7 +148,7 @@ export class PyroSolver {
       addressModeW: 'clamp-to-edge',
     });
     this.params = Array.from({ length: 12 }, () =>
-      d.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      d.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
     );
     this.view = d.createBuffer({
       size: 192,
@@ -211,7 +217,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=5316305f3032d241', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=0d1cf64e7f96e456', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -533,7 +539,7 @@ export class PyroSolver {
       tree = ['cybr-tree','logs','house','wood-sigil'].includes(requested);
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + (requested==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=5316305f3032d241':['logs','house','wood-sigil'].includes(requested)?requested+'/solid.rgba16.bin?v=5316305f3032d241':requested+'.rgba16.bin?v=5316305f3032d241'), import.meta.url),
+        new URL('./objects/' + (requested==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=0d1cf64e7f96e456':['logs','house','wood-sigil'].includes(requested)?requested+'/solid.rgba16.bin?v=0d1cf64e7f96e456':requested+'.rgba16.bin?v=0d1cf64e7f96e456'), import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -556,12 +562,12 @@ export class PyroSolver {
         const directory=requested==='cybr-tree'?'forest-tree/structure':requested;
         const base=new URL('./objects/'+directory+'/',import.meta.url);
         this.woodStructure=await new WoodStructure(this.device).init(base);
-        const bytes=await(await fetch(new URL('voxel-owners.bin?v=5316305f3032d241',base))).arrayBuffer();
+        const bytes=await(await fetch(new URL('voxel-owners.bin?v=0d1cf64e7f96e456',base))).arrayBuffer();
         if(bytes.byteLength!==64**3*4)throw Error('Invalid wood ownership map');
         this.woodOwners=this.device.createBuffer({label:'wood voxel owners',size:bytes.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
         this.device.queue.writeBuffer(this.woodOwners,0,bytes);this.resources.push(this.woodOwners);
         this.woodFlux=await new WoodFlux(this.device,{group:(pipeline,entries)=>this.group(pipeline,entries)}).init();
-        this.woodFluxMetadata=await this.woodFlux.loadMetadata(new URL(requested==='cybr-tree'?'../flux-metadata.rgba32.bin?v=5316305f3032d241':'flux-metadata.rgba32.bin?v=5316305f3032d241',base));
+        this.woodFluxMetadata=await this.woodFlux.loadMetadata(new URL(requested==='cybr-tree'?'../flux-metadata.rgba32.bin?v=0d1cf64e7f96e456':'flux-metadata.rgba32.bin?v=0d1cf64e7f96e456',base));
       }this.woodStructureId=requested;}catch(error){
         this.woodStructure?.dispose();this.woodStructure=null;this.woodFlux?.destroy();this.woodFlux=null;this.woodFluxMetadata=null;
         if(this.woodOwners!==this.emptyWoodOwners){this.woodOwners.destroy();this.resources=this.resources.filter(r=>r!==this.woodOwners);}this.woodOwners=this.emptyWoodOwners;
@@ -742,6 +748,7 @@ export class PyroSolver {
         ...this.dynamics,
         ...this.chemistry,
         smokeDecay.decayDt,this.floorFuelKind===.35?1:0,this.woodTimeScale||12,0,
+        ...this.powerUniform(),
       ]),
     );
     this.previousDt = dt;
@@ -1339,6 +1346,58 @@ export class PyroSolver {
     this.seed += 3.17;
     this.active = true;
   }
+  castPower(at = this.source, direction = this.powerDirection, strength = this.powerStrength) {
+    if(this.effect[0]<22||this.effect[0]>27||!at||at.length!==3||
+      !direction||direction.length!==3||![...at,...direction,strength].every(Number.isFinite))return false;
+    const length=Math.hypot(...direction);if(length<1e-8)return false;
+    this.powerDirection=direction.map(v=>v/length);
+    this.powerStrength=Math.max(.25,Math.min(2,strength));
+    this.launchPowerDirection=[...this.powerDirection];
+    this.launchPowerStrength=this.powerStrength;
+    this.powerTrailLast=null;
+    this.burst(at);this.previousDt=0;this.lightReady=false;
+    if(this.effect[0]===26){
+      // A trail spends the existing finite floor inventory. A held stationary
+      // cursor does not create an infinite reservoir or a second gas emitter.
+      const point=[at[0],at[2]];
+      if(this.depositPowerTrail(point)){this.powerTrailLast=point;this.igniteFuel();}
+    }
+    return true;
+  }
+  movePower(at, direction = this.powerDirection) {
+    // Projectiles and delayed bombs retain their launch origin after casting.
+    // Rain, tornadoes and floor trails follow the held cursor without a reset.
+    if(this.effect[0]<24||this.effect[0]>26||!at||at.length!==3||
+      !direction||direction.length!==3||![...at,...direction].every(Number.isFinite))return false;
+    const length=Math.hypot(...direction);if(length<1e-8)return false;
+    this.source=[...at];this.powerDirection=direction.map(v=>v/length);
+    this.previousDt=0;this.lightReady=false;
+    if(this.effect[0]===26){
+      const point=[at[0],at[2]];
+      const changed=this.depositPowerTrail(point,this.powerTrailLast);
+      if(changed){this.powerTrailLast=point;this.igniteFuel();}
+      return changed;
+    }
+    this.stateEpoch++;this.maxSpeed=Math.max(this.maxSpeed,8);
+    return true;
+  }
+  depositPowerTrail(point, previous = null) {
+    // The power's authored dose does not overwrite the ordinary fuel-brush UI.
+    const radius=this.fuelBrush.radius,amount=this.fuelBrush.amount;
+    try{
+      this.fuelBrush.radius=Math.max(.08,Math.min(.8,.26*this.effect[1]));
+      this.fuelBrush.amount=.85*this.powerStrength;
+      return this.dropFuel(point,previous);
+    }finally{this.fuelBrush.radius=radius;this.fuelBrush.amount=amount;}
+  }
+  powerUniform() {
+    // A projectile's launch settings are fixed. Aim controls affect the next
+    // cast; ongoing rain, vortex and trail powers continue to follow controls.
+    const transient=this.effect[0]===22||this.effect[0]===23||this.effect[0]===27;
+    const direction=(transient&&this.launchPowerDirection)||this.powerDirection||authoredPowerDirection();
+    const strength=transient&&this.launchPowerStrength!=null?this.launchPowerStrength:(this.powerStrength||1);
+    return [...direction,strength];
+  }
   async pixels() {
     const width = this.canvas.width, height = this.canvas.height;
     const row = width * 4;
@@ -1394,6 +1453,9 @@ export class PyroSolver {
     this.time = 0;
     this.smokeDecayRemainder = 0;
     this.burstAge = 0;
+    this.powerTrailLast = null;
+    this.launchPowerDirection = null;
+    this.launchPowerStrength = null;
     this.maxSpeed = 12;
     this.latestTelemetry = { maxSpeed: 12, preDivergence: 0, postDivergence: 0, gpu: null, sampleFrame: this.frameNumber };
     // Reset in place; no full-volume CPU uploads or transient half-GB buffers.

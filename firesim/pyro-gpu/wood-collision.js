@@ -1,4 +1,4 @@
-import {woodPoseWGSL} from '../wood-structure.js?v=5316305f3032d241';
+import {woodPoseWGSL} from '../wood-structure.js?v=0d1cf64e7f96e456';
 // A fixed voxel ownership map follows fractured bodies. The detailed authored
 // mesh remains the visible surface. This conservative collision proxy uses the
 // existing 128³ gas resolution; it never changes render or chemistry quality.

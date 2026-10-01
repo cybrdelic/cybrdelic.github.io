@@ -1,6 +1,6 @@
 // Inspection scenes temporarily override the normal fire's presentation.
 // Leaving a test restores the normal view instead of leaking its lighting.
-import { runtimeFamily } from './simulation-modes.js?v=5316305f3032d241';
+import { runtimeFamily } from './simulation-modes.js?v=0d1cf64e7f96e456';
 export function inspectionState(storage) {
   const key = 'cybr-fire-inspection-return-v1';
   let active = false,

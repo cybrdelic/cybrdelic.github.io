@@ -1,9 +1,9 @@
 // The reviewed forest-surface asset is rasterized at its original topology.
 // A separate 64³ fuel/collision proxy is used by the fluid solver.
-import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=5316305f3032d241';
-import { woodStateWGSL } from './objects.js?v=5316305f3032d241';
-import { woodMaterialWGSL } from '../wood-material.js?v=5316305f3032d241';
-import {woodPoseWGSL} from '../wood-structure.js?v=5316305f3032d241';
+import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=0d1cf64e7f96e456';
+import { woodStateWGSL } from './objects.js?v=0d1cf64e7f96e456';
+import { woodMaterialWGSL } from '../wood-material.js?v=0d1cf64e7f96e456';
+import {woodPoseWGSL} from '../wood-structure.js?v=0d1cf64e7f96e456';
 export const forestMeshWGSL = `
 ${woodStateWGSL}
 ${woodMaterialWGSL}
@@ -34,7 +34,8 @@ struct Out{@builtin(position) clip:vec4f,@location(0) world:vec3f,@location(1) n
 }
 struct GBuffer{@location(0) position:vec4f,@location(1) normal:vec4f,@location(2) color:vec4f};
 @fragment fn fragment(v:Out,@builtin(front_facing) front:bool)->GBuffer{
- if(v.material>8.5&&!woodCapVisible(v.owner,v.other)){discard;}
+ // All quad operations and implicit samples precede any varying discard or
+ // material branch. Closed caps and spent leaves still use the same coverage.
  let at=clamp((v.local+1.5)/3.,vec3f(0),vec3f(1));let s=woodTrilinear(skin,solid,at,vec4f(1,0,0,0));let d=woodTrilinear(damage,solid,at,woodFreshWear(object.tint.w>1.5));
  var normal=normalize(v.normal)*select(-1.,1.,front);
  var uv=v.uv;var color=textureSample(bark,repeatSampler,uv).rgb;
@@ -50,11 +51,19 @@ struct GBuffer{@location(0) position:vec4f,@location(1) normal:vec4f,@location(2
  let treeBark=v.material>.5&&v.material<1.5&&object.tint.w>.5;
  let logBark=v.material<2.5&&object.tint.w< -1.5&&object.tint.w> -2.5&&abs(dot(normal,woodTransformNormal(v.owner,axis)))<.75;
  let barkFlag=select(0.,1.,treeBark||logBark);
- let material=woodMaterial(grainPoint,normal,s.y,s.x,s.w,d.z,barkFlag);
+ let phases=woodPhases(grainPoint);
+ let footprint=max(length(dpdx(grainPoint)),length(dpdy(grainPoint)));
+ let phaseWidth=max(abs(dpdx(phases)),abs(dpdy(phases)));
+ let features=woodFeaturesFiltered(grainPoint,phases,footprint,phaseWidth);
+ let material=woodMaterialFiltered(grainPoint,features,s.y,s.x,s.w,d.z,barkFlag);
  var roughness=clamp(textureSample(roughnessMap,repeatSampler,uv).r,.5,.98);
  let height=textureSample(micro,repeatSampler,uv).r;
- let px=dpdx(v.world);let py=dpdy(v.world);let r1=cross(py,normal);let r2=cross(normal,px);let det=dot(px,r1);
- normal=normalize(abs(det)*normal-sign(det)*.005*(dpdx(height)*r1+dpdy(height)*r2));
+ let px=dpdx(v.world);let py=dpdy(v.world);
+ let photoDx=dpdx(height);let photoDy=dpdy(height);
+ let woodHeight=woodHeightFiltered(grainPoint,features,footprint,d.z,barkFlag);
+ let woodDx=dpdx(woodHeight);let woodDy=dpdy(woodHeight);
+ if(v.material>8.5&&!woodCapVisible(v.owner,v.other)){discard;}
+ normal=woodSurfaceNormal(normal,px,py,.005*photoDx,.005*photoDy);
  var crack=select(0.,(1.-smoothstep(.32,.58,height))*d.z,treeBark);
  if(v.material>7.5&&v.material<8.5){
   normal=normalize(v.normal)*select(-1.,1.,front);
@@ -69,7 +78,7 @@ struct GBuffer{@location(0) position:vec4f,@location(1) normal:vec4f,@location(2
    color=mix(color,material.rgb,clamp(carbon+ash,0.,1.));
    roughness=mix(roughness,material.w,carbon);
   }else{color=material.rgb;roughness=material.w;}
-  normal=woodWorldNormal(grainPoint,v.world,normal,s.x,s.w,d.z,barkFlag);
+  normal=woodSurfaceNormal(normal,px,py,woodDx,woodDy);
  }
  color*=1.-.75*crack;
  var o:GBuffer;o.position=vec4f(v.world,1);o.normal=vec4f(normal,clamp(s.y,0.,8.));o.color=vec4f(color,roughness);return o;
@@ -150,7 +159,7 @@ export class ForestMesh {
       d = s.device,
       base = new URL('./objects/'+(s.objectId==='cybr-tree'?'forest-tree/structure':s.objectId)+'/', import.meta.url);
     const get = async (name) => {
-      const r = await fetch(new URL(name + '?v=5316305f3032d241', base));
+      const r = await fetch(new URL(name + '?v=0d1cf64e7f96e456', base));
       if (!r.ok) throw Error('Reviewed tree asset unavailable: ' + name);
       return r;
     };
@@ -167,7 +176,7 @@ export class ForestMesh {
     this.draws=[{vertices:await buffer('vertices.bin',GPUBufferUsage.VERTEX),indices:await buffer('indices.bin',GPUBufferUsage.INDEX),owners:await buffer('owners.bin',GPUBufferUsage.VERTEX),count:this.manifest.partitionTriangles*3}];
     if(this.manifest.caps.triangles>0)this.draws.push({vertices:await buffer('cap-vertices.bin',GPUBufferUsage.VERTEX),indices:await buffer('cap-indices.bin',GPUBufferUsage.INDEX),owners:await buffer('cap-owner-pairs.bin',GPUBufferUsage.VERTEX),count:this.manifest.caps.triangles*3});
     const texture = async (name, format) => {
-      const bitmap = await createImageBitmap(await (await fetch(new URL('./objects/forest-tree/'+name + "?v=5316305f3032d241",import.meta.url))).blob(), {
+      const bitmap = await createImageBitmap(await (await fetch(new URL('./objects/forest-tree/'+name + "?v=0d1cf64e7f96e456",import.meta.url))).blob(), {
         colorSpaceConversion: 'none',
         imageOrientation: 'flipY',
       });

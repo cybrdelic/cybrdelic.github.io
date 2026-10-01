@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#10100f" />
     <title>CYBRDELIC / Fire studio</title>
-    <link rel="icon" href="icon.svg?v=5316305f3032d241" type="image/svg+xml" />
-    <link rel="stylesheet" href="studio.css?v=5316305f3032d241" />
-    <link rel="stylesheet" href="pyro-gpu/library.css?v=5316305f3032d241" />
+    <link rel="icon" href="icon.svg?v=0d1cf64e7f96e456" type="image/svg+xml" />
+    <link rel="stylesheet" href="studio.css?v=0d1cf64e7f96e456" />
+    <link rel="stylesheet" href="pyro-gpu/library.css?v=0d1cf64e7f96e456" />
   </head>
   <body>
     <main>
@@ -95,6 +95,14 @@
               ><button id="restart" type="button">Restart</button>
             </div>
           </div>
+          <section id="power-controls" class="power-controls" aria-label="Power controls" hidden>
+            <div class="power-strength"><label for="power-strength">Power strength</label><input id="power-strength" type="range" min="25" max="200" step="5" value="100" /><output id="power-strength-value" for="power-strength">100%</output></div>
+            <div id="power-aim-fields" class="power-aim-fields" hidden>
+              <label for="power-heading">Heading<input id="power-heading" type="range" min="-180" max="180" step="1" value="0" /><output id="power-heading-value" for="power-heading">0°</output></label>
+              <label for="power-elevation">Elevation<input id="power-elevation" type="range" min="-30" max="80" step="1" value="9" /><output id="power-elevation-value" for="power-elevation">9°</output></label>
+            </div>
+            <p id="power-description"></p>
+          </section>
           <div class="camera-bar" aria-label="View controls">
             <div class="control-group tool-switch">
               <button id="fire-tool" type="button" aria-pressed="true" title="Create and move fire">
@@ -184,7 +192,7 @@
         </details>
       </footer>
     </main>
-    <script src="scene-lights.js?v=5316305f3032d241"></script>
-    <script type="module" src="studio.js?v=5316305f3032d241"></script>
+    <script src="scene-lights.js?v=0d1cf64e7f96e456"></script>
+    <script type="module" src="studio.js?v=0d1cf64e7f96e456"></script>
   </body>
 </html>

@@ -1,8 +1,9 @@
-import {objectWGSL} from './objects.js?v=5316305f3032d241';
-import {combustionWGSL} from './combustion.js?v=5316305f3032d241';
-import {floorFuelWGSL} from './floor-fuel.js?v=5316305f3032d241';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=5316305f3032d241';
-import {woodFluxWGSL} from './wood-flux.js?v=5316305f3032d241';
+import {objectWGSL} from './objects.js?v=0d1cf64e7f96e456';
+import {combustionWGSL} from './combustion.js?v=0d1cf64e7f96e456';
+import {floorFuelWGSL} from './floor-fuel.js?v=0d1cf64e7f96e456';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=0d1cf64e7f96e456';
+import {woodFluxWGSL} from './wood-flux.js?v=0d1cf64e7f96e456';
+import {powerSourceWGSL} from '../fire-powers.js?v=0d1cf64e7f96e456';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
@@ -12,7 +13,7 @@ ${objectWGSL}
 ${woodFluxWGSL}
 const N:u32=${N}u;const D:u32=${D}u;const H:f32=6.0/${N}.0;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
-struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f};
+struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f,power:vec4f};
 @group(0) @binding(0) var<uniform> p:Params;
 @group(0) @binding(1) var smp:sampler;
 @group(0) @binding(8) var sigilSource:texture_2d<f32>;
@@ -51,10 +52,35 @@ fn jetDirection()->vec3f{
  let t=p.step.y;let sweep=select(0.,sin(t*1.8)*.7,p.effect.x>19.5);
  return normalize(vec3f(cos(sweep),.24+.12*sin(t*2.1),sin(sweep)));
 }
+${powerSourceWGSL}
+fn powerKind()->f32{return p.effect.x-21.;}
+fn isPower()->bool{return p.effect.x>=22.&&p.effect.x<=27.;}
+fn powerSample(x:vec3f)->vec4f{return powerSource(powerKind(),x,p.source.xyz,p.effect.y,p.step.z,p.step.y,p.power.xyz,p.power.w);}
+fn powerBrickLive(at:vec3f,halfBrick:f32)->bool{
+ let kind=powerKind();let scale=max(p.effect.y,.05);
+ if(p.step.z<0.){return false;}
+ if(kind>1.5&&kind<2.5){
+  if(p.step.z>1.15){return false;}
+  let center=powerFireballCenter(p.source.xyz,scale,p.step.z,p.power.xyz);
+  let near=max(abs(at-center)-vec3f(halfBrick),vec3f(0));
+  return dot(near,near)<=pow(.43*scale,2.);
+ }
+ if(kind>2.5&&kind<3.5){
+  // Nine tests per brick, not per gas cell: exact moving packet bounds avoid
+  // marking the entire empty rain box as chemistry work every substep.
+  for(var z=0u;z<3u;z++){for(var x=0u;x<3u;x++){
+   let center=p.source.xyz+powerRainCenter(vec2f(f32(x),f32(z)),p.step.z)*scale;
+   let near=max(abs(at-center)-vec3f(halfBrick),vec3f(0))/(vec3f(.15,.23,.15)*scale);
+   if(dot(near,near)<=12.){return true;}
+  }}return false;
+ }
+ return powerSupport(kind,at,p.source.xyz,scale,p.step.z,halfBrick*1.733);
+}
 fn charge(x:vec3f)->f32{
  if(abs(object.tint.w)>.5){return 0.;}
  if(p.source.w<.5||p.step.z<0.||(p.effect.w<.5&&p.step.z>p.effect.z)){return 0.;}
  let q=(x-p.source.xyz)/p.effect.y;
+ if(isPower()){return powerSample(x).w;}
  if(object.options.x>.5){return surfaceFeed(x);}
  if(p.effect.x>18.5){
   let d=jetDirection();let axial=dot(q,d);let radial=length(q-d*axial);
@@ -96,6 +122,7 @@ fn charge(x:vec3f)->f32{
 }
 fn sourceVelocity(x:vec3f)->vec3f{
  let q=x-p.source.xyz;let r=length(q);let dir=q/max(r,.03);
+ if(isPower()){return powerSample(x).xyz;}
  if(object.options.x>.5){return (objectNormal(x)*.32+vec3f(0,.65,0))*p.dynamics.x;}
  if(p.effect.x>18.5){let d=jetDirection();let side=normalize(cross(d,vec3f(0,1,0)));let up=cross(side,d);let jitter=vec2f(noise(q*22.+vec3f(p.step.y*9.,4,8)),noise(q*22.+vec3f(3,p.step.y*11.,7)))*2.-1.;return d*p.dynamics.x*5.+(side*jitter.x+up*jitter.y)*1.4;}
  let asym=1.+.35*sin(atan2(q.z,q.x)*3.+q.y*7.);
@@ -185,6 +212,7 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  let confinement=2.0*H*cross(g/max(length(g),.00001),w.xyz);
  let forcing=confinement+turbulence(x)*min(c.x+c.y,1.)*.9*p.chemistry.w+vec3f(0,c.y*3.0*p.dynamics.w-c.x*.10,0);
  out+=forcing*p.step.x;
+ if(isPower()&&p.source.w>.5){out+=powerAcceleration(powerKind(),x,p.source.xyz,p.effect.y,p.step.z,p.step.y,p.power.xyz,p.power.w)*p.step.x;}
  // Brinkman-style damping inside stationary solids before projection.
  // Scalars are separately excluded; this is not a cut-cell pressure solve.
  if(objectDistance(x)<-.018){out*=exp(-p.step.x*240.);}
@@ -194,7 +222,10 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  if(i.x==0u){out.x=min(out.x,0.);}if(i.x==N){out.x=max(out.x,0.);}
  if(i.z==0u){out.z=min(out.z,0.);}if(i.z==N){out.z=max(out.z,0.);}
  if(i.y==N){out.y=max(out.y,0.);}
- let expansion=s*45.*p.dynamics.y+flameActivity(c)*1.2;
+ // Power sources supply short finite impulses or modest ongoing expansion.
+ // A swirling force does not continuously inflate the entire tornado column.
+ let sourceExpansion=select(45.,select(4.,18.,powerKind()<1.5||powerKind()>5.5),isPower());
+ let expansion=s*sourceExpansion*p.dynamics.y+flameActivity(c)*1.2;
  textureStore(dst,vec3i(i),vec4f(out,expansion));
 }`;
 const advectScalar=common+`
@@ -261,6 +292,13 @@ var<workgroup> opticalAlive:atomic<u32>;
   let heat=surfaceState(x).y;let added=min(s*p.step.x*p.chemistry.y*2.,.2);
   c.y=(c.y+added*heat)/(1.+added)+(heat-c.y)*(1.-exp(-p.step.x*s*10.));
   c.z+=select(added,0.,p.step.w>.5);c.w=1.-(1.-c.w)/(1.+added);
+ }else if(s>0.&&isPower()){
+  // Powers inject premixed hot gas, integrated once over this substep. Their
+  // finite windows are in powerSource; transported gas remains after casting.
+  // Soot is created by the same combustion reaction as every other source.
+  let added=s*p.step.x*6.*p.chemistry.y;
+  if(p.step.w>.5){c.x+=added*.8*p.chemistry.z;c.y+=added*.28;}
+  else{c.y+=added*.8*p.chemistry.x/(1.+c.z);c.z+=added;c.w/=1.+added;}
  }else if(s>0.){let n=noise((x-p.source.xyz)*12.+vec3f(p.shape.x,7.,4.));
  let weight=1.-exp(-s*p.step.x*90.);
  // Continuous emitters feed fuel; most soot is formed by combustion.
@@ -363,7 +401,11 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
  let halfBrick=3./f32(B);let nearQ=max(abs(at-p.source.xyz)-vec3f(halfBrick),vec3f(0))/p.effect.y;
  let farQ=(abs(at-p.source.xyz)+vec3f(halfBrick))/p.effect.y;
  var sourceLive=all(nearQ<vec3f(.85));
- if(p.effect.x>.5){
+ if(isPower()){
+  // The same source-center helpers supply field samples and conservative
+  // brick intersections. Existing state retains its transport halo above.
+  sourceLive=powerBrickLive(at,halfBrick);
+ }else if(p.effect.x>.5){
   var r2=dot(nearQ/vec3f(.26,.12,.26),nearQ/vec3f(.26,.12,.26));
   if(p.effect.x>1.5&&p.effect.x<2.5){let radial=max(max(length(nearQ.xz)-.65,.65-length(farQ.xz)),0.);r2=pow(radial/.12,2.)+pow(nearQ.y/.10,2.);}
   if(p.effect.x>2.5&&p.effect.x<3.5){r2=pow(max(nearQ.x-1.,0.)/.15,2.)+pow(nearQ.y/.12,2.)+pow(nearQ.z/.15,2.);}
