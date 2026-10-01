@@ -1,4 +1,4 @@
-import { simulationShaders } from './shaders.js?v=46ff16af6f281449';
+import { simulationShaders } from './shaders.js?v=467fdf306aa8ace5';
 
 // Chemistry is always RGBA16F at the authored 256^3 voxel spacing. The pool
 // changes storage, not the soot/temperature/fuel/oxygen-deficit equations.

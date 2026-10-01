@@ -1,10 +1,10 @@
-import {powerDefinition,powerDirection} from './fire-powers.js?v=46ff16af6f281449';
-import {POWER_CAST_CAPACITY,powerPhase,powerSpeedFloor,powerExpansion} from './fire-power-definitions.js?v=46ff16af6f281449';
+import {powerDefinition,powerDirection} from './fire-powers.js?v=467fdf306aa8ace5';
+import {POWER_CAST_CAPACITY,powerPhase,powerSpeedFloor,powerExpansion} from './fire-power-definitions.js?v=467fdf306aa8ace5';
 const finite3=v=>Array.isArray(v)||ArrayBuffer.isView(v)?v.length===3&&Array.from(v).every(Number.isFinite):false;
 const set3=(to,v)=>{for(let i=0;i<3;i++)to[i]=v[i];};
-// Reserve room for the burning impact and fan spread, not just its center.
-const targetMargin=d=>(d.impactMargin||0)+
- (d.id==='meteor-barrage'||d.id==='cinder-scatter'||d.id==='ember-orbit'?.8:0);
+// Reserve the source body. Advected aftermath may leave the open simulation
+// domain; shrinking every projectile target to the centre is not a collision.
+const targetMargin=d=>d.bodyMargin??d.impactMargin??0;
 const floorHeight=bounds=>Math.max(bounds.min[1],Math.min(bounds.max[1],.14));
 const originFitsDomain=(definition,origin,scale,bounds)=>{
  let distance2=0;for(let i=0;i<3;i++){

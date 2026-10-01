@@ -1,6 +1,6 @@
-import {woodStructureGLSL} from './wood-structure.js?v=46ff16af6f281449';
-import {SOURCE_SCALE,SOURCE_CENTER} from './pyro-gpu/objects/forest-tree/source-space.js?v=46ff16af6f281449';
-import {woodSamplingGLSL} from './wood-state-gl.js?v=46ff16af6f281449';
+import {woodStructureGLSL} from './wood-structure.js?v=467fdf306aa8ace5';
+import {SOURCE_SCALE,SOURCE_CENTER} from './pyro-gpu/objects/forest-tree/source-space.js?v=467fdf306aa8ace5';
+import {woodSamplingGLSL} from './wood-state-gl.js?v=467fdf306aa8ace5';
 
 const COLUMNS=12,PER_ROW=4,WIDTH=COLUMNS*PER_ROW;
 const structure=woodStructureGLSL(64)
@@ -93,8 +93,8 @@ void main(){ivec2 id=ivec2(gl_FragCoord.xy);int i=id.y*${PER_ROW}+id.x/${COLUMNS
   ready=false;if(!name){asset=null;return;}
   if(cache.has(name)){asset=cache.get(name);ready=true;reset();return;}
   const base=`pyro-gpu/objects/${name==='cybr-tree'?'forest-tree/structure':name}/`;
-  const response=await fetch(base+"manifest.json?v=46ff16af6f281449");if(!response.ok)throw Error('Wood structure missing: '+name);const manifest=await response.json();
-  const files=await Promise.all(['nodes.bin','bounds.bin','voxel-owners.bin'].map(async file=>{const r=await fetch(base+file + "?v=46ff16af6f281449");if(!r.ok)throw Error('Wood structure asset missing: '+name+'/'+file);return r.arrayBuffer();}));
+  const response=await fetch(base+"manifest.json?v=467fdf306aa8ace5");if(!response.ok)throw Error('Wood structure missing: '+name);const manifest=await response.json();
+  const files=await Promise.all(['nodes.bin','bounds.bin','voxel-owners.bin'].map(async file=>{const r=await fetch(base+file + "?v=467fdf306aa8ace5");if(!r.ok)throw Error('Wood structure asset missing: '+name+'/'+file);return r.arrayBuffer();}));
   const nodes=new Float32Array(files[0]),bounds=new Float32Array(files[1]),owners=new Uint32Array(files[2]),count=manifest.nodes;
   if(manifest.layoutVersion!==1||manifest.maxDepth>64||nodes.length!==count*16||bounds.length!==count*8||owners.length!==64**3||owners.some(i=>i>=count))throw Error('Invalid Original wood structure');
   const rows=Math.ceil(count/PER_ROW),height=rows+Math.ceil(owners.length/(WIDTH*4)),data=new Float32Array(WIDTH*height*4);
@@ -102,7 +102,7 @@ void main(){ivec2 id=ivec2(gl_FragCoord.xy);int i=id.y*${PER_ROW}+id.x/${COLUMNS
   for(let i=0;i<count;i++){const row=(Math.floor(i/PER_ROW)*WIDTH+(i%PER_ROW)*COLUMNS)*4;data.set(nodes.subarray(i*16,i*16+16),row);data.set([nodes[i*16],nodes[i*16+1],nodes[i*16+2],-1,0,0,0,1,0,0,0,0,0,0,0,0],row+16);data.set(bounds.subarray(i*8,i*8+8),row+32);}
   for(let i=0;i<owners.length;i++)data[rows*WIDTH*4+i]=owners[i];
   const children=Array.from({length:count},()=>[]);for(let i=1;i<count;i++)children[nodes[i*16+3]].push(i);const tin=new Uint32Array(count),tout=new Uint32Array(count);let ordinal=0;const visit=i=>{tin[i]=ordinal++;for(const child of children[i])visit(child);tout[i]=ordinal;};visit(0);
-  const thermalPath=name==='cybr-tree'?'pyro-gpu/objects/forest-tree/wood-solid.rgba16.bin':base+'solid.rgba16.bin';const thermalResponse=await fetch(thermalPath + "?v=46ff16af6f281449");if(!thermalResponse.ok)throw Error('Wood thermal mass asset missing: '+name);const half=new Uint16Array(await thermalResponse.arrayBuffer());if(half.length!==64**3*4)throw Error('Invalid wood thermal mass asset');
+  const thermalPath=name==='cybr-tree'?'pyro-gpu/objects/forest-tree/wood-solid.rgba16.bin':base+'solid.rgba16.bin';const thermalResponse=await fetch(thermalPath + "?v=467fdf306aa8ace5");if(!thermalResponse.ok)throw Error('Wood thermal mass asset missing: '+name);const half=new Uint16Array(await thermalResponse.arrayBuffer());if(half.length!==64**3*4)throw Error('Invalid wood thermal mass asset');
   const decode=v=>{const sign=v&32768?-1:1,exp=(v>>10)&31,mantissa=v&1023;return exp?sign*(1+mantissa/1024)*2**(exp-15):sign*mantissa*2**-24;};
   // Thermal state is projected, but gravitational mass must keep each actual
   // depth voxel's owner. Collapsing mass onto the column centroid would unload
@@ -194,9 +194,9 @@ export function createWoodMeshGL(gl,{shared,lightingGLSL,materialGLSL,program,un
  function gpuBuffer(bytes,target){const b=gl.createBuffer();resources.push({buffer:b});gl.bindBuffer(target,b);gl.bufferData(target,bytes,gl.STATIC_DRAW);return b;}
  async function load(asset){
   ready=false;draws=[];tree=asset?.name==='cybr-tree';barkKind=tree?1:asset?.name==='logs'?2:0;if(!asset)return;if(cache.has(asset.name)){draws=cache.get(asset.name);ready=true;return;}
-  if(tree&&!barkTextures){barkTextures=await Promise.all(['bark-color.png','bark-micro.png','bark-roughness.png'].map(async(name,index)=>{const r=await fetch('pyro-gpu/objects/forest-tree/'+name + "?v=46ff16af6f281449");if(!r.ok)throw Error('Reviewed bark asset missing: '+name);const bitmap=await createImageBitmap(await r.blob(),{colorSpaceConversion:'none',imageOrientation:'flipY'});const tex=gl.createTexture();resources.push({texture:tex});gl.bindTexture(gl.TEXTURE_2D,tex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.REPEAT);gl.texImage2D(gl.TEXTURE_2D,0,index===0?gl.SRGB8_ALPHA8:gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,bitmap);bitmap.close();return tex;}));}
+  if(tree&&!barkTextures){barkTextures=await Promise.all(['bark-color.png','bark-micro.png','bark-roughness.png'].map(async(name,index)=>{const r=await fetch('pyro-gpu/objects/forest-tree/'+name + "?v=467fdf306aa8ace5");if(!r.ok)throw Error('Reviewed bark asset missing: '+name);const bitmap=await createImageBitmap(await r.blob(),{colorSpaceConversion:'none',imageOrientation:'flipY'});const tex=gl.createTexture();resources.push({texture:tex});gl.bindTexture(gl.TEXTURE_2D,tex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.REPEAT);gl.texImage2D(gl.TEXTURE_2D,0,index===0?gl.SRGB8_ALPHA8:gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,bitmap);bitmap.close();return tex;}));}
   async function mesh(vertices,indices,owners,count){
-   const responses=await Promise.all([vertices,indices,owners].map(async name=>{const r=await fetch(asset.base+name + "?v=46ff16af6f281449");if(!r.ok)throw Error('Wood mesh missing: '+name);const bytes=await r.arrayBuffer();if(bytes.byteLength!==asset.manifest.files[name].bytes)throw Error('Wood mesh incomplete: '+name);return bytes;}));
+   const responses=await Promise.all([vertices,indices,owners].map(async name=>{const r=await fetch(asset.base+name + "?v=467fdf306aa8ace5");if(!r.ok)throw Error('Wood mesh missing: '+name);const bytes=await r.arrayBuffer();if(bytes.byteLength!==asset.manifest.files[name].bytes)throw Error('Wood mesh incomplete: '+name);return bytes;}));
    const vao=gl.createVertexArray();resources.push({vao});gl.bindVertexArray(vao);gpuBuffer(responses[0],gl.ARRAY_BUFFER);
    for(const [index,size,offset]of[[0,3,0],[1,3,12],[3,1,32],[4,2,24]]){gl.enableVertexAttribArray(index);gl.vertexAttribPointer(index,size,gl.FLOAT,false,36,offset);}
    gpuBuffer(responses[2],gl.ARRAY_BUFFER);gl.enableVertexAttribArray(2);gl.vertexAttribIPointer(2,2,gl.UNSIGNED_INT,8,0);gpuBuffer(responses[1],gl.ELEMENT_ARRAY_BUFFER);gl.bindVertexArray(null);return {vao,count};

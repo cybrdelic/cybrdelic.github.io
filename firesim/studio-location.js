@@ -1,7 +1,7 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=46ff16af6f281449';
-import { modeForFire } from './simulation-modes.js?v=46ff16af6f281449';
-import { normalizePowerSettings } from './fire-powers.js?v=46ff16af6f281449';
+import { cleanLights } from './look-storage.js?v=467fdf306aa8ace5';
+import { modeForFire } from './simulation-modes.js?v=467fdf306aa8ace5';
+import { normalizePowerSettings } from './fire-powers.js?v=467fdf306aa8ace5';
 
 export function readLook(params, camera) {
   const look = {};

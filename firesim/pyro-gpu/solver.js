@@ -3,25 +3,25 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=46ff16af6f281449';
-import { ForestMesh } from './forest-mesh.js?v=46ff16af6f281449';
-import {WoodStructure} from '../wood-structure.js?v=46ff16af6f281449';
-import {WoodCollision} from './wood-collision.js?v=46ff16af6f281449';
-import {WoodFlux,WOOD_GAS_PILOT} from './wood-flux.js?v=46ff16af6f281449';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=46ff16af6f281449';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=46ff16af6f281449';
-import { simulationShaders, pressureShaders } from './shaders.js?v=46ff16af6f281449';
-import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=46ff16af6f281449';
-import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=46ff16af6f281449';
-import { AdaptivePressure } from './adaptive-pressure.js?v=46ff16af6f281449';
-import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=46ff16af6f281449';
-import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=46ff16af6f281449';
-import { pooledChemistryConsumer } from './pooled-coupling.js?v=46ff16af6f281449';
-import { FuelBrush } from '../fuel-ground.js?v=46ff16af6f281449';
-import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=46ff16af6f281449';
-import {powerDirection as authoredPowerDirection, powerDefinition} from '../fire-powers.js?v=46ff16af6f281449';
-import {PowerCastPool} from '../fire-abilities.js?v=46ff16af6f281449';
-import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorWoodWearClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=46ff16af6f281449';
+} from './objects.js?v=467fdf306aa8ace5';
+import { ForestMesh } from './forest-mesh.js?v=467fdf306aa8ace5';
+import {WoodStructure} from '../wood-structure.js?v=467fdf306aa8ace5';
+import {WoodCollision} from './wood-collision.js?v=467fdf306aa8ace5';
+import {WoodFlux,WOOD_GAS_PILOT} from './wood-flux.js?v=467fdf306aa8ace5';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=467fdf306aa8ace5';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=467fdf306aa8ace5';
+import { simulationShaders, pressureShaders } from './shaders.js?v=467fdf306aa8ace5';
+import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=467fdf306aa8ace5';
+import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=467fdf306aa8ace5';
+import { AdaptivePressure } from './adaptive-pressure.js?v=467fdf306aa8ace5';
+import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=467fdf306aa8ace5';
+import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=467fdf306aa8ace5';
+import { pooledChemistryConsumer } from './pooled-coupling.js?v=467fdf306aa8ace5';
+import { FuelBrush } from '../fuel-ground.js?v=467fdf306aa8ace5';
+import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=467fdf306aa8ace5';
+import {powerDirection as authoredPowerDirection, powerDefinition} from '../fire-powers.js?v=467fdf306aa8ace5';
+import {PowerCastPool} from '../fire-abilities.js?v=467fdf306aa8ace5';
+import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorWoodWearClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=467fdf306aa8ace5';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   // Even a current readback describes the completed interval. Reserve one
@@ -229,7 +229,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=46ff16af6f281449', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=467fdf306aa8ace5', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -551,7 +551,7 @@ export class PyroSolver {
       tree = ['cybr-tree','logs','house','wood-sigil'].includes(requested);
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + (requested==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=46ff16af6f281449':['logs','house','wood-sigil'].includes(requested)?requested+'/solid.rgba16.bin?v=46ff16af6f281449':requested+'.rgba16.bin?v=46ff16af6f281449'), import.meta.url),
+        new URL('./objects/' + (requested==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=467fdf306aa8ace5':['logs','house','wood-sigil'].includes(requested)?requested+'/solid.rgba16.bin?v=467fdf306aa8ace5':requested+'.rgba16.bin?v=467fdf306aa8ace5'), import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -574,12 +574,12 @@ export class PyroSolver {
         const directory=requested==='cybr-tree'?'forest-tree/structure':requested;
         const base=new URL('./objects/'+directory+'/',import.meta.url);
         this.woodStructure=await new WoodStructure(this.device).init(base);
-        const bytes=await(await fetch(new URL('voxel-owners.bin?v=46ff16af6f281449',base))).arrayBuffer();
+        const bytes=await(await fetch(new URL('voxel-owners.bin?v=467fdf306aa8ace5',base))).arrayBuffer();
         if(bytes.byteLength!==64**3*4)throw Error('Invalid wood ownership map');
         this.woodOwners=this.device.createBuffer({label:'wood voxel owners',size:bytes.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
         this.device.queue.writeBuffer(this.woodOwners,0,bytes);this.resources.push(this.woodOwners);
         this.woodFlux=await new WoodFlux(this.device,{group:(pipeline,entries)=>this.group(pipeline,entries)}).init();
-        this.woodFluxMetadata=await this.woodFlux.loadMetadata(new URL(requested==='cybr-tree'?'../flux-metadata.rgba32.bin?v=46ff16af6f281449':'flux-metadata.rgba32.bin?v=46ff16af6f281449',base));
+        this.woodFluxMetadata=await this.woodFlux.loadMetadata(new URL(requested==='cybr-tree'?'../flux-metadata.rgba32.bin?v=467fdf306aa8ace5':'flux-metadata.rgba32.bin?v=467fdf306aa8ace5',base));
       }this.woodStructureId=requested;}catch(error){
         this.woodStructure?.dispose();this.woodStructure=null;this.woodFlux?.destroy();this.woodFlux=null;this.woodFluxMetadata=null;
         if(this.woodOwners!==this.emptyWoodOwners){this.woodOwners.destroy();this.resources=this.resources.filter(r=>r!==this.woodOwners);}this.woodOwners=this.emptyWoodOwners;

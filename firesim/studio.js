@@ -1,15 +1,15 @@
-import { readLook, writeLook } from './studio-location.js?v=46ff16af6f281449';
-import { createFireDomain } from './fire-domain.js?v=46ff16af6f281449';
-import { inspectionState } from './inspection-state.js?v=46ff16af6f281449';
-import { loadRuntime } from './runtime-loader.js?v=46ff16af6f281449';
-import { studioUI } from './studio-ui.js?v=46ff16af6f281449';
-import { DEMO_PRESETS } from './demo-presets.js?v=46ff16af6f281449';
-import { matchingPreset } from './preset-pairs.js?v=46ff16af6f281449';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=46ff16af6f281449';
-import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=46ff16af6f281449';
-import { mountLibrary } from './pyro-gpu/library.js?v=46ff16af6f281449';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=46ff16af6f281449';
-import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=46ff16af6f281449';
+import { readLook, writeLook } from './studio-location.js?v=467fdf306aa8ace5';
+import { createFireDomain } from './fire-domain.js?v=467fdf306aa8ace5';
+import { inspectionState } from './inspection-state.js?v=467fdf306aa8ace5';
+import { loadRuntime } from './runtime-loader.js?v=467fdf306aa8ace5';
+import { studioUI } from './studio-ui.js?v=467fdf306aa8ace5';
+import { DEMO_PRESETS } from './demo-presets.js?v=467fdf306aa8ace5';
+import { matchingPreset } from './preset-pairs.js?v=467fdf306aa8ace5';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=467fdf306aa8ace5';
+import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=467fdf306aa8ace5';
+import { mountLibrary } from './pyro-gpu/library.js?v=467fdf306aa8ace5';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=467fdf306aa8ace5';
+import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=467fdf306aa8ace5';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;

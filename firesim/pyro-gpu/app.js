@@ -1,12 +1,12 @@
-import { FIRE_COLORS } from './fire-colors.js?v=46ff16af6f281449';
-import { PyroSolver } from './solver.js?v=46ff16af6f281449';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=46ff16af6f281449';
-import { runtimeScope } from '../runtime-scope.js?v=46ff16af6f281449';
-import { outputSize } from './output-size.js?v=46ff16af6f281449';
-import { gpuSessionTimeout } from './gpu-session.js?v=46ff16af6f281449';
-import { floorHit } from '../fuel-ground.js?v=46ff16af6f281449';
-import { volumeOptions } from '../simulation-modes.js?v=46ff16af6f281449';
-import { powerDefinition, normalizePowerSettings, powerDirection } from '../fire-powers.js?v=46ff16af6f281449';
+import { FIRE_COLORS } from './fire-colors.js?v=467fdf306aa8ace5';
+import { PyroSolver } from './solver.js?v=467fdf306aa8ace5';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=467fdf306aa8ace5';
+import { runtimeScope } from '../runtime-scope.js?v=467fdf306aa8ace5';
+import { outputSize } from './output-size.js?v=467fdf306aa8ace5';
+import { gpuSessionTimeout } from './gpu-session.js?v=467fdf306aa8ace5';
+import { floorHit } from '../fuel-ground.js?v=467fdf306aa8ace5';
+import { volumeOptions } from '../simulation-modes.js?v=467fdf306aa8ace5';
+import { powerDefinition, normalizePowerSettings, powerDirection } from '../fire-powers.js?v=467fdf306aa8ace5';
 export async function mountVolume({
   initialPreset = 'explosion',
   initialPowers,
@@ -278,8 +278,11 @@ export async function mountVolume({
   }
   function powerAim(e) {
     const definition=powerDefinition(activeFire);
-    if(definition?.floor){const at=floorPoint(e);return at?[at[0],.14,at[1]]:null;}
-    return locationPoint(e);
+    const point=worldPoint(e);
+    if(definition?.floor||point[1]<.35){const at=floorPoint(e);return at?[at[0],.14,at[1]]:null;}
+    // Aiming is independent of the source placement height. A low target must
+    // be able to strike the floor instead of being lifted by minHeight.
+    return [Math.max(-2.84,Math.min(2.84,point[0])),Math.max(.14,Math.min(5.76,point[1])),0];
   }
   function aimDirection(at,origin=solver.source) {
     const d=at.map((v,i)=>v-origin[i]),n=Math.hypot(...d);
@@ -444,7 +447,10 @@ export async function mountVolume({
       if(activeTool==='fuel')placeFuel(e);
       else if(activeFire.power) {
         const definition=powerDefinition(activeFire),at=powerPoint(e),aim=powerAim(e);
-        if(definition.hold&&aim){
+        if(definition.hold&&!aim){
+          message.textContent='Aim inside the simulation area.';return;
+        }
+        if(definition.hold){
           gesture.held=true;gesture.target=aim;gesture.direction=aimDirection(aim);
           solver.castPower(solver.source,gesture.direction,powers.strength,{target:aim,held:true});paused=false;sync();
         }else if(at){
@@ -542,7 +548,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-19',
+      build: 'fire-studio-rc-20',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -839,7 +845,7 @@ export async function mountVolume({
     solver = await PyroSolver.create(canvas, volumeOptions(params, simulation));
     solver.woodTimeScale = woodTimeScale;
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=46ff16af6f281449');
+      const { pressureCheck } = await import('./pressure-check.js?v=467fdf306aa8ace5');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));

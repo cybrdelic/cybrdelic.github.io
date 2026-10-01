@@ -1,7 +1,7 @@
 // Authored supernatural sources feed the existing gas solve. These functions
 // never draw a flame, lower resolution or allocate particle/texture resources.
-import {POWER_DEFINITIONS} from './fire-power-definitions.js?v=46ff16af6f281449';
-import {abilityMotionWGSL} from './fire-ability-motions.js?v=46ff16af6f281449';
+import {POWER_DEFINITIONS} from './fire-power-definitions.js?v=467fdf306aa8ace5';
+import {abilityMotionWGSL} from './fire-ability-motions.js?v=467fdf306aa8ace5';
 export {POWER_DEFINITIONS};
 
 export function powerDefinition(value) {
@@ -22,10 +22,24 @@ export function powerDirection(settings={}) {
 // affects spatial support; age remains simulation seconds (Pause pauses it).
 export const powerSourceWGSL = `
 fn powerHash(p:vec3f)->f32{return fract(sin(dot(p,vec3f(127.1,311.7,74.7)))*43758.5453);}
-// Correlated source irregularity has a resolved wavelength. It modulates
-// injected fuel/momentum only; the displayed detail is transported gas.
+// Four-corner tetrahedral gradient noise (simplex construction described by
+// Gustavson, Simplex noise demystified). One octave, no noise texture or extra
+// simulation pass. Applied to released material only, never to final pixels.
+fn powerGradient(cell:vec3f)->vec3f{
+ let n:f32=powerHash(cell);let g:vec3f=fract(vec3f(17.,59.,113.)*n)*2.-vec3f(1);
+ return g/max(length(g),.001);
+}
 fn powerFold(q:vec3f,t:f32)->f32{
- return .5*sin(dot(q,vec3f(7.1,5.3,3.7))-t*4.1)+.3*sin(dot(q,vec3f(-13.7,9.2,11.3))+t*6.7)+.2*sin(dot(q,vec3f(23.1,-17.3,19.7))-t*9.3);
+ let p:vec3f=q*2.1+vec3f(.23*t,-.65*t,.17*t);
+ let cell:vec3f=floor(p+vec3f(dot(p,vec3f(.3333333333))));
+ let a:vec3f=p-cell+vec3f(dot(cell,vec3f(.1666666667)));
+ let order:vec3f=step(a.yzx,a.xyz);let opposite:vec3f=vec3f(1)-order;
+ let first:vec3f=min(order,opposite.zxy);let second:vec3f=max(order,opposite.zxy);
+ let b:vec3f=a-first+vec3f(.1666666667);let c:vec3f=a-second+vec3f(.3333333333);let d:vec3f=a-vec3f(.5);
+ let w:vec4f=max(vec4f(.6)-vec4f(dot(a,a),dot(b,b),dot(c,c),dot(d,d)),vec4f(0));
+ let squared:vec4f=w*w;let falloff:vec4f=squared*squared;
+ let gradients:vec4f=vec4f(dot(powerGradient(cell),a),dot(powerGradient(cell+first),b),dot(powerGradient(cell+second),c),dot(powerGradient(cell+vec3f(1)),d));
+ return clamp(dot(falloff,gradients)*64.,-1.,1.);
 }
 fn powerVortexOffset(height:f32,clock:f32)->vec2f{
  return vec2f(sin(height*1.7-clock*2.1),cos(height*2.3-clock*1.6))*clamp(height,0.,3.)*.075;
@@ -130,11 +144,11 @@ fn powerSource(kind:f32,x:vec3f,origin:vec3f,scale:f32,age:f32,clock:f32,directi
   let v:f32=pow((r-radius)/width,2.);let foot:f32=exp(-r*r/.09)*exp(-q.y*q.y/.14);
   if(v>12.&&foot<.00001){return vec4f(0);}
   let tangent:vec3f=vec3f(-radial.y,0,radial.x)/max(r,.06);
-  let feed:f32=.08+.92*pow(.5+.5*sin(theta*2.-q.y*4.5+clock*6.),3.);
+  let feed:f32=.3+.7*smoothstep(-.4,.4,powerFold(vec3f(radial.x,q.y,radial.y)*1.4,clock));
   let ceiling:f32=.18+3.22*smoothstep(.02,.8,age);
   let ends:f32=smoothstep(-.22,-.10,q.y)*(1.-smoothstep(ceiling-.2,ceiling+.2,q.y))*(1.-smoothstep(2.9,3.4,q.y));
   let lift:f32=.8+1.3*smoothstep(0.,1.2,q.y);
-  let taper:f32=.65*exp(-pow(height/1.8,2.))+.4;
+  let taper:f32=.10+1.15*exp(-height*height/.55);
   let pockets:f32=.65+.35*powerFold(vec3f(radial.x,q.y,radial.y),clock);
   var shell:f32=0.;if(v<=12.){shell=exp(-v);}
   let fuel:f32=(.85*shell*feed+.45*foot)*ends*taper*pockets;

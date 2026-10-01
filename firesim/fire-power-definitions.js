@@ -57,6 +57,7 @@ const blastWindows = [[[.18,.63]],[[.87,1.29]],[],[],[],[[1.2,1.49]],[[1.13,1.55
 export const POWER_DEFINITIONS = Object.freeze(rows.map((r,i)=>Object.freeze({
  id:r[0],kind:i+1,name:r[1],continuous:r[2],floor:r[3],duration:r[4],windup:r[5],range:r[6],maxSpeed:r[7],targetMode:r[8],
  defaultHeading:['flame-wall','phoenix-dive'].includes(r[0])?90:0,
+ bodyMargin:['flame-crescent','flame-whip','flame-serpent'].includes(r[0])?1.2:['meteor-barrage','cinder-scatter','ember-orbit'].includes(r[0])?1.1:.45,
  movable:r[2],floorFuel:r[8]==='trail',hold:['fireball','solar-lance','cinder-scatter','heat-seeker'].includes(r[0]),
  impactMargin:['fireball','flame-dash','ember-orbit','heat-seeker','phoenix-dive','dragon-breath','solar-lance','meteor-strike','meteor-barrage','eruption-chain','flame-serpent','cinder-scatter'].includes(r[0])?2.2:r[0]==='flame-crescent'?1.2:0,
  phases:Object.freeze(phases[i].map(p=>Object.freeze({until:p[0],name:p[1]}))),

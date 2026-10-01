@@ -1,17 +1,17 @@
-import {runtimeScope} from './runtime-scope.js?v=46ff16af6f281449';
-import {legacyProbe} from './legacy-qa.js?v=46ff16af6f281449';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=46ff16af6f281449';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=46ff16af6f281449';
-import {emitterKindFor} from './original-source-profile.js?v=46ff16af6f281449';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=46ff16af6f281449';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=46ff16af6f281449';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=46ff16af6f281449';
-import {WOOD_THERMO} from './wood-thermo.js?v=46ff16af6f281449';
-import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=46ff16af6f281449';
-import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=46ff16af6f281449';
-import {POWER_DEFINITIONS,powerDefinition,powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=46ff16af6f281449';
-import {PowerCastPool} from './fire-abilities.js?v=46ff16af6f281449';
-import {POWER_CAST_CAPACITY} from './fire-power-definitions.js?v=46ff16af6f281449';
+import {runtimeScope} from './runtime-scope.js?v=467fdf306aa8ace5';
+import {legacyProbe} from './legacy-qa.js?v=467fdf306aa8ace5';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=467fdf306aa8ace5';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=467fdf306aa8ace5';
+import {emitterKindFor} from './original-source-profile.js?v=467fdf306aa8ace5';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=467fdf306aa8ace5';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=467fdf306aa8ace5';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=467fdf306aa8ace5';
+import {WOOD_THERMO} from './wood-thermo.js?v=467fdf306aa8ace5';
+import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=467fdf306aa8ace5';
+import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=467fdf306aa8ace5';
+import {POWER_DEFINITIONS,powerDefinition,powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=467fdf306aa8ace5';
+import {PowerCastPool} from './fire-abilities.js?v=467fdf306aa8ace5';
+import {POWER_CAST_CAPACITY} from './fire-power-definitions.js?v=467fdf306aa8ace5';
 
 const MAX_POWER_EMITTER=21+Math.max(...POWER_DEFINITIONS.map(power=>power.kind));
 const DIRECTIONAL_GROUND_POWERS=new Set(['flame-dash','eruption-chain','fire-cross']);
@@ -770,7 +770,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   }
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=46ff16af6f281449':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=46ff16af6f281449':name+'.rgba16.bin?v=46ff16af6f281449';
+    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=467fdf306aa8ace5':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=467fdf306aa8ace5':name+'.rgba16.bin?v=467fdf306aa8ace5';
     const response=await fetch('pyro-gpu/objects/'+thermalPath);
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
@@ -925,7 +925,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   }
   function aimHeldPower(e,release=false){
     const cast=powerPool.latest;if(!cast?.active||!cast.held)return false;
-    const floor=roomEnabled&&(currentPower().floor||currentPower().targetMode==='ground')?floorPoint(e):null,point=scenePoint(e);
+    const point=scenePoint(e),floor=roomEnabled&&(currentPower().floor||currentPower().targetMode==='ground'||MINY+point.y*WY<.35)?floorPoint(e):null;
     const target=floor?[floor[0],.14,floor[1]]:[MINX+point.x*WX,Math.max(.14,MINY+point.y*WY),0];
     for(let axis=0;axis<3;axis++)target[axis]=Math.max(powerTargetBounds.min[axis],Math.min(powerTargetBounds.max[axis],target[axis]));
     const direction=target.map((value,axis)=>value-cast.origin[axis]);
@@ -1224,8 +1224,8 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=46ff16af6f281449').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=46ff16af6f281449').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=467fdf306aa8ace5').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=467fdf306aa8ace5').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);
