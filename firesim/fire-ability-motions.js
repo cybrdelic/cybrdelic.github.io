@@ -2,7 +2,7 @@
 // soot and lighting; these routines only release fuel and momentum.
 // The source choreography is shared by both solvers. Packets carry weighted
 // momentum and react in the gas; these functions never render fire geometry.
-import {powerExpansionWGSL} from './fire-power-definitions.js?v=7dfac6909b1f2622';
+import {powerExpansionWGSL} from './fire-power-definitions.js?v=46ff16af6f281449';
 export const abilityMotionWGSL = `
 fn abilityForward(direction:vec3f)->vec3f{
  let h:vec3f=vec3f(direction.x,0,direction.z);

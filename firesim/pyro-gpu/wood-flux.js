@@ -1,6 +1,6 @@
-import { objectWGSL } from './objects.js?v=7dfac6909b1f2622';
-import { woodPoseWGSL } from '../wood-structure.js?v=7dfac6909b1f2622';
-import { WOOD_THERMO } from '../wood-thermo.js?v=7dfac6909b1f2622';
+import { objectWGSL } from './objects.js?v=46ff16af6f281449';
+import { woodPoseWGSL } from '../wood-structure.js?v=46ff16af6f281449';
+import { WOOD_THERMO } from '../wood-thermo.js?v=46ff16af6f281449';
 
 // The first four words are two unsigned64 counters implemented with ordinary
 // u32 atomics. Word4 is the reciprocal masked-fine-kernel integral; word5 marks
@@ -17,6 +17,63 @@ export const WOOD_FLUX = Object.freeze({ N: 128, B: 64, stride: 6,
   bindings: Object.freeze({ flux:34, nodes:35, poses:36, metadata:37, owners:41, residual:42 }),
   ledger: Object.freeze({retainedWord:0,escapedWord:8,wordCount:16}),
   work: Object.freeze({bricks:32,fineBrickSize:8}) });
+
+// Vapor.x is added fuel in the existing 1 kg/m³ concentration unit;
+// vapor.y is added sensible enthalpy divided by reference rho*cp*1200 K.
+// Temperature is intensive: added vapor carries heat capacity as well as
+// energy. This is the same 1+fuel mixture-capacity model as floor fuel.
+export function mixWoodVaporHeat(heat, fuel, vapor) {
+  if (!Array.isArray(vapor) || vapor.length !== 2 ||
+      ![heat, fuel, ...vapor].every(value => Number.isFinite(value) && value >= 0))
+    throw Error('Invalid wood vapor sensible heat');
+  const capacity = 1 + fuel;
+  return (heat * capacity + vapor[1]) / (capacity + vapor[0]);
+}
+// Raw delivered coarse mass is also a source of gas volume in the global
+// incompressible pressure solve. The masked fine-kernel normalization is
+// solely for scalar delivery, never a second pressure-volume multiplier.
+export function woodFluxDeliveredMass(words){
+  if(words.length!==6||!Array.from(words).every(value=>Number.isInteger(value)&&value>=0&&value<=0xffffffff))
+    throw Error('Invalid wood flux mass words');
+  if(words[5]!==0)return 0;
+  return Number(BigInt(words[0])+(BigInt(words[1])<<32n))/WOOD_FLUX.massUnitsPerKg;
+}
+export function woodFluxVolumeSource(words,dt,N=128){
+  if(!Number.isFinite(dt)||dt<=0||![64,128].includes(N))throw Error('Invalid wood source volume units');
+  return woodFluxDeliveredMass(words)/(WOOD_FLUX.gasFuelDensityKgM3*(6/N)**3*dt);
+}
+// A finite external starter heats gas as well as wood. Rated power is an
+// authored torch/tinder approximation, integrated over REAL gas seconds.
+// The compact free-space Gaussian integrates to rated watts; solid/domain
+// clipping can only reduce delivered energy. It supplies no fuel or oxygen.
+export const WOOD_GAS_PILOT = Object.freeze({powerW:120000,allPowerW:160000,
+  sigmaLocal:.12,cutoffSigma:3,gaussianFraction:.9707091134651118,
+  durationS:1.2,treeDurationS:2.5});
+export function woodGasPilotSites({origin=[0,0,0],scale=1,tree=false,ignition=0}={}){
+  if(origin.length!==3||!origin.every(Number.isFinite)||!Number.isFinite(scale)||scale<=0||
+    !Number.isFinite(ignition))throw Error('Invalid wood gas pilot placement');
+  const local=tree?[ignition>1.5?[.16,.48,.05]:[0,-1.12,0]]:
+    ignition>.5?[[-.45,-.45,.15],[.45,0,.15],[0,.6,.15]]:[[-.45,-.45,.15]];
+  const totalW=tree||ignition<=.5?WOOD_GAS_PILOT.powerW:WOOD_GAS_PILOT.allPowerW;
+  return local.map(at=>({center:at.map((value,axis)=>axis===1?
+    Math.max(.07,origin[axis]+value*scale):origin[axis]+value*scale),
+    powerW:totalW/local.length,sigma:WOOD_GAS_PILOT.sigmaLocal*scale}));
+}
+export function woodGasPilotHeat(world,{age=0,dt=0,active=true,tree=false,...placement}={}){
+  if(world.length!==3||!world.every(Number.isFinite)||![age,dt].every(Number.isFinite)||dt<0)
+    throw Error('Invalid wood gas pilot time');
+  if(!active||age<0)return 0;
+  const seconds=Math.max(0,Math.min(dt,(tree?WOOD_GAS_PILOT.treeDurationS:WOOD_GAS_PILOT.durationS)-age));
+  if(seconds===0)return 0;
+  let energyDensity=0;
+  for(const site of woodGasPilotSites({...placement,tree})){
+    const r2=world.reduce((sum,value,axis)=>sum+((value-site.center[axis])/site.sigma)**2,0);
+    if(r2>9)continue;
+    const normalization=(2*Math.PI)**1.5*site.sigma**3*WOOD_GAS_PILOT.gaussianFraction;
+    energyDensity+=site.powerW*seconds*Math.exp(-.5*r2)/normalization;
+  }
+  return energyDensity/(WOOD_FLUX.gasFuelDensityKgM3*WOOD_FLUX.gasHeatCapacityJkgK*WOOD_FLUX.gasHeatScaleK);
+}
 const N = WOOD_FLUX.N, B = WOOD_FLUX.B, CELLS = N ** 3, WORDS = CELLS * WOOD_FLUX.stride;
 const WORK_BRICKS=WOOD_FLUX.work.bricks, WORK_BASE=WORDS+WOOD_FLUX.ledger.wordCount;
 
@@ -229,6 +286,60 @@ fn woodNormalizeAdd(index:u32,value:WoodWordPair){
 // INCREMENT once per substep: no second multiplication by dt or source knob.
 export const woodFluxWGSL = `
 @group(0) @binding(34) var<storage,read> woodFluxWords:array<u32>;
+fn woodMixGas(heat:f32,fuel:f32,vapor:vec2f)->f32{
+ let capacity=1.+fuel;
+ return (heat*capacity+vapor.y)/(capacity+vapor.x);
+}
+fn woodFluxRawMass(cell:vec3u)->f32{
+ if(any(cell>=vec3u(128u))){return 0.;}
+ let index=(cell.x+128u*(cell.y+128u*cell.z))*6u;
+ if(woodFluxWords[index+5u]!=0u){return 0.;}
+ // Word4 is deliberately omitted: fine scalar support is normalized once
+ // by woodFluxCell, while pressure consumes each raw amount exactly once.
+ return (f32(woodFluxWords[index])+f32(woodFluxWords[index+1u])*4294967296.)/${WOOD_FLUX.massUnitsPerKg}.;
+}
+fn woodFluxVolumeSource(cell:vec3u,gridN:u32,dt:f32)->f32{
+ if(dt<=0.||any(cell>=vec3u(gridN))){return 0.;}
+ let span=128u/gridN;let base=cell*span;var mass=0.;
+ for(var z=0u;z<span;z++){for(var y=0u;y<span;y++){for(var x=0u;x<span;x++){
+  mass+=woodFluxRawMass(base+vec3u(x,y,z));
+ }}}
+ let cellVolume=pow(6./f32(gridN),3.);
+ return mass/(${WOOD_FLUX.gasFuelDensityKgM3}.*cellVolume*dt);
+}
+fn woodGasPilotSeconds(age:f32,dt:f32,starterEnabled:f32)->f32{
+ if(starterEnabled<.5||abs(object.tint.w)<.5||age<0.){return 0.;}
+ let duration=select(${WOOD_GAS_PILOT.durationS},${WOOD_GAS_PILOT.treeDurationS},object.tint.w>.5);
+ return max(0.,min(dt,duration-age));
+}
+fn woodGasPilotCenter(site:u32)->vec3f{
+ var local=vec3f(-.45,-.45,.15);
+ if(object.tint.w>.5){local=select(vec3f(0,-1.12,0),vec3f(.16,.48,.05),object.options.w>1.5);}
+ else if(object.options.w>.5){
+  if(site==1u){local=vec3f(.45,0,.15);}else if(site==2u){local=vec3f(0,.6,.15);}
+ }
+ var center=object.origin.xyz+local*object.origin.w;center.y=max(center.y,.07);return center;
+}
+fn woodGasPilotCount()->u32{return select(1u,3u,object.tint.w<-.5&&object.options.w>.5);}
+fn woodGasPilotHeat(world:vec3f,age:f32,dt:f32,starterEnabled:f32)->f32{
+ let seconds=woodGasPilotSeconds(age,dt,starterEnabled);if(seconds<=0.){return 0.;}
+ let count=woodGasPilotCount();let sigma=${WOOD_GAS_PILOT.sigmaLocal}*object.origin.w;
+ let totalW=select(${WOOD_GAS_PILOT.powerW}.,${WOOD_GAS_PILOT.allPowerW}.,count==3u);
+ let normalization=15.749609945722419*pow(sigma,3.)*${WOOD_GAS_PILOT.gaussianFraction};
+ var energyDensity=0.;for(var site=0u;site<count;site++){
+  let q=(world-woodGasPilotCenter(site))/sigma;let r2=dot(q,q);
+  if(r2<=9.){energyDensity+=totalW/f32(count)*seconds*exp(-.5*r2)/normalization;}
+ }
+ return energyDensity/(${WOOD_FLUX.gasFuelDensityKgM3}.*${WOOD_FLUX.gasHeatCapacityJkgK}.*${WOOD_FLUX.gasHeatScaleK}.);
+}
+fn woodGasPilotLive(world:vec3f,halfBrick:f32,age:f32,dt:f32,starterEnabled:f32)->bool{
+ if(woodGasPilotSeconds(age,dt,starterEnabled)<=0.){return false;}
+ let radius=${WOOD_GAS_PILOT.cutoffSigma}.*${WOOD_GAS_PILOT.sigmaLocal}*object.origin.w;
+ for(var site=0u;site<woodGasPilotCount();site++){
+  let near=max(abs(world-woodGasPilotCenter(site))-vec3f(halfBrick),vec3f(0));
+  if(dot(near,near)<=radius*radius){return true;}
+ }return false;
+}
 fn woodFluxCell(i:vec3i)->vec2f{
  if(any(i<vec3i(0))||any(i>=vec3i(128))){return vec2f(0);}
  let index=u32(i.x+128*(i.y+128*i.z))*6u;

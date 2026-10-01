@@ -1,8 +1,8 @@
 // Geometry and surface state are shared by combustion and ray tracing.
 // Static signed-distance assets contain no rendered fire or temporal frames.
-import { woodThermoWGSL, WOOD_THERMO } from '../wood-thermo.js?v=7dfac6909b1f2622';
-import {woodPoseWGSL} from '../wood-structure.js?v=7dfac6909b1f2622';
-import {woodCollisionSampleWGSL} from './wood-collision.js?v=7dfac6909b1f2622';
+import { woodThermoWGSL, WOOD_THERMO } from '../wood-thermo.js?v=46ff16af6f281449';
+import {woodPoseWGSL} from '../wood-structure.js?v=46ff16af6f281449';
+import {woodCollisionSampleWGSL} from './wood-collision.js?v=46ff16af6f281449';
 
 // F32 stocks never use hardware filtering. Empty thermal cells are zeroed by
 // the update kernel: averaging them into solid stock would invent conversion.
@@ -119,7 +119,7 @@ struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,ch
     let centre=select(vec3f(0,-1.12,0),vec3f(.16,.48,.05),object.options.w>1.5);
     ignition=${WOOD_THERMO.starterFluxWm2}.*exp(-dot(local-centre,local-centre)*22.);
    }else if(object.tint.w<.5&&p.step.z<1.2){
-    let offset=local-vec3f(-.45,-.85,.15);
+    let offset=local-vec3f(-.45,-.45,.15);
     ignition=select(${WOOD_THERMO.starterFluxWm2}.*exp(-dot(offset,offset)*6.),${WOOD_THERMO.starterFluxWm2}.,object.options.w>.5);
    }
   }
@@ -185,4 +185,4 @@ struct ObjectSettings{origin:vec4f,options:vec4f,tint:vec4f};
  textureStore(nextDamage,vec3i(id),vec4f(moisture,0,0,1));
 }`;
 
-export { FIRE_COLORS } from './fire-colors.js?v=7dfac6909b1f2622';
+export { FIRE_COLORS } from './fire-colors.js?v=46ff16af6f281449';

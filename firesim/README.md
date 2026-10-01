@@ -96,6 +96,9 @@ node tools/fire-studio/simulation-modes.test.mjs
 node tools/fire-studio/simulation-look.test.mjs
 node tools/fire-studio/sparse-app.test.mjs
 node tools/fire-studio/telemetry.test.mjs
+node tools/fire-studio/wood-gas-mixing.test.mjs
+node tools/fire-studio/wood-volume-source.test.mjs
+node tools/fire-studio/wood-combustion.test.mjs
 node tools/fire-studio/check-volume-telemetry.mjs
 node tools/fire-studio/check-volume-queries.mjs
 node tools/fire-studio/check-tree-resize.mjs
@@ -108,7 +111,7 @@ Package validation executes Original initialization with a DOM/WebGL fixture and
 
 Package validation also executes the seven adaptive fixtures listed above against source, the completed build and directory verification. They record actual host methods, fixed resource lifetimes, pool ownership/migration, dense fallback, independent lighting support, restart and disposal. Set `FIRE_STUDIO_ROOT` to a build directory to run these fixtures against packaged modules. Their CPU recording checks are separate from native shader, field and pixel comparisons.
 
-The packaged runtime checks include **35 runners**. All **295 CPU tests** pass, including shared abilities, cast/charge/release ordering, four-slot reuse, saved first casts, bounded impact targets and the rotated crescent regression. Exact recorded Volume/Sparse coverage passes strict Dawn/Tint compilation with **211 unique WGSL modules / 1,655 variants**, zero errors or warnings; the deliberately divergent derivative control is rejected. This uses the null backend with no physical GPU work. Wood shader helpers are derivative-free, and Sparse reports compiler failures before pipeline creation. Native execution, visual review, live browser pacing and mobile acceptance are separate gates. See the [power guide](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/FIRE_POWERS.md) and release evidence for scope.
+The packaged runtime checks include **39 runners**, including shared abilities, cast/charge/release ordering, four-slot reuse, saved first casts, bounded impact targets and the rotated crescent regression. Wood regressions cover vapor heat capacity, released gas volume, finite ignition, combustion quenching, production light bindings and adaptive startup timesteps. Strict Dawn/Tint validation checks all generated shader families; the deliberately divergent derivative control must be rejected. This uses the null backend with no physical GPU work. Wood shader helpers are derivative-free, and Sparse reports compiler failures before pipeline creation. Native execution, visual review, live browser pacing and mobile acceptance are separate gates. See the [power guide](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/FIRE_POWERS.md) and [wood stability evidence](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/WOOD_STABILITY.md) for scope.
 
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 

@@ -1,4 +1,4 @@
-import { simulationShaders } from './shaders.js?v=7dfac6909b1f2622';
+import { simulationShaders } from './shaders.js?v=46ff16af6f281449';
 
 // Byte offsets in the persistent STORAGE | INDIRECT | COPY_DST command buffer.
 // The first seven dispatches and telemetry retain their existing layout.

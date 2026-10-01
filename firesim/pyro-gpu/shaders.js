@@ -1,15 +1,16 @@
-import {objectWGSL} from './objects.js?v=7dfac6909b1f2622';
-import {combustionWGSL} from './combustion.js?v=7dfac6909b1f2622';
-import {floorFuelWGSL} from './floor-fuel.js?v=7dfac6909b1f2622';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=7dfac6909b1f2622';
-import {woodFluxWGSL} from './wood-flux.js?v=7dfac6909b1f2622';
-import {powerSourceWGSL, POWER_DEFINITIONS} from '../fire-powers.js?v=7dfac6909b1f2622';
+import {objectWGSL} from './objects.js?v=46ff16af6f281449';
+import {combustionWGSL,objectCombustionWGSL} from './combustion.js?v=46ff16af6f281449';
+import {floorFuelWGSL} from './floor-fuel.js?v=46ff16af6f281449';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=46ff16af6f281449';
+import {woodFluxWGSL} from './wood-flux.js?v=46ff16af6f281449';
+import {powerSourceWGSL, POWER_DEFINITIONS} from '../fire-powers.js?v=46ff16af6f281449';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
 const common=`
 ${combustionWGSL}
 ${objectWGSL}
+${objectCombustionWGSL}
 ${woodFluxWGSL}
 const N:u32=${N}u;const D:u32=${D}u;const H:f32=6.0/${N}.0;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
@@ -247,7 +248,13 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  if(i.y==N){out.y=max(out.y,0.);}
  // Power sources supply short finite impulses or modest ongoing expansion.
  // A swirling force does not continuously inflate the entire tornado column.
- let expansion=s*sourceExpansion*p.dynamics.y+flameActivity(c)*1.2;
+ var expansion=s*sourceExpansion*p.dynamics.y+sceneFlameActivity(c)*1.2;
+ if(abs(object.tint.w)>.5){
+  // Finite pyrolysis adds real gas volume to the all-air pressure solve.
+  // This expels released vapor without inventing a source jet; raw coarse
+  // amounts retain their global volume integral at both64/128 flow grids.
+  expansion+=woodFluxVolumeSource(i,N,p.step.x);
+ }
  textureStore(dst,vec3i(i),vec4f(out,expansion));
 }`;
 const advectScalar=common+`
@@ -297,7 +304,7 @@ var<workgroup> opticalAlive:atomic<u32>;
  // Consume mixed fuel and oxygen together. Fuel no longer disappears on a
  // timer, and soot/heat no longer depend on a grid-gradient threshold.
  c.w=min(c.w,1.);
- let burned=min(c.z,reactionRate(c)*(1.-exp(-4.*p.step.x))/4.);
+ let burned=min(c.z,sceneReactionRate(c)*(1.-exp(-4.*p.step.x))/4.);
  c.z=max(c.z-burned,0.);c.w=min(c.w+burned*.7,1.);
  c.y=(c.y+burned*select(3.2,2.0,isPower())/(1.+c.z))*exp(-p.step.x*(.9+.7*max(c.y-1.4,0.)));
  // Accumulated 30 Hz decay survives half-float writes even when pressure
@@ -307,7 +314,12 @@ var<workgroup> opticalAlive:atomic<u32>;
  let s=charge(x);if(abs(object.tint.w)>.5&&objectDistance(x)>=-.02){
   // Conservative finite solid release, integrated once over this substep.
   // No art-direction fuel multiplier, synthetic soot or source velocity.
-  let vapor=woodFluxDensity(x);if(p.step.w<.5){c.z+=vapor.x;}c.y+=vapor.y;
+  let vapor=woodFluxDensity(x);c.y=woodMixGas(c.y,c.z,vapor);
+  if(p.step.w<.5){c.z+=vapor.x;
+   // External ignition energy is finite in watts, divided by the actual
+   // gas mixture heat capacity. Wood demo time does not multiply this heat.
+   c.y+=woodGasPilotHeat(x,p.step.z,p.step.x,p.source.w)/(1.+c.z);
+  }
  }else if(s>0.&&object.options.x>.5){
   // Add pyrolysis fuel and sensible heat; never overwrite existing gas state.
   // The surface supplies no soot: soot is produced by the reaction above.
@@ -462,7 +474,7 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
  }
  let injecting=select(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z),p.source.w>.5,isPower());
  live=live||(injecting&&sourceLive)||floorWork(at,halfBrick);
- if(abs(object.tint.w)>.5){live=live||woodFluxLive(at,halfBrick);}
+ if(abs(object.tint.w)>.5){live=live||woodFluxLive(at,halfBrick)||woodGasPilotLive(at,halfBrick,p.step.z,p.step.x,p.source.w);}
  if(live){let index=atomicAdd(&dispatch.x,1u);bricks[index]=vec4u(id,0u);}
 }`;
 const reduceStats=`

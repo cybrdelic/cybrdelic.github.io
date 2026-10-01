@@ -17,7 +17,7 @@ function loadScript(file) {
       file,
       new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = new URL(file + '?v=7dfac6909b1f2622', import.meta.url).href;
+        script.src = new URL(file + '?v=46ff16af6f281449', import.meta.url).href;
         script.onload = resolve;
         script.onerror = () => {
           scripts.delete(file);
@@ -32,9 +32,9 @@ function loadScript(file) {
 }
 
 export async function loadRuntime(kind) {
-  if (kind === 'volume' || kind === 'sparse') return (await import('./pyro-gpu/app.js?v=7dfac6909b1f2622')).mountVolume;
-  const { woodMaterialGLSL } = await import('./wood-material.js?v=7dfac6909b1f2622');
+  if (kind === 'volume' || kind === 'sparse') return (await import('./pyro-gpu/app.js?v=46ff16af6f281449')).mountVolume;
+  const { woodMaterialGLSL } = await import('./wood-material.js?v=46ff16af6f281449');
   window.WoodMaterialGLSL = woodMaterialGLSL;
   await Promise.all(legacyScripts.map(loadScript));
-  return (await import('./fire.js?v=7dfac6909b1f2622')).mountLegacy;
+  return (await import('./fire.js?v=46ff16af6f281449')).mountLegacy;
 }
