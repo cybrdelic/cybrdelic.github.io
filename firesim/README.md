@@ -18,12 +18,13 @@ Open [Fire Studio](http://127.0.0.1:8767/elements/motion/bending/sigils/02/fire-
 
 ## Use
 
-- **Scene:** choose Original, **3D volume · experimental** or **Sparse volume · experimental**, then a source, fuel and color. The two Volume modes share their source catalog. Click to place fire and drag to move its source. Stop fuel lets the existing gas burn out; Restart replenishes the source.
+- **Scene:** choose Original, **3D volume · experimental** or **Sparse volume · experimental**, then a source, fuel and color. The two Volume modes share their source catalog. Click to place fire and drag to move its source. Stop fuel ends an emitter. On a solid object, Stop ignition removes the starter; hot material can keep burning. Restart replenishes the source.
 - **Camera:** scroll to zoom; Shift-drag or right-drag pans. The controls also provide an angle slider and camera reset. Touch interaction and keyboard controls are described beside the scene.
 - **Library:** choose a complete demo scene, an individual source, a lighting rig, an inspection test or a saved look. Tests use temporary lighting and camera settings.
 - **Lighting:** adjust external light sources and approximate room bounce while the fire remains visible. Fire itself illuminates the gas, room and source props.
 - **Fully lit:** choose **Fully lit · neutral** in Lighting or the library to inspect the room, source surfaces and cold smoke with broad white lights.
-- **Show sigil:** on a CYBR sigil source, show or hide the solid artwork beneath the flame. This changes its visibility; it does not add a combustion obstacle.
+- **Show sigil:** on a CYBR sigil source, show or hide the artwork overlay. The wooden CYBR source has its own solid, combustible geometry; hiding the overlay does not remove that wood.
+- **Wood time:** set material ageing from 1× to 24×; the default is 12×. Drying, pyrolysis and damage accelerate while fluid flow and falling pieces keep real time. Stop ignition ends the starter; it does not instantly cool hot wood. Restart restores the material.
 - **Drop fuel:** in either engine, select this tool and click or drag on the floor inside the simulation area. It enables Room and places finite, unlit patches. Nearby flame can ignite them; **Ignite fuel** applies one ignition pulse. **Clear fuel** removes the patches and floor burn marks while existing gas and smoke continue. **Restart** resets the simulation and placed fuel.
 - **Smoke clearance:** after fuel stops, leave the simulation playing so smoke can rise, spread and gradually clear. A burning source continually replenishes smoke. Pause freezes it; char and floor burn marks remain until cleared or restarted. Smoke-only sources keep placed fuel unlit; choose a fire source to ignite it.
 - **Present:** hide editing controls for a demo. Escape returns to the workspace.
@@ -46,7 +47,7 @@ Both engines transport heat, fuel and soot in evolving flow. Flame emission and 
 
 Volume's optional precise receiver lighting computes incident illumination only where soot can receive it. Every positive-soot interpolation footprint remains covered, while camera and shadow support keep their existing full halo. The light texture, ray samples and lighting formulas are unchanged; inactive light texels are cleared on every lighting refresh. This is a lighting optimization, not a reduction in simulation detail.
 
-Object studies use finite fuel, local heating and char. Volume trees use geometry from the CYBR forest scene and add moisture, leaf loss and widening of existing fissures. They do not simulate physical branch fracture or collapse. Volume embers are flow-driven tracers and cannot ignite new fuel; Original does not implement them. Original's object model does not reproduce Volume's per-voxel surface state. External illumination and room bounce are approximations, not converged path tracing or calibrated global illumination.
+The tree, logs, timber house and wooden CYBR sigil share finite virgin wood, moisture, char, surface/core heat, grain-dependent conduction and structural damage. The reviewed CYBR tree retains every original triangle. Weakened beam partitions detach under bending, axial and shear loads; capped faces expose continuous rest-space grain. Original uses a projected material inventory; Volume uses a 64³ material proxy. This reduced beam model does not resolve arbitrary fracture, redundant joints, buckling or fragment-to-fragment contact. Dropped wood uses the same chemistry as a finite floor patch, without rigid lumber pieces. Wood time accelerates drying, conversion and damage separately from gas and falling pieces. Volume embers are one-way flow tracers; they do not subtract wood mass or ignite new fuel. External illumination and room bounce are approximations, not converged path tracing or calibrated global illumination.
 
 ## Development options
 
@@ -60,7 +61,7 @@ These switches use the same page, controls and library. Sparse volume enables th
 | `lightWork=1` | Generic compact incident-light work queue | Experimental; disabled by default; overrides precise receivers |
 | `receivers=1` | Precise incident-light receivers with identical tested pixels | Experimental; disabled pending stable complete-frame cost gate |
 
-All five mark the engine as experimental. Historical native RTX 60-frame host-command replays found flow, pool and combined candidates slower than the dense reference. Atlas filtering also left an unresolved quality-equivalence gate. The rc.13 Sparse selection has no new performance result yet. These options have not passed the replacement gate. Simulation spacing, ray detail and reaction coefficients do not adapt downward.
+All five mark the engine as experimental. Historical native RTX 60-frame host-command replays found flow, pool and combined candidates slower than the dense reference. Atlas filtering also left an unresolved quality-equivalence gate. The Sparse selection has not established a sustained browser performance advantage. These options have not passed the replacement gate. Simulation spacing, ray detail and reaction coefficients do not adapt downward.
 
 ## Verify and package
 
@@ -105,7 +106,7 @@ Package validation executes Original initialization with a DOM/WebGL fixture and
 
 Package validation also executes the seven adaptive fixtures listed above against source, the completed build and directory verification. They record actual host methods, fixed resource lifetimes, pool ownership/migration, dense fallback, independent lighting support, restart and disposal. Set `FIRE_STUDIO_ROOT` to a build directory to run these fixtures against packaged modules. Their CPU recording checks are separate from native shader, field and pixel comparisons.
 
-The six fuel, sigil, lighting and smoke-lifetime fixtures and three mode fixtures bring the packaged runtime checks to 22 runners. All 150 CPU tests pass. rc.12 native checks verify cold deposits, finite ignition through production combustion, surface stock/char accounting and sigil intersections at several angles. rc.13 adds four short Intel/RTX command replays for the selectable sparse mode, including observed dense fallback. Costs are mixed by GPU; the mode retains dense backing and is not a proven speed or memory upgrade. These checks do not certify browser interaction or frame pacing. Evidence and remaining gates are tracked in the fuel/inspection and Sparse mode guides.
+The packaged runtime checks include 29 runners. All 210 CPU tests pass. rc.14 adds shared wood thermochemistry, finite volatile transfer, structural loading, cap geometry, material sampling and both engines' wood startup paths. Native Original checks pass 17 gates and compile 48 production programs; native Volume checks cover cold wood, ignition shutoff, fracture fixtures, several viewing angles and integrated-GPU sparse bindings. These checks do not certify browser interaction or frame pacing. The [wood research and implementation notes](https://github.com/cybrdelic/cybr-elements/blob/codex/fire-studio-release-rc6/docs/fire-studio/WOOD_RESEARCH.md) explain the primary sources and approximations; the release guide records measured costs and remaining gates.
 
 The output contains runtime assets, provenance metadata, a `release.json` file with SHA-256 hashes and open acceptance gates, and a ZIP. Historical experiment directories, build tools, raw mesh authoring inputs and QA captures are excluded. Existing builds are preserved; use `--out releases/fire-studio-another-name` for another build.
 
@@ -137,5 +138,8 @@ Offline film detail parity, sustained browser pacing, mobile support and the lat
 | `pyro-gpu/adaptive-pressure.js` | Optional exact fine smoothing work lists; pressure remains global |
 | `pyro-gpu/brick-pool.js`, `pooled-coupling.js` | Optional fixed chemistry pool, generation-safe sampling, migration and shared consumers |
 | `pyro-gpu/objects.js`, `forest-mesh.js` | Surface fuel and imported tree geometry |
+| `wood-thermo.js`, `wood-material.js` | Shared finite material chemistry and rest-space wood appearance |
+| `wood-state-gl.js`, `wood-structure-gl.js`, `wood-structure.js` | Material inventory, beam loading, failure and rigid fragment poses |
+| `pyro-gpu/wood-flux.js`, `wood-collision.js` | Finite exterior fuel transfer and moving fragment collision support |
 | `fuel-ground.js`, `ground-fuel-gl.js`, `pyro-gpu/floor-fuel.js` | Shared floor input, finite inventory, ignition, char and floor material |
 | `pyro-gpu/sigil-guide.js` | Visible CYBR artwork using the native source contour |

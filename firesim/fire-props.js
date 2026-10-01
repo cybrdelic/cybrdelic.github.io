@@ -72,27 +72,36 @@ window.FireProps = `
     vec3 albedo=visibleEmitter==1?vec3(.14,.065,.025):visibleEmitter==2?vec3(.23,.24,.26)
       :visibleEmitter==18?vec3(.16,.18,.19):visibleEmitter==19?vec3(.32,.28,.24)
       :visibleEmitter==20?vec3(.12,.075,.035):vec3(.18,.09,.04);
-    if(visibleEmitter==1){
-      float grain=sin(at.z*65.+at.y*43.+sin(at.x*3.)*.7);
-      albedo*=.45+.55*smoothstep(-.5,.8,grain);
+    bool timber=woodEnabled>.5&&(visibleEmitter==1||visibleEmitter==16||visibleEmitter==17||visibleEmitter==20);
+    float roughness=.85;vec3 grain=visibleEmitter==1||visibleEmitter==16?vec3(1,0,0):vec3(0,1,0);
+    vec4 stock=vec4(1,0,0,0),wear=vec4(0,0,0,1);
+    if(timber){
+      stock=woodStockAt(at);wear=woodWearAt(at);
+      vec3 local=(at-c)/sourceScale;bool logs=visibleEmitter==1||visibleEmitter==16;
+      vec3 materialPoint=logs?local.yxz:local,materialNormal=logs?n.yxz:n;
+      vec4 surface=woodMaterial(materialPoint,materialNormal,stock.g,stock.r,stock.a,wear.z,woodBark);
+      albedo=surface.rgb;roughness=surface.a;
+      materialNormal=woodNormal(materialPoint,materialNormal,stock.r,stock.a,wear.z,woodBark);
+      n=logs?materialNormal.yxz:materialNormal;
     }
     #if FIRE_OBJECT_SOURCE
     if(visibleEmitter>=16&&visibleEmitter<=20){
       vec3 uv=((at-c)/sourceScale+vec3(1.5))/3.;vec4 material=texture(objectTex,clamp(uv,vec3(0),vec3(1)));
-      if(visibleEmitter==20&&material.w>7.5)albedo=vec3(.035,.11,.035);
+      if(visibleEmitter==20&&material.w>7.5){albedo=mix(vec3(.035,.11,.035),vec3(.012,.010,.008),clamp(stock.a/.25,0.,1.));timber=false;}
       if(visibleEmitter==18&&material.y<.05)albedo=vec3(.21,.24,.26);
-      float grain=sin(at.y*41.+at.x*17.+at.z*27.);
-      albedo*=.84+.16*grain;
     }
     #endif
     for(int i=0;i<32;i++){
       vec3 light,power;roomLight(i,light,power);vec3 d=light-at;float r2=max(dot(d,d),.001);
-      color+=albedo*power*max(dot(n,d*inversesqrt(r2)),0.)/(r2+.12);
+      vec3 l=d*inversesqrt(r2);float nl=max(dot(n,l),0.);
+      color+=(albedo+(timber?vec3(woodSpecular(n,l,normalize(eye-at),grain,roughness)):vec3(0)))*power*nl/(r2+.12);
     }
     color+=albedo*ambientLight*(.25+.75*max(n.y,0.))/3.14159;
     for(int i=0;i<2;i++){
       vec3 direction,power;spotSample(i,at,direction,power);
-      color+=albedo*power*max(dot(n,direction),0.)/3.14159;
+      float nl=max(dot(n,direction),0.);
+      color+=albedo*power*nl/3.14159;
+      if(timber)color+=power*woodSpecular(n,direction,normalize(eye-at),grain,roughness)*nl;
     }
     // Black-background mode already uses an inspection key for smoke. Let
     // that key reveal the source too; the dark room still has fire-only light.

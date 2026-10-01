@@ -1,0 +1,135 @@
+{
+  "layoutVersion": 1,
+  "id": "wood-sigil",
+  "nodes": 289,
+  "maxDepth": 55,
+  "vertexStride": 36,
+  "partitionVertices": 30530,
+  "partitionTriangles": 20608,
+  "caps": {
+    "vertices": 5697,
+    "triangles": 4192,
+    "closedLoops": 442,
+    "openInterfaceEdges": 0,
+    "originalBoundaryEdges": 0,
+    "branchedInterfaceVertices": 42,
+    "nonManifoldSourceEdges": 0
+  },
+  "materialIds": {
+    "wood": 1,
+    "roofWood": 2,
+    "inertChimney": 3,
+    "freshInteriorCap": 9
+  },
+  "ownerLayout": "pervertex uint32 owner,uint32other;other=0xffffffff ordinary/originalboundarycap",
+  "nodeLayout": "restParent/axisRadius/ownMass-subtreeMass-length-anchor/subtreeCOM-strengthPa,64B MODELmetres/kg/Pa",
+  "provenance": {
+    "sourceSupport": "outputs/cybrdelic-type/elements/motion/bending/sigils/02/fire-live/source/source-native.rgba8.bin",
+    "sourceSupportSha256": "7e01baeb06f84f515b8964468c9a08264c8cde1490177342b3ac04aad1463354",
+    "supportChannel": "R; alpha is launchDirectionZ",
+    "nativeSupportPixels": 35399,
+    "nativePixelMaskExact": true,
+    "components": 5,
+    "holes": 1,
+    "method": "Native bilinear edge intersections with piecewise linear contours; every native contour sample retained",
+    "thicknessMetres": 0.036,
+    "limits": [
+      "Polyline interpolation approximates bilinear contour curvature between native edge intersections."
+    ],
+    "proxyInventory": {
+      "method": "Exact contour polygon/voxel intersection; conservative collision cells carry fractional wood volume",
+      "geometryVolumeM3": 0.019415934836275718,
+      "halfFloatInventoryVolumeM3": 0.019417959163547494,
+      "relativeQuantizationError": 0.00010426112823541623,
+      "occupiedCells": 874
+    }
+  },
+  "files": {
+    "nodes.bin": {
+      "bytes": 18496,
+      "sha256": "3c163ade5dc58b614b2b5ffd889f978ab1d4f00af182cab4e0856593a29d163d"
+    },
+    "bounds.bin": {
+      "bytes": 9248,
+      "sha256": "cdf52224b35a321a41e1fb33a1ce148c3bb457611de84fc68ee40be90f1200a6"
+    },
+    "vertices.bin": {
+      "bytes": 1099080,
+      "sha256": "06321708c15f0d62aee761ae634b5278b214324889760dd487cc363b2301161b"
+    },
+    "indices.bin": {
+      "bytes": 247296,
+      "sha256": "553ce4005a051570d0d8e787bebdf170c6ebf8742a417ed5bd58fba5abe56566"
+    },
+    "owners.bin": {
+      "bytes": 244240,
+      "sha256": "1b434f37bf62106331f382ae5e2ec54e361ba1584d08f6b4c7fa3ca55c959363"
+    },
+    "source-vertex.bin": {
+      "bytes": 122120,
+      "sha256": "cff3225b39a3db95fd95b68522a2163dc79b9b2188166a6e3dbd411dfa09dd90"
+    },
+    "cap-vertices.bin": {
+      "bytes": 205092,
+      "sha256": "1b0bc11ca7ba34c0263bad1fb8e1c89ee9a7bbd68b953ebafdcf5fb9781f3ea6"
+    },
+    "cap-indices.bin": {
+      "bytes": 50304,
+      "sha256": "9a6248b72b47a6ae5670b83cce1b688510278bcbff522fd750bb8aaf7c0bdd50"
+    },
+    "cap-owner-pairs.bin": {
+      "bytes": 45576,
+      "sha256": "6084e26fc7f472c9061af67fc079ea83122294eba9fd9a3df06c2d4147e11761"
+    },
+    "voxel-owners.bin": {
+      "bytes": 1048576,
+      "sha256": "70b1cda927787a1825e43d6eedf4d7e5e97ead9e6956de3f14ea3d322bb3c6af"
+    },
+    "solid.rgba16.bin": {
+      "bytes": 2097152,
+      "sha256": "2263ab492970b8695aad9f92d0ca2ffa6c55204315151d4ac8ea478ca70bbd30"
+    },
+    "analytic-mass.bin": {
+      "bytes": 1156,
+      "sha256": "af71b36121c732c9be17b8da13b63713d465400ded5cbd87faa70ed79187135b"
+    },
+    "flux-metadata.rgba32.bin": {
+      "bytes": 4194304,
+      "sha256": "e6b5ba72d823128dd5dd90452956bad7327275e83e0c4a24fef014ddbb82f87e"
+    },
+    "flux-metadata.rgba32.bin.json": {
+      "bytes": 903,
+      "sha256": "06e1dcaebfd697aac30a003802fe6fb8fbb4c9cf195b80942c7e5def0988e260"
+    }
+  },
+  "limits": [
+    "Authored tree of supports omits redundant joints and elastic bending before fracture.",
+    "Rigid beam fragments and cap fans are a reduced approximation."
+  ],
+  "massCalibration": {
+    "analyticRodMassKg": 7.81613643388846,
+    "finiteProxyMassKg": 9.61188978595601,
+    "graphOwnMassKg": 9.6118898295681,
+    "massRatio": 1.229749489054681,
+    "method": "Exact same64^3 valid inventory/capacity as wood thermal donors; mass assigned by voxel-owner map",
+    "limit": "Coarse conservative collision occupancy is not physical mesh volume; proxy density/fraction needs calibration.",
+    "id": "sigil",
+    "source": "Exact native contour extruded .036m, analytic polygon/voxel intersection capacity",
+    "geometryMassKg": 9.61088774395648,
+    "densityKgM3": 495,
+    "capacityFullDensity": 1.5,
+    "approvedCollisionThermalMaterialExact": true
+  },
+  "thermalProxy": "solid.rgba16.bin",
+  "fluxMetadata": "flux-metadata.rgba32.bin",
+  "fluxMetadataProof": {
+    "bytes": 4194304,
+    "sha256": "e6b5ba72d823128dd5dd90452956bad7327275e83e0c4a24fef014ddbb82f87e"
+  },
+  "fluxProvenance": {
+    "sourceRuntimePath": "pyro-gpu/objects/wood-sigil/solid.rgba16.bin",
+    "sourceSha256": "2263ab492970b8695aad9f92d0ca2ffa6c55204315151d4ac8ea478ca70bbd30",
+    "dryMassModelKg": 9.61188978595601,
+    "metadataSha256": "e6b5ba72d823128dd5dd90452956bad7327275e83e0c4a24fef014ddbb82f87e"
+  }
+}

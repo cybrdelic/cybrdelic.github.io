@@ -1,14 +1,14 @@
-import { readLook, writeLook } from './studio-location.js?v=0c4b630ed586cdec';
-import { createFireDomain } from './fire-domain.js?v=0c4b630ed586cdec';
-import { inspectionState } from './inspection-state.js?v=0c4b630ed586cdec';
-import { loadRuntime } from './runtime-loader.js?v=0c4b630ed586cdec';
-import { studioUI } from './studio-ui.js?v=0c4b630ed586cdec';
-import { DEMO_PRESETS } from './demo-presets.js?v=0c4b630ed586cdec';
-import { matchingPreset } from './preset-pairs.js?v=0c4b630ed586cdec';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=0c4b630ed586cdec';
-import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=0c4b630ed586cdec';
-import { mountLibrary } from './pyro-gpu/library.js?v=0c4b630ed586cdec';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=0c4b630ed586cdec';
+import { readLook, writeLook } from './studio-location.js?v=5316305f3032d241';
+import { createFireDomain } from './fire-domain.js?v=5316305f3032d241';
+import { inspectionState } from './inspection-state.js?v=5316305f3032d241';
+import { loadRuntime } from './runtime-loader.js?v=5316305f3032d241';
+import { studioUI } from './studio-ui.js?v=5316305f3032d241';
+import { DEMO_PRESETS } from './demo-presets.js?v=5316305f3032d241';
+import { matchingPreset } from './preset-pairs.js?v=5316305f3032d241';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=5316305f3032d241';
+import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=5316305f3032d241';
+import { mountLibrary } from './pyro-gpu/library.js?v=5316305f3032d241';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=5316305f3032d241';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -40,6 +40,7 @@ function snapshot() {
     sourceGuide: $('#source-guide').checked,
     ...runtime?.snapshot(),
     simulation: $('#simulation').value,
+    woodTimeScale: Number($('#wood-speed').value),
     lights: window.SceneLights.snapshot,
     fireLight: Number($('#fire-light').value),
   };
@@ -99,6 +100,7 @@ function transitionLook(kind, chosen, old, force) {
       color: old.color,
       fireLight: old.fireLight,
       sourceGuide: old.sourceGuide,
+      woodTimeScale: old.woodTimeScale,
     };
     if (runtimeFamily(engine) === runtimeFamily(kind)) {
       state.camera = old.camera;
@@ -304,7 +306,7 @@ function syncLocation() {
   history.replaceState(null, '', url);
 }
 for (const type of ['input', 'change']) document.addEventListener(type, (event) => {
-  if (event.target.matches('#fuel, #room, #source-guide, #smoke-only, #flame-color, #embers, #fire-light, #zoom, #orbit')) syncLocation();
+  if (event.target.matches('#fuel, #room, #source-guide, #smoke-only, #flame-color, #embers, #fire-light, #wood-speed, #zoom, #orbit')) syncLocation();
 });
 window.addEventListener('scene-light-change', syncLocation);
 $('#view').addEventListener('pointerup', syncLocation);

@@ -3,20 +3,23 @@ import {
   basicSurfaceWGSL,
   damageResetWGSL,
   FIRE_COLORS,
-} from './objects.js?v=0c4b630ed586cdec';
-import { ForestMesh } from './forest-mesh.js?v=0c4b630ed586cdec';
-import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=0c4b630ed586cdec';
-import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=0c4b630ed586cdec';
-import { simulationShaders, pressureShaders } from './shaders.js?v=0c4b630ed586cdec';
-import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=0c4b630ed586cdec';
-import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=0c4b630ed586cdec';
-import { AdaptivePressure } from './adaptive-pressure.js?v=0c4b630ed586cdec';
-import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=0c4b630ed586cdec';
-import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=0c4b630ed586cdec';
-import { pooledChemistryConsumer } from './pooled-coupling.js?v=0c4b630ed586cdec';
-import { FuelBrush } from '../fuel-ground.js?v=0c4b630ed586cdec';
-import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=0c4b630ed586cdec';
-import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=0c4b630ed586cdec';
+} from './objects.js?v=5316305f3032d241';
+import { ForestMesh } from './forest-mesh.js?v=5316305f3032d241';
+import {WoodStructure} from '../wood-structure.js?v=5316305f3032d241';
+import {WoodCollision} from './wood-collision.js?v=5316305f3032d241';
+import {WoodFlux} from './wood-flux.js?v=5316305f3032d241';
+import { emberComputeWGSL, emberRenderWGSL } from './embers.js?v=5316305f3032d241';
+import { probeGPU, gpuSessionTimeout } from './gpu-session.js?v=5316305f3032d241';
+import { simulationShaders, pressureShaders } from './shaders.js?v=5316305f3032d241';
+import { rendererShaders, dilateWGSL, dilateReceiversWGSL, ROOM_SIZE } from './renderer.js?v=5316305f3032d241';
+import { adaptiveFlowShaders, initialAdaptiveFlowCommands, ADAPTIVE_FLOW_COMMAND_BYTES, ADAPTIVE_FLOW_OFFSETS } from './adaptive-flow.js?v=5316305f3032d241';
+import { AdaptivePressure } from './adaptive-pressure.js?v=5316305f3032d241';
+import { createLightingWork, lightingWorkShaders, recordLightingWork, createLightingReceivers } from './lighting-work.js?v=5316305f3032d241';
+import { createBrickPool, brickPoolScalarShaders, POOL_INDIRECT } from './brick-pool.js?v=5316305f3032d241';
+import { pooledChemistryConsumer } from './pooled-coupling.js?v=5316305f3032d241';
+import { FuelBrush } from '../fuel-ground.js?v=5316305f3032d241';
+import { advanceSmokeDecay } from '../smoke-lifecycle.js?v=5316305f3032d241';
+import { FLOOR_FUEL_SIZE, floorFuelUpdateWGSL, floorFuelClearWGSL, floorWoodWearClearWGSL, floorDepositsClearWGSL, expandFuelDeposits } from './floor-fuel.js?v=5316305f3032d241';
 export function cflSafeSpeed(maxSpeed, telemetryLag, burstAge) {
   if (burstAge < 0.12) return Math.max(maxSpeed, 12);
   const lag = Math.max(0, Math.min(telemetryLag, 8));
@@ -208,7 +211,7 @@ export class PyroSolver {
         current: 0,
       });
     // Static approved fuel artwork, never temporal fire frames.
-    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=0c4b630ed586cdec', import.meta.url));
+    const response = await fetch(new URL('../source/source-native.rgba8.bin?v=5316305f3032d241', import.meta.url));
     if (!response.ok) throw Error('CYBR fuel artwork could not be loaded.');
     const sourceBytes = new Uint8Array(await response.arrayBuffer());
     if (sourceBytes.length !== 896 * 504 * 4) throw Error('CYBR fuel artwork has an invalid size.');
@@ -225,14 +228,24 @@ export class PyroSolver {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.objectModels = {};
+    this.emptyWoodNodes=d.createBuffer({size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    this.emptyWoodPose=d.createBuffer({size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    this.emptyWoodMetadata=d.createBuffer({size:16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    this.emptyWoodOwners=d.createBuffer({size:64**3*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    this.emptyWoodFlux=d.createBuffer({size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    this.resources.push(this.emptyWoodNodes,this.emptyWoodPose,this.emptyWoodMetadata,this.emptyWoodOwners,this.emptyWoodFlux);
+    d.queue.writeBuffer(this.emptyWoodPose,0,new Float32Array([0,0,0,-1,0,0,0,1,0,0,0,0,0,0,0,0]));
+    this.woodCollision=await new WoodCollision(this).init();
     this.emptyObject = this.texture(1);
-    this.surface = [this.texture(64), this.texture(64)];
-    this.damage = null;
+    this.surface = [this.texture(64, 'rgba32float'), this.texture(64, 'rgba32float')];
+    this.damage = [this.texture(64, 'rgba32float'), this.texture(64, 'rgba32float')];
     this.forestMesh = null;
     this.rendererFamilies = new Map();
     this.usingTree = false;
     this.surfacePipeline = await this.pipeline(this.chemistryCode(basicSurfaceWGSL,'gas'), 'surface-fuel');
     this.surfaceResetPipeline = await this.pipeline(basicSurfaceWGSL, 'surface-reset', 'reset');
+    this.damageResetPipeline = await this.pipeline(damageResetWGSL, 'wood-damage-reset');
+    this.treeSurfacePipeline = this.surfacePipeline;
     this.emberBuffer = d.createBuffer({
       size: 2048 * 32,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -346,10 +359,12 @@ export class PyroSolver {
       this.resources.push(t);return {t,view:t.createView()};
     };
     this.floorFuel=[make('rgba32float'),make('rgba32float')];
+    this.floorWear=[make('rgba32float'),make('rgba32float')];
     this.floorDeposits=make('r32float');
     this.floorUpload=new Float32Array(n*n);
     this.floorUpdate=await this.pipeline(this.chemistryCode(floorFuelUpdateWGSL),'floor-fuel');
     this.floorClear=await this.pipeline(floorFuelClearWGSL,'floor-fuel-clear');
+    this.floorWearClear=await this.pipeline(floorWoodWearClearWGSL,'floor-wood-wear-clear');
     this.floorDepositClear=await this.pipeline(floorDepositsClearWGSL,'floor-deposits-clear');
   }
   floorPass(encoder,pipeline,items) {
@@ -359,13 +374,17 @@ export class PyroSolver {
   }
   clearFloorFuel(encoder) {
     this.floorPass(encoder,this.floorClear,[[0,this.floorFuel[0]],[1,this.floorFuel[1]],[2,this.floorDeposits]]);
+    this.floorPass(encoder,this.floorWearClear,[[0,this.floorWear[0]],[1,this.floorWear[1]]]);
     this.floorIndex=0;this.hasFloorFuel=false;this.floorIgnition=false;this.fuelBrush.clear();
+    this.floorFuelKind=null;
   }
   clearFuel() {
     const encoder=this.device.createCommandEncoder();this.clearFloorFuel(encoder);
     this.device.queue.submit([encoder.finish()]);this.lightReady=false;
   }
   dropFuel(at,previous=null) {
+    if(this.hasFloorFuel&&this.floorFuelKind!==this.fuel)this.clearFuel();
+    this.floorFuelKind=this.fuel;
     const changed=previous?this.fuelBrush.stroke(previous,at):this.fuelBrush.stamp(...at);
     if(changed){this.hasFloorFuel=true;this.previousDt=0;this.lightReady=false;}
     return changed;
@@ -379,12 +398,13 @@ export class PyroSolver {
     const packet=this.fuelBrush.consume();
     if(packet)this.device.queue.writeTexture({texture:this.floorDeposits.t},expandFuelDeposits(packet.data,this.floorUpload),{bytesPerRow:FLOOR_FUEL_SIZE*4},[FLOOR_FUEL_SIZE,FLOOR_FUEL_SIZE]);
     this.floorPass(encoder,this.floorUpdate,[[0,{buffer:p}],[1,this.sampler],[2,this.c[ci]],
-      [3,this.floorFuel[this.floorIndex]],[4,this.floorDeposits],[5,this.floorFuel[1-this.floorIndex]],...this.chemistryBindings(ci)]);
+      [3,this.floorFuel[this.floorIndex]],[4,this.floorDeposits],[5,this.floorFuel[1-this.floorIndex]],
+      [6,this.floorWear[this.floorIndex]],[7,this.floorWear[1-this.floorIndex]],...this.chemistryBindings(ci)]);
     this.floorIndex=1-this.floorIndex;
     this.floorIgnition=false;
     if(packet)this.floorPass(encoder,this.floorDepositClear,[[0,this.floorDeposits]]);
   }
-  floorBindings(){return [[32,this.floorFuel[this.floorIndex]]];}
+  floorBindings(render=false){return [[32,this.floorFuel[this.floorIndex]],...(render&&this.floorWear?[[45,this.floorWear[this.floorIndex]]]:[])];}
   async initAdaptive() {
     const d = this.device, C = this.N / 2, T = (this.N / 8) ** 3;
     const storage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST;
@@ -444,14 +464,14 @@ export class PyroSolver {
   buildScalarWork(encoder,p,ci) {
     encoder.clearBuffer(this.indirect,0,4);
     this.dispatch(encoder,this.pipelines.buildBricks,[[0,{buffer:p}],[2,{buffer:this.masks[ci]}],
-      [3,{buffer:this.masks[1-ci]}],[4,{buffer:this.bricks}],[5,{buffer:this.indirect}],[1,this.sampler],...this.objectBindings(),...this.floorBindings()],this.D/8);
+      [3,{buffer:this.masks[1-ci]}],[4,{buffer:this.bricks}],[5,{buffer:this.indirect}],[1,this.sampler],...this.objectBindings(),...this.floorBindings(),...this.woodFluxBindings()],this.D/8);
   }
   adaptiveVelocity(encoder,base,vi,ci) {
     const a=this.flowPipelines,k=this.pipelines;
     encoder.clearBuffer(this.flowChemArgs,0,4);
     const classify=(pipeline,items,name)=>this.indirectRun(encoder,pipeline,items,this.flowCommands,ADAPTIVE_FLOW_OFFSETS[name]);
     classify(a.sourceWork,[...base,[2,{buffer:this.opticalMasks[ci]}],[3,{buffer:this.opticalMasks[1-ci]}],
-      [4,{buffer:this.flowChemBricks}],[5,{buffer:this.flowChemArgs}],...this.objectBindings(),...this.floorBindings()],'sourceWork');
+      [4,{buffer:this.flowChemBricks}],[5,{buffer:this.flowChemArgs}],...this.objectBindings(),...this.floorBindings(),...this.woodFluxBindings()],'sourceWork');
     classify(a.restrict,[[0,this.v[vi]],[1,this.coarseV[0]]],'restrict');
     encoder.clearBuffer(this.flowMask);
     classify(this.flowChemistryPipeline,[[2,{buffer:this.flowChemBricks}],[3,{buffer:this.flowChemArgs}],[4,{buffer:this.flowMask}]],'chemistry');
@@ -510,10 +530,10 @@ export class PyroSolver {
   }
   async prepareSource() {
     const requested = this.objectId,
-      tree = requested === 'cybr-tree';
+      tree = ['cybr-tree','logs','house','wood-sigil'].includes(requested);
     if (requested && !this.objectModels[requested]) {
       const response = await fetch(
-        new URL('./objects/' + requested + '.rgba16.bin?v=0c4b630ed586cdec', import.meta.url),
+        new URL('./objects/' + (requested==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=5316305f3032d241':['logs','house','wood-sigil'].includes(requested)?requested+'/solid.rgba16.bin?v=5316305f3032d241':requested+'.rgba16.bin?v=5316305f3032d241'), import.meta.url),
       );
       if (!response.ok) throw Error('Object geometry unavailable: ' + requested);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -528,10 +548,29 @@ export class PyroSolver {
       this.objectModels[requested] = model;
     }
     if (requested !== this.objectId) return this.prepareSource();
+    if(this.woodStructureId!==requested){
+      if(this.woodOwners&&this.woodOwners!==this.emptyWoodOwners){this.woodOwners.destroy();this.resources=this.resources.filter(r=>r!==this.woodOwners);}
+      this.woodStructure?.dispose();this.woodStructure=null;this.woodOwners=this.emptyWoodOwners;this.woodStructureId=undefined;
+      this.woodFlux?.destroy();this.woodFlux=null;this.woodFluxMetadata=null;
+      try{if(['cybr-tree','logs','house','wood-sigil'].includes(requested)){
+        const directory=requested==='cybr-tree'?'forest-tree/structure':requested;
+        const base=new URL('./objects/'+directory+'/',import.meta.url);
+        this.woodStructure=await new WoodStructure(this.device).init(base);
+        const bytes=await(await fetch(new URL('voxel-owners.bin?v=5316305f3032d241',base))).arrayBuffer();
+        if(bytes.byteLength!==64**3*4)throw Error('Invalid wood ownership map');
+        this.woodOwners=this.device.createBuffer({label:'wood voxel owners',size:bytes.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+        this.device.queue.writeBuffer(this.woodOwners,0,bytes);this.resources.push(this.woodOwners);
+        this.woodFlux=await new WoodFlux(this.device,{group:(pipeline,entries)=>this.group(pipeline,entries)}).init();
+        this.woodFluxMetadata=await this.woodFlux.loadMetadata(new URL(requested==='cybr-tree'?'../flux-metadata.rgba32.bin?v=5316305f3032d241':'flux-metadata.rgba32.bin?v=5316305f3032d241',base));
+      }this.woodStructureId=requested;}catch(error){
+        this.woodStructure?.dispose();this.woodStructure=null;this.woodFlux?.destroy();this.woodFlux=null;this.woodFluxMetadata=null;
+        if(this.woodOwners!==this.emptyWoodOwners){this.woodOwners.destroy();this.resources=this.resources.filter(r=>r!==this.woodOwners);}this.woodOwners=this.emptyWoodOwners;
+        this.cache.clear();throw error;
+      }
+      this.cache.clear();
+    }
+    if(this.forestMesh&&this.meshObjectId!==requested){this.forestMesh.destroy();this.forestMesh=null;this.cache.clear();}
     if (tree && !this.forestMesh) {
-      this.treeSurfacePipeline ||= await this.pipeline(this.chemistryCode(surfaceWGSL,'gas'), 'tree-surface-fuel');
-      this.damageResetPipeline ||= await this.pipeline(damageResetWGSL, 'tree-damage-reset');
-      this.damage = [this.texture(64), this.texture(64)];
       this.updateObject();
       const init = this.device.createCommandEncoder();
       for (const damage of this.damage)
@@ -546,15 +585,12 @@ export class PyroSolver {
         );
       this.device.queue.submit([init.finish()]);
       this.forestMesh = new ForestMesh(this);
+      this.meshObjectId=requested;
     }
     if (tree) await this.forestMesh.load();
     if (!tree && this.forestMesh) {
       this.forestMesh.destroy();
       this.forestMesh = null;
-      const owned = new Set(this.damage.map((x) => x.t));
-      for (const r of owned) r.destroy();
-      this.resources = this.resources.filter((r) => !owned.has(r));
-      this.damage = null;
       this.cache.clear();
     }
     if (tree !== this.usingTree) {
@@ -705,7 +741,7 @@ export class PyroSolver {
         ...this.effect,
         ...this.dynamics,
         ...this.chemistry,
-        smokeDecay.decayDt,0,0,0,
+        smokeDecay.decayDt,this.floorFuelKind===.35?1:0,this.woodTimeScale||12,0,
       ]),
     );
     this.previousDt = dt;
@@ -718,12 +754,6 @@ export class PyroSolver {
     const vi = this.vi,
       ci = this.ci;
     this.updateFloorFuel(encoder,p,ci);
-    if (this.chemistryPool) {
-      this.buildScalarWork(encoder,p,ci);
-      this.chemistryPool.encodeRequestsFromFineBricks(encoder,{bricks:this.bricks,indirect:this.indirect});
-      this.chemistryPool.encodeTopology(encoder);
-      this.chemistryPool.encodeMigrationToDense(encoder,ci,this.c[ci].view);
-    }
     if (this.objectId) {
       this.dispatch(
         encoder,
@@ -734,16 +764,26 @@ export class PyroSolver {
           ...this.chemistryBindings(ci),
           ...this.objectBindings(true),
           [14, this.surface[1 - this.si]],
-          ...(this.usingTree
-            ? [
-                [15, this.damage[this.si]],
-                [16, this.damage[1 - this.si]],
-              ]
-            : []),
+          [15, this.damage[this.si]],
+          [16, this.damage[1 - this.si]],
+          ...this.woodPoseBindings(),
+          [41,{buffer:this.woodOwners||this.emptyWoodOwners}],
         ],
         64,
       );
       this.si = 1 - this.si;
+      this.woodStructure?.encode(encoder,{dt,skin:this.surface[this.si].view,wear:this.damage[this.si].view,
+        owners:this.woodOwners,metadata:this.woodFluxMetadata.view,origin:this.source,scale:this.effect[1]});
+      this.woodCollision?.encode(encoder);
+      this.woodFlux?.encode(encoder,{params:p,settings:this.objectSettings,skin:this.surface[this.si],metadata:this.woodFluxMetadata,
+        owners:this.woodOwners,nodes:this.woodStructure.staticBuffer,poses:this.woodStructure.state,
+        normalizationBindings:[[1,this.sampler],...this.objectBindings()]});
+    }
+    if (this.chemistryPool) {
+      this.buildScalarWork(encoder,p,ci);
+      this.chemistryPool.encodeRequestsFromFineBricks(encoder,{bricks:this.bricks,indirect:this.indirect});
+      this.chemistryPool.encodeTopology(encoder);
+      this.chemistryPool.encodeMigrationToDense(encoder,ci,this.c[ci].view);
     }
     if (this.adaptive) {
       if (!this.chemistryPool) this.buildScalarWork(encoder,p,ci);
@@ -843,6 +883,7 @@ export class PyroSolver {
         [1, this.sampler],
         ...this.objectBindings(),
         ...this.floorBindings(),
+        ...this.woodFluxBindings(),
       ],
       this.D / 8,
     );
@@ -871,6 +912,7 @@ export class PyroSolver {
       ...this.objectBindings(true),
       ...this.scalarBindings(ci,true),
       ...this.floorBindings(),
+      ...this.woodFluxBindings(),
     ]);
     this.ci = 1 - ci;
     if (this.embers && !this.smoke) {
@@ -895,6 +937,8 @@ export class PyroSolver {
   }
   resetSurface(encoder) {
     this.updateObject();
+    this.woodStructure?.reset();
+    this.woodFlux?.reset(encoder);
     for (const skin of this.surface)
       this.dispatch(encoder, this.surfaceResetPipeline, [[14, skin]], 64);
     for (const damage of this.damage || [])
@@ -913,8 +957,11 @@ export class PyroSolver {
       [11, this.objectModels[this.objectId] || this.emptyObject],
       ...(state ? [[12, this.surface[this.si]]] : []),
       [13, { buffer: this.objectSettings }],
+      ...(this.woodCollision?.bindings()||[]),
     ];
   }
+  woodPoseBindings(){return this.emptyWoodNodes||this.woodStructure?[[35,{buffer:this.woodStructure?.staticBuffer||this.emptyWoodNodes}],[36,{buffer:this.woodStructure?.state||this.emptyWoodPose}]]:[];}
+  woodFluxBindings(){return this.woodFlux?.bindings()||(this.emptyWoodFlux?[[34,{buffer:this.emptyWoodFlux}]]:[]);}
   updateObject() {
     const tint = FIRE_COLORS.find((c) => c.id === this.color) || FIRE_COLORS[0];
     this.device.queue.writeBuffer(
@@ -925,14 +972,15 @@ export class PyroSolver {
         this.effect[1],
         this.objectId ? 1 : 0,
         tint.id === 'natural' ? 0 : 1,
-        this.embers ? 1 : 0,
+        this.woodTimeScale || 12,
         this.ignition || 0,
         ...tint.rgb,
-        this.objectId === 'cybr-tree' ? (this.treeMoisture === 'damp' ? 2 : 1) : 0,
+        this.objectId === 'cybr-tree' ? (this.treeMoisture === 'damp' ? 2 : 1) : ({logs:-2,house:-3,'wood-sigil':-4}[this.objectId]||0),
       ]),
     );
   }
   camera(data) {
+    data=[...data];data[11]=this.floorFuelKind===.35?1:0;
     this.cameraValues = data;
     const key = [...data.slice(16,23),...data.slice(24)].join(',');
     if (key !== this.lightKey) {
@@ -964,9 +1012,10 @@ export class PyroSolver {
         [7, this.roomTargets[1]],
         [9, { buffer: this.visibleBricks }],
         [31,this.sigilSource],
-        ...this.floorBindings(),
+        ...this.floorBindings(true),
         ...this.objectBindings(true),
         ...this.meshBindings(),
+        ...(this.damage?[[15, this.damage[this.si]]]:[]),
         ...this.meshShadowBindings(),
         ...this.chemistryBindings(this.ci,true),
       ]),
@@ -983,6 +1032,7 @@ export class PyroSolver {
           [3, this.c[this.ci]],
           [4, this.objectModels[this.objectId] || this.emptyObject],
           [5, { buffer: this.objectSettings }],
+          ...(this.woodCollision?.bindings()||[]),
           ...this.chemistryBindings(this.ci),
         ]),
       );
@@ -1373,6 +1423,9 @@ export class PyroSolver {
     this.lightingReceivers?.destroy();
     for(const buffer of [this.flowMask,this.flowTiles,this.flowCount,this.flowCommands,this.flowChemBricks,this.flowChemArgs]) buffer?.destroy();
     this.forestMesh?.destroy();
+    this.woodStructure?.dispose();
+    this.woodCollision?.dispose();
+    this.woodFlux?.destroy();
     for (const r of this.resources) r.destroy();
     this.device.destroy();
   }

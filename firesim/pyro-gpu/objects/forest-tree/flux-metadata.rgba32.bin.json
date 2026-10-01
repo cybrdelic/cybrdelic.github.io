@@ -1,0 +1,18 @@
+{
+  "layout": "nearestExteriorLocalXYZ,initialDryMassKg;RGBA32F z/y/x",
+  "size": 64,
+  "spanModelM": 3.0,
+  "dryDensityKgM3": 495.0,
+  "woodDonors": 13519,
+  "foliageDonors": 2463,
+  "dryMassModelKg": 26.94551580461848,
+  "outsideAssetDestinations": 0,
+  "staticDestinationsOnly": true,
+  "source": "outputs\\cybrdelic-type\\elements\\motion\\bending\\sigils\\02\\fire-live\\pyro-gpu\\objects\\forest-tree\\wood-solid.rgba16.bin",
+  "sourceSha256": "cd9af28cc85d6cd486b063c425437e3a99f639713434797bd6cc8d5a28bf5bb2",
+  "output": "outputs\\cybrdelic-type\\elements\\motion\\bending\\sigils\\02\\fire-live\\pyro-gpu\\objects\\forest-tree\\flux-metadata.rgba32.bin",
+  "bytes": 4194304,
+  "sha256": "0bfc9828e45f0134052335e65ce9e236fc1a09b50a88338e164c41feefd46ee2",
+  "sourceRuntimePath": "pyro-gpu/objects/forest-tree/wood-solid.rgba16.bin",
+  "outputRuntimePath": "pyro-gpu/objects/forest-tree/flux-metadata.rgba32.bin"
+}

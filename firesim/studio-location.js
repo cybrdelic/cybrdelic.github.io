@@ -1,6 +1,6 @@
 // Shared links contain presentation state; QA parameters stay untouched.
-import { cleanLights } from './look-storage.js?v=0c4b630ed586cdec';
-import { modeForFire } from './simulation-modes.js?v=0c4b630ed586cdec';
+import { cleanLights } from './look-storage.js?v=5316305f3032d241';
+import { modeForFire } from './simulation-modes.js?v=5316305f3032d241';
 
 export function readLook(params, camera) {
   const look = {};
@@ -15,6 +15,7 @@ export function readLook(params, camera) {
       ? Math.max(min, Math.min(max, Number(value))) : fallback;
   };
   if (params.has('fireLight')) look.fireLight = number('fireLight', 0, 80, 24);
+  if (params.has('woodTimeScale')) look.woodTimeScale = number('woodTimeScale', 1, 24, 12);
   if (params.has('lights')) {
     try {
       const payload = params.get('lights');
@@ -43,6 +44,7 @@ export function writeLook(url, state) {
   url.searchParams.delete(original ? 'firePreset' : 'preset');
   url.searchParams.set('room', state.room ? '1' : '0');
   url.searchParams.set('fuel', state.fuel);
+  if (state.woodTimeScale !== undefined) url.searchParams.set('woodTimeScale', String(state.woodTimeScale));
   if(state.sourceGuide===undefined)url.searchParams.delete('guide');
   else url.searchParams.set('guide',state.sourceGuide?'1':'0');
   for (const key of ['smoke', 'color', 'embers', 'fireLight']) {

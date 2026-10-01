@@ -1,4 +1,5 @@
-import {combustionWGSL} from './combustion.js?v=0c4b630ed586cdec';
+import {combustionWGSL} from './combustion.js?v=5316305f3032d241';
+import {woodCollisionSampleWGSL} from './wood-collision.js?v=5316305f3032d241';
 // One-way Lagrangian tracers: born in reacting soot, carried by the actual
 // MAC velocity, with inertia, gravity and cooling. No screen-space spawner.
 export const emberComputeWGSL=`
@@ -41,6 +42,7 @@ struct Particle{pos:vec4f,velocity:vec4f};
 @group(0) @binding(3) var gas:texture_3d<f32>;
 @group(0) @binding(4) var solid:texture_3d<f32>;
 @group(0) @binding(5) var<uniform> object:ObjectSettings;
+${woodCollisionSampleWGSL}
 struct V{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) heat:f32,@location(2) visibility:f32};
 @vertex fn vertex(@builtin(vertex_index) i:u32,@builtin(instance_index) id:u32)->V{
  let a=particles[id];let corner=array<vec2f,6>(vec2f(-1,-1),vec2f(1,-1),vec2f(-1,1),vec2f(-1,1),vec2f(1,-1),vec2f(1,1))[i];
@@ -54,7 +56,10 @@ struct V{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) heat:f3
  for(var j=0;j<24;j++){let x=cam.eye.xyz+ray*(distance*(f32(j)+.5)/24.);let uv=(x-vec3f(-3,0,-3))/6.;
   if(all(uv>=vec3f(0))&&all(uv<=vec3f(1))){tau+=textureSampleLevel(gas,smp,uv,0).x*3.*distance/24.;}
   let local=((x-object.origin.xyz)/object.origin.w+1.5)/3.;
-  if(object.options.x>.5&&all(local>=vec3f(0))&&all(local<=vec3f(1))){if(textureSampleLevel(solid,smp,local,0).x<-.01){o.visibility=0.;}}
+  if(object.options.x>.5){
+   if(woodMoved()){if(woodCellCode(x)!=0u){o.visibility=0.;}}
+   else if(all(local>=vec3f(0))&&all(local<=vec3f(1))){if(textureSampleLevel(solid,smp,local,0).x<-.01){o.visibility=0.;}}
+  }
  }o.visibility*=exp(-tau);return o;
 }
 @fragment fn fragment(v:V)->@location(0) vec4f{

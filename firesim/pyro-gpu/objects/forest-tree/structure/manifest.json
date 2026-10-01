@@ -1,0 +1,143 @@
+{
+  "layoutVersion": 1,
+  "sourceHashes": {
+    "vertices.bin": "87528ae38a8aaa27daf661ed5bc4e2d117fe85c4d38afe5aa0be050ea936f1c4",
+    "indices.bin": "001bfbd843a41de04fc482e2df0b266865546f51177d933ab120742cf4c70b9b"
+  },
+  "skeletonHash": "0a2a0e8e7736e2a13517671b1757b00b21845065d8f59d5c88e9800d3e49bc50",
+  "nodes": 2631,
+  "maxDepth": 54,
+  "sourceVertices": 1027597,
+  "sourceTriangles": 1588926,
+  "partitionVertices": 1072012,
+  "duplicatedVertices": 44415,
+  "partitionTriangles": 1588926,
+  "foliageComponents": 40423,
+  "caps": {
+    "vertices": 92558,
+    "triangles": 88760,
+    "closedLoops": 1380,
+    "openInterfaceEdges": 0,
+    "originalBoundaryEdges": 252,
+    "branchedInterfaceVertices": 310,
+    "nonManifoldSourceEdges": 33
+  },
+  "exactRestAttributes": true,
+  "geometrySimplified": false,
+  "bytes": {
+    "static": 168384,
+    "bounds": 84192,
+    "vertices": 38592432,
+    "indices": 19067112,
+    "owners": 8576096,
+    "sourceVertex": 4288048,
+    "capVertices": 3332088,
+    "capIndices": 1065120,
+    "capOwnerPairs": 740464,
+    "voxelOwners": 1048576
+  },
+  "physicalUnits": "MODEL metres, kg and Pa; runtime objectScale scales mass by s^3",
+  "layout": {
+    "node": "restParent vec4, axisRadius vec4, ownMass/subtreeMass/length/anchor vec4, subtreeCOM/strengthPa vec4",
+    "owner": "uint32 owner, uint32 otherCapOwner; 0xffffffff means ordinary surface or original boundary cap",
+    "capOwnerPairs": "PER VERTEX uint32 pair",
+    "voxelOwners": "64^3 uint32, x fastest, rest coordinates [-1.5,1.5] cell centres"
+  },
+  "limits": [
+    "Nearest-beam partition is reduced authored fracture geometry, not crack propagation.",
+    "Cap fans follow exact interface loops; nonplanar interfaces use planar interpolated interior normals.",
+    "Five-point beam sampling and strength loss are reduced mechanics."
+  ],
+  "totalAssetBytes": 76962512,
+  "files": {
+    "nodes.bin": {
+      "bytes": 168384,
+      "sha256": "aee336897e3291e25755f7c5afe26266c4b8f891068f07881620fcd9f3ad0294"
+    },
+    "bounds.bin": {
+      "bytes": 84192,
+      "sha256": "c74d12eef1198e16be0b2a56b8d8a6620dd740141cc1848198ba9446ef8bfa19"
+    },
+    "vertices.bin": {
+      "bytes": 38592432,
+      "sha256": "29aac6a4510326ef60af0d9fdeece1806f2904624c6fa8515ae49c40c4b64c56"
+    },
+    "indices.bin": {
+      "bytes": 19067112,
+      "sha256": "a7b372fcc5300c1294c522a305eccca7576d0e5e0fcac7030eb3cc67b65d0e6a"
+    },
+    "owners.bin": {
+      "bytes": 8576096,
+      "sha256": "dcd62d73bb77db2cb4c97d672c832d81cc5e450f75a9f868a4f27be6ef7d674e"
+    },
+    "source-vertex.bin": {
+      "bytes": 4288048,
+      "sha256": "6ef9b1ae19183f5992515cc1e4dca3025910393afc2abfb1fac05d56b9fab4b1"
+    },
+    "cap-vertices.bin": {
+      "bytes": 3332088,
+      "sha256": "900016356c90cb5bbe4408432830ae31ad6214193cd958dec202468ac04ba86c"
+    },
+    "cap-indices.bin": {
+      "bytes": 1065120,
+      "sha256": "57009debc8bba8ac58bee08f87ec2bee8e82a5e9840eeba4cdf5819c61b095f7"
+    },
+    "cap-owner-pairs.bin": {
+      "bytes": 740464,
+      "sha256": "4ffcbfe634b5839dfa2381dd925dd1c98f217221a0be225708241515d062ca1c"
+    },
+    "voxel-owners.bin": {
+      "bytes": 1048576,
+      "sha256": "ae980f0ad91b0570668923e63a699564b02e020b786cf9a6f345c14d69ec4763"
+    },
+    "analytic-mass.bin": {
+      "bytes": 10524,
+      "sha256": "a9192738cc15674d27feee2021bc53007e539fd6f9d3bf29434d0171034b6e40"
+    }
+  },
+  "materialIds": {
+    "wood": 1,
+    "foliage": 8,
+    "freshInteriorCap": 9
+  },
+  "massCalibration": {
+    "analyticRodMassKg": 26.94551571951888,
+    "finiteProxyMassKg": 26.94551580461848,
+    "graphOwnMassKg": 26.94551571951888,
+    "massRatio": 1.0000000031582101,
+    "method": "Exact same64^3 valid inventory/capacity as wood thermal donors; mass assigned by voxel-owner map",
+    "limit": "Coarse conservative collision occupancy is not physical mesh volume; proxy density/fraction needs calibration.",
+    "id": "tree",
+    "woodTargetMassKg": 26.492085908423178,
+    "unresolvedWoodMassReassignedKg": 0.0,
+    "leaf": {
+      "reviewedTriangleAreaM2": 9.066615104675293,
+      "authoringDryLeafKgM2": 0.05,
+      "targetMassKg": 0.45333080520462743,
+      "unresolvedMassReassignedKg": 0.03549996586850308,
+      "reference": "Wright et al.(2004), Nature428:821\u2013827,doi:10.1038/nature02403",
+      "limit": "Specimen/species not fitted; .05kg/m\u00b2 is explicit authoring choice within reported cross-species range."
+    },
+    "approvedCollisionThermalMaterialExact": true,
+    "capacityFullDensity": 1.5,
+    "densityKgM3": 495,
+    "voidCapacityZero": true
+  },
+  "analyticMassFile": "analytic-mass.bin",
+  "thermalProxy": "../wood-solid.rgba16.bin",
+  "thermalProxyProof": {
+    "bytes": 2097152,
+    "sha256": "cd9af28cc85d6cd486b063c425437e3a99f639713434797bd6cc8d5a28bf5bb2"
+  },
+  "fluxMetadata": "../flux-metadata.rgba32.bin",
+  "fluxMetadataProof": {
+    "bytes": 4194304,
+    "sha256": "0bfc9828e45f0134052335e65ce9e236fc1a09b50a88338e164c41feefd46ee2"
+  },
+  "fluxProvenance": {
+    "sourceRuntimePath": "pyro-gpu/objects/forest-tree/wood-solid.rgba16.bin",
+    "sourceSha256": "cd9af28cc85d6cd486b063c425437e3a99f639713434797bd6cc8d5a28bf5bb2",
+    "dryMassModelKg": 26.94551580461848,
+    "metadataSha256": "0bfc9828e45f0134052335e65ce9e236fc1a09b50a88338e164c41feefd46ee2"
+  }
+}

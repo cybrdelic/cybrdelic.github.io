@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0-rc.13",
-  "build": "0c4b630ed586cdec",
+  "version": "0.1.0-rc.14",
+  "build": "5316305f3032d241",
   "status": "release-candidate",
   "entry": "index.html",
   "files": [
@@ -21,13 +21,13 @@
     },
     {
       "path": "fire-domain.js",
-      "bytes": 768,
-      "sha256": "f6e30ba004a9ff2e699fcacc0f318a211280a3e1df4951158953b6e7935f987d"
+      "bytes": 811,
+      "sha256": "62432f0b42c9dcc597feb710dd677f7ccb0310c3de1c30ea3353677675ee60e8"
     },
     {
       "path": "fire-emitters.js",
-      "bytes": 9010,
-      "sha256": "36b0f489ec9ff5dc42a4f9363c067b9dc1abe294ca7d02f2afac2a830fa8d71d"
+      "bytes": 9209,
+      "sha256": "a27ad8880f5fbf509cef97eae43ac4879168fe8e9ea80c616b0b7e9b96552559"
     },
     {
       "path": "fire-optics.js",
@@ -36,8 +36,8 @@
     },
     {
       "path": "fire-props.js",
-      "bytes": 4882,
-      "sha256": "f0e0670c9916e920c663ff42f5eef244f163e00c9ae8e4c9a35048d62a560110"
+      "bytes": 5729,
+      "sha256": "74c62ed866e84a0749fffb8cc0dc0fa35bd6bd6812a8e7849f3570e986fe11d9"
     },
     {
       "path": "fire-room.js",
@@ -46,8 +46,8 @@
     },
     {
       "path": "fire.js",
-      "bytes": 64078,
-      "sha256": "396c1775cc9d48730d096ed30c22c6ca0d1ab90dc5e524f396e557d2280427e2"
+      "bytes": 69420,
+      "sha256": "b7e5058425ed82c41c272abbb0386d55839b91f30b4fe2ef8e015a38fc1bb930"
     },
     {
       "path": "fuel-ground.js",
@@ -56,8 +56,8 @@
     },
     {
       "path": "ground-fuel-gl.js",
-      "bytes": 9499,
-      "sha256": "2f75f2569226cc2b2700b317cc70797db4817d73b0108a40656492be501e4b9e"
+      "bytes": 12731,
+      "sha256": "44cfee9241243953097e0ef91f34cf234913add92f465f577f20767624b64f9d"
     },
     {
       "path": "icon.svg",
@@ -66,13 +66,13 @@
     },
     {
       "path": "index.html",
-      "bytes": 8583,
-      "sha256": "bca7d956ce258cb372d3a8f6b969390a492563330a4133eb0735698fe89e6256"
+      "bytes": 8887,
+      "sha256": "e679fdd0c8ec7a67deaaab7182bf68f1d8c691c72599b04049d3758054364b21"
     },
     {
       "path": "inspection-state.js",
       "bytes": 1453,
-      "sha256": "ba29b91c9928d120ecd9111e3e582d7b2015837e54c1098896c0c380a5ebf9d3"
+      "sha256": "dcbef79242f32197dcbf4fb7c77aea4c19bc7ff8b0c380cb973261f969f7d727"
     },
     {
       "path": "legacy-qa.js",
@@ -81,8 +81,8 @@
     },
     {
       "path": "look-storage.js",
-      "bytes": 4337,
-      "sha256": "24bca416f9f0a2f9dba6de28292c40990b6384b8133250a41ed90d860139cae1"
+      "bytes": 4403,
+      "sha256": "8d0cfa6ec6fe883022e60237714aa931bc3c4d3192c659d5c3616674ff659f2e"
     },
     {
       "path": "original-source-profile.js",
@@ -92,27 +92,27 @@
     {
       "path": "preset-pairs.js",
       "bytes": 1266,
-      "sha256": "294e1a671f2155938db2a54fe848a0a95b635b6f85ab5628c654fb78407d9e0b"
+      "sha256": "5de39109948af621dbaa8542fb0ec05efba5a77deaed07220385b9791d0df719"
     },
     {
       "path": "pyro-gpu/adaptive-flow.js",
       "bytes": 11131,
-      "sha256": "f3abfa8284fead7284d35426742ad932b3e1695c4701b47bdceb305a2a1a8f24"
+      "sha256": "e1328f1500a6e46b6d570740dcf87c328e22c358bdb203ae09562a8b303a9723"
     },
     {
       "path": "pyro-gpu/adaptive-pressure.js",
       "bytes": 9499,
-      "sha256": "5a4fe64397f298688c4019215c6c839c9c9aa369c8522660f9be0a630ea41a7a"
+      "sha256": "0ee111dce3a05866d404f95bb02824bb68fbbc6693c5b3d5863a8624c3ca03f4"
     },
     {
       "path": "pyro-gpu/app.js",
-      "bytes": 33100,
-      "sha256": "b6ded5036b6936006831b930968943dfd43e2972c8f2164635bc06372137cfea"
+      "bytes": 34082,
+      "sha256": "ddd4236011ff0602fd520be29a357a5ef5516ad1bbcd2aff2bc1acd46444a964"
     },
     {
       "path": "pyro-gpu/brick-pool.js",
       "bytes": 26236,
-      "sha256": "9434b4044df8ba5e6dcfc61a4371ea2f0a19a4e8385a293a7223ad54c338dd73"
+      "sha256": "b6ff38c2dd09800ea6959a615c0bedf4814568b8f4b040941a76ed4cd1ea6de0"
     },
     {
       "path": "pyro-gpu/combustion.js",
@@ -121,8 +121,8 @@
     },
     {
       "path": "pyro-gpu/embers.js",
-      "bytes": 4273,
-      "sha256": "032739c4c51f5c692172578a4c35cf4b1b8a570b88a2ee2cc724841132946009"
+      "bytes": 4458,
+      "sha256": "3a2ec8b60b6cb48cbbf1bfc0fceae15af0be2517b9906f4d09d164459a3e30d6"
     },
     {
       "path": "pyro-gpu/fire-colors.js",
@@ -131,13 +131,13 @@
     },
     {
       "path": "pyro-gpu/floor-fuel.js",
-      "bytes": 4342,
-      "sha256": "22df247935e20d92c4d710e72ca0f9c22620bc726a55e4824139431f007ee38b"
+      "bytes": 9658,
+      "sha256": "4d086e29fd77596d3abd52a196a7a758b436ea5820a79876c782aaada47cf014"
     },
     {
       "path": "pyro-gpu/forest-mesh.js",
-      "bytes": 13567,
-      "sha256": "0910be5e0ece7e8a5a3ce54ac3ec80fb87a16d781532d590a8890281b3119710"
+      "bytes": 16704,
+      "sha256": "f1125d5b54a0a7b9ae4a3b7d73c5a6b40c1255a41c7db48a5efbedb62bfbc6ae"
     },
     {
       "path": "pyro-gpu/gpu-session.js",
@@ -157,7 +157,7 @@
     {
       "path": "pyro-gpu/library.js",
       "bytes": 13309,
-      "sha256": "b80f5fd8aa42a4af37087733255d1ce1126673373ed0c6b5d9afa649dc06af27"
+      "sha256": "b700711d4438170bdd5d4ffbd5e02b2a8f2f537712825c6116ff1905af34c381"
     },
     {
       "path": "pyro-gpu/lighting-work.js",
@@ -195,14 +195,29 @@
       "sha256": "022337c59e721651c465eac9d9da4f613026a5cb3da0ae48f0ef383a5669e40d"
     },
     {
+      "path": "pyro-gpu/objects/forest-tree/bark-roughness.png",
+      "bytes": 590188,
+      "sha256": "d08d07a9b030607caf15f35a6b62cb06a9d8719a41931dcac4659a5551b8131b"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/flux-metadata.rgba32.bin",
+      "bytes": 4194304,
+      "sha256": "0bfc9828e45f0134052335e65ce9e236fc1a09b50a88338e164c41feefd46ee2"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/flux-metadata.rgba32.bin.json",
+      "bytes": 923,
+      "sha256": "5af03d4c02fabd2ba492034efb3cd4cec84307288c325591c6d6e6769868cf38"
+    },
+    {
       "path": "pyro-gpu/objects/forest-tree/indices.bin",
       "bytes": 19067112,
       "sha256": "001bfbd843a41de04fc482e2df0b266865546f51177d933ab120742cf4c70b9b"
     },
     {
       "path": "pyro-gpu/objects/forest-tree/manifest.json",
-      "bytes": 1878,
-      "sha256": "3fb44a33abb5090967be846bf97c852539c9bc3b68de9149b6ac3daca1c56251"
+      "bytes": 2371,
+      "sha256": "00b7c6d9ef4ca746bbce922bbeef3ecbd7fe60e491da454222234f6ba3592dc9"
     },
     {
       "path": "pyro-gpu/objects/forest-tree/preview.jpg",
@@ -215,9 +230,149 @@
       "sha256": "245d6e4d5b624d2088d2e74147733fd54db241e77502cb2e4b68d2fc81d3f2e4"
     },
     {
+      "path": "pyro-gpu/objects/forest-tree/structure/analytic-mass.bin",
+      "bytes": 10524,
+      "sha256": "a9192738cc15674d27feee2021bc53007e539fd6f9d3bf29434d0171034b6e40"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/bounds.bin",
+      "bytes": 84192,
+      "sha256": "c74d12eef1198e16be0b2a56b8d8a6620dd740141cc1848198ba9446ef8bfa19"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/cap-indices.bin",
+      "bytes": 1065120,
+      "sha256": "57009debc8bba8ac58bee08f87ec2bee8e82a5e9840eeba4cdf5819c61b095f7"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/cap-owner-pairs.bin",
+      "bytes": 740464,
+      "sha256": "4ffcbfe634b5839dfa2381dd925dd1c98f217221a0be225708241515d062ca1c"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/cap-vertices.bin",
+      "bytes": 3332088,
+      "sha256": "900016356c90cb5bbe4408432830ae31ad6214193cd958dec202468ac04ba86c"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/indices.bin",
+      "bytes": 19067112,
+      "sha256": "a7b372fcc5300c1294c522a305eccca7576d0e5e0fcac7030eb3cc67b65d0e6a"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/manifest.json",
+      "bytes": 5318,
+      "sha256": "d9a4f14aa494d01da092a15f4966bd5238e132c9be2e41a3f54e79071a854db6"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/nodes.bin",
+      "bytes": 168384,
+      "sha256": "aee336897e3291e25755f7c5afe26266c4b8f891068f07881620fcd9f3ad0294"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/owners.bin",
+      "bytes": 8576096,
+      "sha256": "dcd62d73bb77db2cb4c97d672c832d81cc5e450f75a9f868a4f27be6ef7d674e"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/source-vertex.bin",
+      "bytes": 4288048,
+      "sha256": "6ef9b1ae19183f5992515cc1e4dca3025910393afc2abfb1fac05d56b9fab4b1"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/vertices.bin",
+      "bytes": 38592432,
+      "sha256": "29aac6a4510326ef60af0d9fdeece1806f2904624c6fa8515ae49c40c4b64c56"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/structure/voxel-owners.bin",
+      "bytes": 1048576,
+      "sha256": "ae980f0ad91b0570668923e63a699564b02e020b786cf9a6f345c14d69ec4763"
+    },
+    {
       "path": "pyro-gpu/objects/forest-tree/vertices.bin",
       "bytes": 36993492,
       "sha256": "87528ae38a8aaa27daf661ed5bc4e2d117fe85c4d38afe5aa0be050ea936f1c4"
+    },
+    {
+      "path": "pyro-gpu/objects/forest-tree/wood-solid.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "cd9af28cc85d6cd486b063c425437e3a99f639713434797bd6cc8d5a28bf5bb2"
+    },
+    {
+      "path": "pyro-gpu/objects/house/analytic-mass.bin",
+      "bytes": 1060,
+      "sha256": "19a182ed2d47f1692bd74277b4029e1afc9848edb12e3cdd0e4a5a7b0e9f0a78"
+    },
+    {
+      "path": "pyro-gpu/objects/house/bounds.bin",
+      "bytes": 8480,
+      "sha256": "f133ac42acce68766ae321c4692d4a023864ae4be5aea79ecd48eda2d5ebf2b3"
+    },
+    {
+      "path": "pyro-gpu/objects/house/cap-indices.bin",
+      "bytes": 652344,
+      "sha256": "cec7dff5737c7c8917e1b15582b66d2c88b7a77b4e942ebf50434304ced5196b"
+    },
+    {
+      "path": "pyro-gpu/objects/house/cap-owner-pairs.bin",
+      "bytes": 477632,
+      "sha256": "a38c5a09410dd794a4b07da08b7c2a2af925a684d1e0b983b2b229dd53a2b199"
+    },
+    {
+      "path": "pyro-gpu/objects/house/cap-vertices.bin",
+      "bytes": 2149344,
+      "sha256": "a99bf6235f0ca413ce424d99d341e4f0c17d3b5c7ca1f3fd8a5e558f89743766"
+    },
+    {
+      "path": "pyro-gpu/objects/house/flux-metadata.rgba32.bin",
+      "bytes": 4194304,
+      "sha256": "58a73671336611100cb5774737324126b4d1134d9261d31dcd94951d49b5cbdb"
+    },
+    {
+      "path": "pyro-gpu/objects/house/flux-metadata.rgba32.bin.json",
+      "bytes": 887,
+      "sha256": "83c490899a6e701c9ab3cf55dafd47fe18530b8b23f819030a6d03cdfeaaf022"
+    },
+    {
+      "path": "pyro-gpu/objects/house/indices.bin",
+      "bytes": 4159296,
+      "sha256": "e880d1f13f64ddbabd8931e288d5393520dcb761150e3281f19b3d404ce3cd8c"
+    },
+    {
+      "path": "pyro-gpu/objects/house/manifest.json",
+      "bytes": 4476,
+      "sha256": "4b40a1053622626ef4cf9b92b585849c9f70eb442beee469ff5a6426c3e27950"
+    },
+    {
+      "path": "pyro-gpu/objects/house/nodes.bin",
+      "bytes": 16960,
+      "sha256": "710d2868e561f62ad457b3f4148a45263c446ba7c43a8b70d3d8c02f0b831781"
+    },
+    {
+      "path": "pyro-gpu/objects/house/owners.bin",
+      "bytes": 1606496,
+      "sha256": "3c9144e2957428e96bd4ae00a193f35e7e70c9495c40ef0448d34d1e12da142a"
+    },
+    {
+      "path": "pyro-gpu/objects/house/solid.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "403401477e82213de9fb805f047e2abb466c2e575096c3dc667d10a61ceb5f94"
+    },
+    {
+      "path": "pyro-gpu/objects/house/source-vertex.bin",
+      "bytes": 803248,
+      "sha256": "c0b5f187c3a87f7d2eea2ba9a71eeb6baf189e525bd044a3a5e2799958bfe2fb"
+    },
+    {
+      "path": "pyro-gpu/objects/house/vertices.bin",
+      "bytes": 7229232,
+      "sha256": "8215d756e3750ae837416b3d0ffb2abee264c92d3974a50831624d9da2340b63"
+    },
+    {
+      "path": "pyro-gpu/objects/house/voxel-owners.bin",
+      "bytes": 1048576,
+      "sha256": "ee37bc9476958125ede01b1cfa7370f0d3eb1a15bccad6046aea12626aed7796"
     },
     {
       "path": "pyro-gpu/objects/house.jpg",
@@ -228,6 +383,81 @@
       "path": "pyro-gpu/objects/house.rgba16.bin",
       "bytes": 2097152,
       "sha256": "af2ce6411d4b05e2c3f416031c121476fc5b0fe4d91bd6079de3634c0e4dfc8f"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/analytic-mass.bin",
+      "bytes": 252,
+      "sha256": "592206bd0702288dd126591e2dc789c700c77a45656398a87b44342d21e7a59c"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/bounds.bin",
+      "bytes": 2016,
+      "sha256": "8bb41fd5436a2bc9e79a984650c6f540830f00b9a4b76c6b3bbbfa256f0adebf"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/cap-indices.bin",
+      "bytes": 106896,
+      "sha256": "0366287738846f618af147b08dacc875a31e877bfc80a9e60f82e083ec2b840f"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/cap-owner-pairs.bin",
+      "bytes": 74232,
+      "sha256": "a53fcadf14749a5495a6d0416f3e3dba94710ab2d3607b76175d4d80bcb2eae7"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/cap-vertices.bin",
+      "bytes": 334044,
+      "sha256": "c6ae150af064150e8f62d01a21874f9456a87ccf164aa12c4fbec73c5b1f04d6"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/flux-metadata.rgba32.bin",
+      "bytes": 4194304,
+      "sha256": "475459b53cc16170abfae3451153a9e3b1a3367a415a42b3433d473409a279aa"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/flux-metadata.rgba32.bin.json",
+      "bytes": 882,
+      "sha256": "2667baf8ce45f24c29e65a1883bbc19e4e4d91492fc0b304e3c25ffd05e2bd6d"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/indices.bin",
+      "bytes": 1201440,
+      "sha256": "58ee2a40137d8f39cc3a0c43db07368071ba5786aa9a0163ecbc94a833d68a14"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/manifest.json",
+      "bytes": 4463,
+      "sha256": "9f8f5aea9c268f84baf09d63089ff1ea36fc87a53a03512735a24141a5e35a2e"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/nodes.bin",
+      "bytes": 4032,
+      "sha256": "c597d0a1f78ef2758568b2906aac647a7331fc95d47a9462f03bd335f00d2179"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/owners.bin",
+      "bytes": 436264,
+      "sha256": "70d3d39fe08cec1242f95e67e14a293fa515c19604cf5e1a761981d8e39d68cd"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/solid.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "bd687aca21e1f3148f8efb29d9a1713e78b9f7ae9535bc00f7f770706b232e1f"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/source-vertex.bin",
+      "bytes": 218132,
+      "sha256": "bee3982f35e6517c5fd049b0c4fcefb7e7f4ded6eff31754dbae33118fc8bcbd"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/vertices.bin",
+      "bytes": 1963188,
+      "sha256": "49c2f1faf293235b07a12e64307644115a4263af03f949182fa2c4d75bec68ed"
+    },
+    {
+      "path": "pyro-gpu/objects/logs/voxel-owners.bin",
+      "bytes": 1048576,
+      "sha256": "7c77dca550f28ef17787ae6d5e6a96f56eb88ededbe363aff06ab09ca8f14944"
     },
     {
       "path": "pyro-gpu/objects/logs.jpg",
@@ -255,9 +485,84 @@
       "sha256": "00ebccbc62a7ba903da3c364340e6e6639e1bd8fb45105311d4b788fdf3dc343"
     },
     {
+      "path": "pyro-gpu/objects/wood-sigil/analytic-mass.bin",
+      "bytes": 1156,
+      "sha256": "af71b36121c732c9be17b8da13b63713d465400ded5cbd87faa70ed79187135b"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/bounds.bin",
+      "bytes": 9248,
+      "sha256": "cdf52224b35a321a41e1fb33a1ce148c3bb457611de84fc68ee40be90f1200a6"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/cap-indices.bin",
+      "bytes": 50304,
+      "sha256": "9a6248b72b47a6ae5670b83cce1b688510278bcbff522fd750bb8aaf7c0bdd50"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/cap-owner-pairs.bin",
+      "bytes": 45576,
+      "sha256": "6084e26fc7f472c9061af67fc079ea83122294eba9fd9a3df06c2d4147e11761"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/cap-vertices.bin",
+      "bytes": 205092,
+      "sha256": "1b0bc11ca7ba34c0263bad1fb8e1c89ee9a7bbd68b953ebafdcf5fb9781f3ea6"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/flux-metadata.rgba32.bin",
+      "bytes": 4194304,
+      "sha256": "e6b5ba72d823128dd5dd90452956bad7327275e83e0c4a24fef014ddbb82f87e"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/flux-metadata.rgba32.bin.json",
+      "bytes": 903,
+      "sha256": "06e1dcaebfd697aac30a003802fe6fb8fbb4c9cf195b80942c7e5def0988e260"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/indices.bin",
+      "bytes": 247296,
+      "sha256": "553ce4005a051570d0d8e787bebdf170c6ebf8742a417ed5bd58fba5abe56566"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/manifest.json",
+      "bytes": 5090,
+      "sha256": "b7d2936fa05525eb9fb6ce25625b57a9b5bb3ac8070fc2ee17f95f423b6e42e5"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/nodes.bin",
+      "bytes": 18496,
+      "sha256": "3c163ade5dc58b614b2b5ffd889f978ab1d4f00af182cab4e0856593a29d163d"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/owners.bin",
+      "bytes": 244240,
+      "sha256": "1b434f37bf62106331f382ae5e2ec54e361ba1584d08f6b4c7fa3ca55c959363"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/solid.rgba16.bin",
+      "bytes": 2097152,
+      "sha256": "2263ab492970b8695aad9f92d0ca2ffa6c55204315151d4ac8ea478ca70bbd30"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/source-vertex.bin",
+      "bytes": 122120,
+      "sha256": "cff3225b39a3db95fd95b68522a2163dc79b9b2188166a6e3dbd411dfa09dd90"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/vertices.bin",
+      "bytes": 1099080,
+      "sha256": "06321708c15f0d62aee761ae634b5278b214324889760dd487cc363b2301161b"
+    },
+    {
+      "path": "pyro-gpu/objects/wood-sigil/voxel-owners.bin",
+      "bytes": 1048576,
+      "sha256": "70b1cda927787a1825e43d6eedf4d7e5e97ead9e6956de3f14ea3d322bb3c6af"
+    },
+    {
       "path": "pyro-gpu/objects.js",
-      "bytes": 6018,
-      "sha256": "94b48de4c85e1a792db6f47da5dfa7b415629b682064f5489703a5bfb3aaa737"
+      "bytes": 10958,
+      "sha256": "d30f7e020d08c496d33506c6d7fa473668c14c000c6c664b5334071fa427b63d"
     },
     {
       "path": "pyro-gpu/output-size.js",
@@ -267,27 +572,27 @@
     {
       "path": "pyro-gpu/pooled-coupling.js",
       "bytes": 2635,
-      "sha256": "5e2858a3c7b519cddb32caec089b0cde0d740056a17daa6ab41d972ea9313371"
+      "sha256": "84fb6d7e2fb78003ac4385bcad1dc348cef166f7e3cbd7d84f26406bd6b3a4fd"
     },
     {
       "path": "pyro-gpu/presets.js",
-      "bytes": 23519,
-      "sha256": "bb782a5245758fb829a3f85d9c7f038fa8dbc44fcb4c8cd6a1c1d0793ad75485"
+      "bytes": 24118,
+      "sha256": "42065ab48718488ea11ed9456b842316d49a99e618552152906f7c3a2a41c9da"
     },
     {
       "path": "pyro-gpu/pressure-check.js",
       "bytes": 2979,
-      "sha256": "47698992d547bb2a9fa7b13c2ad5859fa3bbb0a703bd2b2c710845c2e7f299b9"
+      "sha256": "4a6025d5cde50f71e7d5e4efb65e79de6d6a52c0316589b3cbf51c6b2e9bbe05"
     },
     {
       "path": "pyro-gpu/renderer.js",
-      "bytes": 19340,
-      "sha256": "b64e485620b4a5576df7333d24af96df0a6913e994a3f3e8bd51cabb292f2926"
+      "bytes": 21249,
+      "sha256": "a99222e6c946d93e300fd10ed3b654c70ef83718c4158371ef47b7f9b4a9282e"
     },
     {
       "path": "pyro-gpu/shaders.js",
-      "bytes": 27137,
-      "sha256": "dfbc839a5805028901c75f9b27f03e9c007b174a408c41e27a9c0dd9d4178305"
+      "bytes": 27606,
+      "sha256": "dadb1a438044bbcf22e9cf07ce5748919c666846137d8ff2dbe9cf6ab65092f1"
     },
     {
       "path": "pyro-gpu/sigil-guide.js",
@@ -296,8 +601,8 @@
     },
     {
       "path": "pyro-gpu/solver.js",
-      "bytes": 56070,
-      "sha256": "2357020379e55242c2f0eb3cec3defc26005548657450afc23bf9d4c09b2349c"
+      "bytes": 61241,
+      "sha256": "c2ca229ff064619e87a348da926cf1601fcff9d7e3c9ffcc8e00b4a1275b9c99"
     },
     {
       "path": "pyro-gpu/source-previews/cube.jpg",
@@ -345,14 +650,24 @@
       "sha256": "bf29bf20b826e5047f82ac025d881c6e30d9d0d435837488e4a42a908e4bd9a1"
     },
     {
+      "path": "pyro-gpu/wood-collision.js",
+      "bytes": 3829,
+      "sha256": "7b56a295c913c6e5b15ae4498456630fb519800d71808123c1e160750147a521"
+    },
+    {
+      "path": "pyro-gpu/wood-flux.js",
+      "bytes": 20019,
+      "sha256": "834c8f3d51657fb6ee8fca8f8e12c63bbd6a88f2b40a6024ec0fdaabb9f47690"
+    },
+    {
       "path": "README.md",
-      "bytes": 15761,
-      "sha256": "926fdd9ab24202d58c02f14b3296af35e4b3a1244b8dfde32b633ada374f47af"
+      "bytes": 16998,
+      "sha256": "1b7dbe11e3eb9dd39182d121fffcffe9721edd985d6830f64b64059a2d9c9e44"
     },
     {
       "path": "runtime-loader.js",
-      "bytes": 1187,
-      "sha256": "e5b5b9c9cc29c1188e37c78075b940173c15b26b0f0ac8e6c58ac4377cdd89b5"
+      "bytes": 1319,
+      "sha256": "d61f5142a73b67a9fa98b80a7f507325a6a4bf1b1713cfe1b56aee6660eb3b48"
     },
     {
       "path": "runtime-scope.js",
@@ -392,12 +707,12 @@
     {
       "path": "source-picker.js",
       "bytes": 1635,
-      "sha256": "d7b9043b2220e8999a64b168283b6a331e5bcbcb1a6024a92937688e28b7721a"
+      "sha256": "eee446291f94cabfba8118bf83242e1964680377c7167b02a35aa89bcbe773cc"
     },
     {
       "path": "studio-location.js",
-      "bytes": 3271,
-      "sha256": "5291f8571f8370289ab559a8a473b151de7ceff3fec1043279d1f555d869d011"
+      "bytes": 3472,
+      "sha256": "9355b9694fb8f7a480e5e9769a95cfec56e39e52f3b5750c71ad290ad32b65ca"
     },
     {
       "path": "studio-ui.js",
@@ -411,13 +726,38 @@
     },
     {
       "path": "studio.js",
-      "bytes": 12690,
-      "sha256": "7446915dc1e747a8e69a9c665dc8f2420b094e5c1e16bb6ec96d361e1dc2ef01"
+      "bytes": 12794,
+      "sha256": "2d03adb48da5577c6fdb2453aaf0294346b96b93f9ae58a7853eab58ea571bf2"
     },
     {
       "path": "vorticity.js",
       "bytes": 8864,
       "sha256": "a392cebf92de233e1110e1ea53403fac6cf74203ee077b30d1341c6d96a6be0d"
+    },
+    {
+      "path": "wood-material.js",
+      "bytes": 6536,
+      "sha256": "a17d82f77453e40200ab971c8fecb13824333b274797bffd5a399dd3f8a91856"
+    },
+    {
+      "path": "wood-state-gl.js",
+      "bytes": 11970,
+      "sha256": "a3623c64f7a70285ef9e2fc834218aa5025a2017e7cf590e9d8f71833f0fa32d"
+    },
+    {
+      "path": "wood-structure-gl.js",
+      "bytes": 26813,
+      "sha256": "2eb1de1b537fe1e38e5c2124f0ab279e8951ada351bedb1f1bed2247e78ba44e"
+    },
+    {
+      "path": "wood-structure.js",
+      "bytes": 35386,
+      "sha256": "c1a6a55ec7fcd18193fc98e1e74b24190e49ddaddd44ae064d3b487e27726290"
+    },
+    {
+      "path": "wood-thermo.js",
+      "bytes": 15082,
+      "sha256": "df4ae59f58dcf26b55782ebd6871e9ca2991730541e36464ac827cfec0a032ee"
     }
   ],
   "openGates": [

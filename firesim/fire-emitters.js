@@ -56,6 +56,9 @@ window.FireEmitters = `
       return;
     }
     if(emitterKind>=16&&emitterKind<=20){
+      // Timber is supplied by its persistent projected inventory. Retain this
+      // separate coating emitter only for the car and mannequin presets.
+      if(emitterKind==16||emitterKind==17||emitterKind==20)return;
       vec3 q=vec3(local,depth)/sourceScale;
       if(any(greaterThan(abs(q),vec3(1.5))))return;
       vec4 material=texture(objectTex,(q+1.5)/3.);
@@ -69,8 +72,8 @@ window.FireEmitters = `
       vec3 at=vec3(brushTo+local/simExtent.xy,(depth-simMin.z)/simExtent.z);
       float heating=field(chemTex,at).b;
       float release=seed+smoothstep(objectVariation>1.5&&objectVariation<2.5?.55:.28,.9,heating);
-      float finiteFuel=exp(-max(burstAge-2.,0.)*(emitterKind==20?.045:.07));
-      density=exp(-pow((material.x-.04)/.065,2.))*material.y*release*finiteFuel;
+      float coatingFeed=exp(-max(burstAge-2.,0.)*.07);
+      density=exp(-pow((material.x-.04)/.065,2.))*material.y*release*coatingFeed;
       jet=vec3(q.x*.32,.65+material.z*.35,q.z*.32)*fuelProfile.z;
       return;
     }

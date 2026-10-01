@@ -1,0 +1,123 @@
+{
+  "layoutVersion": 1,
+  "id": "logs",
+  "nodes": 63,
+  "maxDepth": 11,
+  "vertexStride": 36,
+  "partitionVertices": 54533,
+  "partitionTriangles": 100120,
+  "caps": {
+    "vertices": 9279,
+    "triangles": 8908,
+    "closedLoops": 103,
+    "openInterfaceEdges": 0,
+    "originalBoundaryEdges": 0,
+    "branchedInterfaceVertices": 15,
+    "nonManifoldSourceEdges": 0
+  },
+  "materialIds": {
+    "wood": 1,
+    "roofWood": 2,
+    "inertChimney": 3,
+    "freshInteriorCap": 9
+  },
+  "ownerLayout": "pervertex uint32 owner,uint32other;other=0xffffffff ordinary/originalboundarycap",
+  "nodeLayout": "restParent/axisRadius/ownMass-subtreeMass-length-anchor/subtreeCOM-strengthPa,64B MODELmetres/kg/Pa",
+  "provenance": {
+    "sourceProxy": "outputs/cybrdelic-type/elements/motion/bending/sigils/02/fire-live/pyro-gpu/objects/logs.rgba16.bin",
+    "sourceProxySha256": "8457cb064b0bb634b72a0054301ddd306f9c98233f455e64523d49206527e965",
+    "method": "Isosurface of unchanged64^3 signed-distance proxy, linearly resampled192^3",
+    "proxyRewritten": false
+  },
+  "files": {
+    "nodes.bin": {
+      "bytes": 4032,
+      "sha256": "c597d0a1f78ef2758568b2906aac647a7331fc95d47a9462f03bd335f00d2179"
+    },
+    "bounds.bin": {
+      "bytes": 2016,
+      "sha256": "8bb41fd5436a2bc9e79a984650c6f540830f00b9a4b76c6b3bbbfa256f0adebf"
+    },
+    "vertices.bin": {
+      "bytes": 1963188,
+      "sha256": "49c2f1faf293235b07a12e64307644115a4263af03f949182fa2c4d75bec68ed"
+    },
+    "indices.bin": {
+      "bytes": 1201440,
+      "sha256": "58ee2a40137d8f39cc3a0c43db07368071ba5786aa9a0163ecbc94a833d68a14"
+    },
+    "owners.bin": {
+      "bytes": 436264,
+      "sha256": "70d3d39fe08cec1242f95e67e14a293fa515c19604cf5e1a761981d8e39d68cd"
+    },
+    "source-vertex.bin": {
+      "bytes": 218132,
+      "sha256": "bee3982f35e6517c5fd049b0c4fcefb7e7f4ded6eff31754dbae33118fc8bcbd"
+    },
+    "cap-vertices.bin": {
+      "bytes": 334044,
+      "sha256": "c6ae150af064150e8f62d01a21874f9456a87ccf164aa12c4fbec73c5b1f04d6"
+    },
+    "cap-indices.bin": {
+      "bytes": 106896,
+      "sha256": "0366287738846f618af147b08dacc875a31e877bfc80a9e60f82e083ec2b840f"
+    },
+    "cap-owner-pairs.bin": {
+      "bytes": 74232,
+      "sha256": "a53fcadf14749a5495a6d0416f3e3dba94710ab2d3607b76175d4d80bcb2eae7"
+    },
+    "voxel-owners.bin": {
+      "bytes": 1048576,
+      "sha256": "7c77dca550f28ef17787ae6d5e6a96f56eb88ededbe363aff06ab09ca8f14944"
+    },
+    "analytic-mass.bin": {
+      "bytes": 252,
+      "sha256": "592206bd0702288dd126591e2dc789c700c77a45656398a87b44342d21e7a59c"
+    },
+    "solid.rgba16.bin": {
+      "bytes": 2097152,
+      "sha256": "bd687aca21e1f3148f8efb29d9a1713e78b9f7ae9535bc00f7f770706b232e1f"
+    },
+    "flux-metadata.rgba32.bin": {
+      "bytes": 4194304,
+      "sha256": "475459b53cc16170abfae3451153a9e3b1a3367a415a42b3433d473409a279aa"
+    },
+    "flux-metadata.rgba32.bin.json": {
+      "bytes": 882,
+      "sha256": "2667baf8ce45f24c29e65a1883bbc19e4e4d91492fc0b304e3c25ffd05e2bd6d"
+    }
+  },
+  "limits": [
+    "Authored tree of supports omits redundant joints and elastic bending before fracture.",
+    "Rigid beam fragments and cap fans are a reduced approximation."
+  ],
+  "massCalibration": {
+    "analyticRodMassKg": 283.08502531051636,
+    "finiteProxyMassKg": 283.08502458035946,
+    "graphOwnMassKg": 283.08502531051636,
+    "massRatio": 0.9999999974207152,
+    "method": "Exact same64^3 valid inventory/capacity as wood thermal donors; mass assigned by voxel-owner map",
+    "limit": "Coarse conservative collision occupancy is not physical mesh volume; proxy density/fraction needs calibration.",
+    "id": "logs",
+    "woodTargetMassKg": 283.0865263938904,
+    "unresolvedWoodMassReassignedKg": 0.0,
+    "leaf": null,
+    "approvedCollisionThermalMaterialExact": true,
+    "capacityFullDensity": 1.5,
+    "densityKgM3": 495,
+    "voidCapacityZero": true
+  },
+  "analyticMassFile": "analytic-mass.bin",
+  "thermalProxy": "solid.rgba16.bin",
+  "fluxMetadata": "flux-metadata.rgba32.bin",
+  "fluxMetadataProof": {
+    "bytes": 4194304,
+    "sha256": "475459b53cc16170abfae3451153a9e3b1a3367a415a42b3433d473409a279aa"
+  },
+  "fluxProvenance": {
+    "sourceRuntimePath": "pyro-gpu/objects/logs/solid.rgba16.bin",
+    "sourceSha256": "bd687aca21e1f3148f8efb29d9a1713e78b9f7ae9535bc00f7f770706b232e1f",
+    "dryMassModelKg": 283.08502458035946,
+    "metadataSha256": "475459b53cc16170abfae3451153a9e3b1a3367a415a42b3433d473409a279aa"
+  }
+}

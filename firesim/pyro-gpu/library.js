@@ -1,7 +1,7 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=0c4b630ed586cdec';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=0c4b630ed586cdec';
-import { lookStore } from '../look-storage.js?v=0c4b630ed586cdec';
-import { modeForFire } from '../simulation-modes.js?v=0c4b630ed586cdec';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=5316305f3032d241';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=5316305f3032d241';
+import { lookStore } from '../look-storage.js?v=5316305f3032d241';
+import { modeForFire } from '../simulation-modes.js?v=5316305f3032d241';
 
 const CATEGORIES = ['Demos', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [

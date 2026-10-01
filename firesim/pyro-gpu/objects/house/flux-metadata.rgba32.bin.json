@@ -1,0 +1,18 @@
+{
+  "layout": "nearestExteriorLocalXYZ,initialDryMassKg;RGBA32F z/y/x",
+  "size": 64,
+  "spanModelM": 3.0,
+  "dryDensityKgM3": 495.0,
+  "woodDonors": 23061,
+  "foliageDonors": 0,
+  "dryMassModelKg": 307.23273571114987,
+  "outsideAssetDestinations": 0,
+  "staticDestinationsOnly": true,
+  "source": "outputs\\cybrdelic-type\\elements\\motion\\bending\\sigils\\02\\fire-live\\pyro-gpu\\objects\\house\\solid.rgba16.bin",
+  "sourceSha256": "403401477e82213de9fb805f047e2abb466c2e575096c3dc667d10a61ceb5f94",
+  "output": "outputs\\cybrdelic-type\\elements\\motion\\bending\\sigils\\02\\fire-live\\pyro-gpu\\objects\\house\\flux-metadata.rgba32.bin",
+  "bytes": 4194304,
+  "sha256": "58a73671336611100cb5774737324126b4d1134d9261d31dcd94951d49b5cbdb",
+  "sourceRuntimePath": "pyro-gpu/objects/house/solid.rgba16.bin",
+  "outputRuntimePath": "pyro-gpu/objects/house/flux-metadata.rgba32.bin"
+}

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#10100f" />
     <title>CYBRDELIC / Fire studio</title>
-    <link rel="icon" href="icon.svg?v=0c4b630ed586cdec" type="image/svg+xml" />
-    <link rel="stylesheet" href="studio.css?v=0c4b630ed586cdec" />
-    <link rel="stylesheet" href="pyro-gpu/library.css?v=0c4b630ed586cdec" />
+    <link rel="icon" href="icon.svg?v=5316305f3032d241" type="image/svg+xml" />
+    <link rel="stylesheet" href="studio.css?v=5316305f3032d241" />
+    <link rel="stylesheet" href="pyro-gpu/library.css?v=5316305f3032d241" />
   </head>
   <body>
     <main>
@@ -149,6 +149,8 @@
                 ><input id="embers" type="checkbox" checked />Embers</label
               >
               <p>Natural follows temperature. Other colors are stylized looks.</p>
+              <label for="wood-speed">Wood time<input id="wood-speed" type="range" min="1" max="24" step="1" value="12" /></label><output id="wood-speed-value" for="wood-speed">12×</output>
+              <p>Accelerates drying, charring and structural ageing. Fire and falling pieces keep real time.</p>
             </div>
           </details>
           <details id="diagnostics" class="disclosure">
@@ -182,7 +184,7 @@
         </details>
       </footer>
     </main>
-    <script src="scene-lights.js?v=0c4b630ed586cdec"></script>
-    <script type="module" src="studio.js?v=0c4b630ed586cdec"></script>
+    <script src="scene-lights.js?v=5316305f3032d241"></script>
+    <script type="module" src="studio.js?v=5316305f3032d241"></script>
   </body>
 </html>

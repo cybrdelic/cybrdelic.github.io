@@ -1,11 +1,11 @@
-import { FIRE_COLORS } from './fire-colors.js?v=0c4b630ed586cdec';
-import { PyroSolver } from './solver.js?v=0c4b630ed586cdec';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=0c4b630ed586cdec';
-import { runtimeScope } from '../runtime-scope.js?v=0c4b630ed586cdec';
-import { outputSize } from './output-size.js?v=0c4b630ed586cdec';
-import { gpuSessionTimeout } from './gpu-session.js?v=0c4b630ed586cdec';
-import { floorHit } from '../fuel-ground.js?v=0c4b630ed586cdec';
-import { volumeOptions } from '../simulation-modes.js?v=0c4b630ed586cdec';
+import { FIRE_COLORS } from './fire-colors.js?v=5316305f3032d241';
+import { PyroSolver } from './solver.js?v=5316305f3032d241';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=5316305f3032d241';
+import { runtimeScope } from '../runtime-scope.js?v=5316305f3032d241';
+import { outputSize } from './output-size.js?v=5316305f3032d241';
+import { gpuSessionTimeout } from './gpu-session.js?v=5316305f3032d241';
+import { floorHit } from '../fuel-ground.js?v=5316305f3032d241';
+import { volumeOptions } from '../simulation-modes.js?v=5316305f3032d241';
 export async function mountVolume({
   initialPreset = 'explosion',
   simulation = 'volume',
@@ -97,6 +97,16 @@ export async function mountVolume({
   $('#fuel').value = ['gas', 'wood', 'oil'].includes(params.get('fuel'))
     ? params.get('fuel')
     : activeFire.fuel;
+  let woodTimeScale = Math.max(1, Math.min(24, Number(params.get('woodTimeScale')) || 12));
+  function setWoodTime(value) {
+    woodTimeScale = Math.max(1, Math.min(24, Number(value) || 12));
+    $('#wood-speed').value = woodTimeScale;
+    $('#wood-speed-value').textContent = woodTimeScale + '×';
+    if (solver) { solver.woodTimeScale = woodTimeScale; solver.lightReady = false; }
+    markDirty();
+  }
+  setWoodTime(woodTimeScale);
+  $('#wood-speed').oninput = () => setWoodTime($('#wood-speed').value);
   $('#preset').value = activeFire.id;
   $('#burst').hidden = false;
   $('#extinguish').hidden = false;
@@ -332,7 +342,7 @@ export async function mountVolume({
   $('#burst').onclick = burst;
   $('#extinguish').onclick = () => {
     if (solver) solver.active = false;
-    message.textContent = 'Source stopped · smoke continues to drift';
+    message.textContent = activeFire.object ? 'Ignition stopped · hot material can keep burning' : 'Source stopped · smoke continues to drift';
   };
   $('#smoke-only').onchange = () => {
     smoke = $('#smoke-only').checked;
@@ -490,7 +500,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-13',
+      build: 'fire-studio-rc-14',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -558,6 +568,7 @@ export async function mountVolume({
     $('#sigil-guide-control').hidden=activeFire.effect[0]!==10;
     const continuous = activeFire.effect[3] > 0.5;
     $('#burst').textContent = continuous ? 'Relight' : 'Trigger burst';
+    $('#extinguish').textContent = activeFire.object ? 'Stop ignition' : 'Stop fuel';
     message.textContent =
       activeFire.name +
       (continuous ? ' · drag to move the burning source' : ' · click to detonate');
@@ -570,7 +581,7 @@ export async function mountVolume({
     );
     $('#help').textContent = activeTool==='fuel'
       ? 'Click or drag across the floor to lay unlit fuel. Nearby flames or Ignite fuel ignite it. Fully lit reveals cold patches. Shift/right-drag pans; scroll zooms.' : continuous
-      ? 'Drag to move the burning source. Stop fuel lets the flame die. Shift/right-drag to pan; scroll to zoom.'
+      ? (activeFire.object ? 'Drag to move the material. Stop ignition removes the starter; hot wood can keep burning. Restart restores fuel. Shift/right-drag pans; scroll zooms.' : 'Drag to move the burning source. Stop fuel lets the flame die. Shift/right-drag to pan; scroll to zoom.')
       : 'Click to detonate. Drag to place the next burst. Shift/right-drag to pan; scroll to zoom.';
   }
   function applyFire(id) {
@@ -780,8 +791,9 @@ export async function mountVolume({
   }
   try {
     solver = await PyroSolver.create(canvas, volumeOptions(params, simulation));
+    solver.woodTimeScale = woodTimeScale;
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=0c4b630ed586cdec');
+      const { pressureCheck } = await import('./pressure-check.js?v=5316305f3032d241');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -819,6 +831,7 @@ export async function mountVolume({
     snapshot: () => ({
       simulation,
       tool: activeTool,
+      woodTimeScale,
       fire: activeFire.id,
       color: flameColor,
       embers,
@@ -830,6 +843,7 @@ export async function mountVolume({
       camera: { zoom, angle, pan: [...pan] },
     }),
     look(item) {
+      if (item.woodTimeScale !== undefined) setWoodTime(item.woodTimeScale);
       if(typeof item.sourceGuide==='boolean')$('#source-guide').checked=item.sourceGuide;
       if (FIRE_COLORS.some((c) => c.id === item.color)) {
         flameColor = item.color;

@@ -59,10 +59,23 @@
     "vertices.bin": {
       "bytes": 36993492,
       "sha256": "87528ae38a8aaa27daf661ed5bc4e2d117fe85c4d38afe5aa0be050ea936f1c4"
+    },
+    "wood-solid.rgba16.bin": {
+      "bytes": 2097152,
+      "sha256": "cd9af28cc85d6cd486b063c425437e3a99f639713434797bd6cc8d5a28bf5bb2"
+    },
+    "flux-metadata.rgba32.bin": {
+      "bytes": 4194304,
+      "sha256": "0bfc9828e45f0134052335e65ce9e236fc1a09b50a88338e164c41feefd46ee2"
+    },
+    "flux-metadata.rgba32.bin.json": {
+      "bytes": 923,
+      "sha256": "5af03d4c02fabd2ba492034efb3cd4cec84307288c325591c6d6e6769868cf38"
     }
   },
   "leafCoordinates": {
     "leaves": 29397,
     "method": "Principal lamina coordinates for each connected source leaf; no vertex positions or topology changed"
-  }
+  },
+  "structureManifest": "structure/manifest.json"
 }

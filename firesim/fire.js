@@ -1,11 +1,14 @@
-import {runtimeScope} from './runtime-scope.js?v=0c4b630ed586cdec';
-import {legacyProbe} from './legacy-qa.js?v=0c4b630ed586cdec';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=0c4b630ed586cdec';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=0c4b630ed586cdec';
-import {emitterKindFor} from './original-source-profile.js?v=0c4b630ed586cdec';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=0c4b630ed586cdec';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=0c4b630ed586cdec';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=0c4b630ed586cdec';
+import {runtimeScope} from './runtime-scope.js?v=5316305f3032d241';
+import {legacyProbe} from './legacy-qa.js?v=5316305f3032d241';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=5316305f3032d241';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=5316305f3032d241';
+import {emitterKindFor} from './original-source-profile.js?v=5316305f3032d241';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=5316305f3032d241';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=5316305f3032d241';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=5316305f3032d241';
+import {WOOD_THERMO} from './wood-thermo.js?v=5316305f3032d241';
+import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=5316305f3032d241';
+import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=5316305f3032d241';
 export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -42,7 +45,11 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const fireLightControl = document.querySelector('#fire-light');
   const benchmarkButton = document.querySelector('#benchmark');
   const guideControl=document.querySelector('#source-guide'),fuelToolControl=document.querySelector('#fuel-tool'),clearFuelControl=document.querySelector('#clear-fuel');
-  let sourceGuide=qaParams.get('guide')!=='0',fuelTool=false,fuelGesture=null,groundFuel,manualFuelSession=false;
+  let sourceGuide=qaParams.get('guide')!=='0',fuelTool=false,fuelGesture=null,groundFuel,woodState,woodMechanics,woodMesh,manualFuelSession=false;
+  const woodSpeedControl=document.querySelector('#wood-speed'),woodSpeedValue=document.querySelector('#wood-speed-value');
+  let woodTimeScale=WOOD_THERMO.demoTimeScale;
+  const setWoodSpeed=value=>{const number=Number(value);woodTimeScale=Number.isFinite(number)?Math.max(1,Math.min(24,number)):WOOD_THERMO.demoTimeScale;woodSpeedControl.value=woodTimeScale;woodSpeedValue.value=woodTimeScale+'×';};
+  woodSpeedControl.oninput=()=>setWoodSpeed(woodSpeedControl.value);setWoodSpeed(qaParams.get('woodTimeScale')??WOOD_THERMO.demoTimeScale);
   const fuelBounds={minX:MINX,maxX:MINX+WX,minZ:domain.minimum[2],maxZ:domain.minimum[2]+WZ};
   const fuelBrush=new FuelBrush(fuelBounds);
   guideControl.checked=sourceGuide;
@@ -98,6 +105,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
 
   const vertex = `#version 300 es
   precision highp float;
+  precision highp int;
   out vec2 uv;
   void main(){
     vec2 p=vec2((gl_VertexID<<1)&2, gl_VertexID&2);
@@ -107,12 +115,17 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const shared = `
   #define FIRE_OBJECT_SOURCE ${domain.object ? 1 : 0}
   precision highp float;
+  precision highp int;
   precision highp sampler2D;
   in vec2 uv;
   uniform sampler2D vfTex;
   uniform sampler2D chemTex;
   uniform sampler2D noiseTex;
   uniform highp sampler3D turbulenceTex;
+  ${woodMechanicsGLSL}
+  ${woodSamplingGLSL}
+  vec4 woodStockRest(vec3 p){vec3 at=woodRestOrigin+p*woodRestScale;return woodCapacityAt(at).r>0.?woodStockAt(at):vec4(0);}
+  vec4 woodWearRest(vec3 p){vec3 at=woodRestOrigin+p*woodRestScale;return woodCapacityAt(at).r>0.?woodWearAt(at):vec4(0);}
   vec3 curlNoise(vec3 q,float scale){
     vec3 p=q/(scale*64.);float h=1./64.;
     vec3 dx=texture(turbulenceTex,p+vec3(h,0,0)).rgb-texture(turbulenceTex,p-vec3(h,0,0)).rgb;
@@ -180,8 +193,9 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     if(temp+soot>.00001) vf.xyz+=vortexForce(at)*delta*(sourceEnabled<.5&&emitterKind==6?2.2:1.);
     // The source field enters as fresh gas. It never clips existing fire to glyph edges.
     float worldX=simMin.x+p.x*simExtent.x, worldZ=simMin.y+p.y*simExtent.y, worldY=(depth-.5)*simExtent.z;
+    woodFuelGas(vec3(worldX,worldZ,worldY),delta,fuel,oxygen,temp);
     float support=0.0, sheet=0.0;
-    if(sourceEnabled>.5) {
+    if(sourceEnabled>.5&&woodEnabled<.5) {
     vec4 source=texture(sourceTex,p);
     support=source.r;
     // Most atlas cells have no emitter. Preserve their air entrainment while
@@ -233,7 +247,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       fuel=mix(fuel,neighbors.r,mixing);oxygen=mix(oxygen,neighbors.g,mixing);
       temp=mix(temp,neighbors.b,mixing*.5);soot=mix(soot,neighbors.a,mixing*.5);
     }
-    if(brushActive>.5 && (emitterKind!=6 || burstAge<.10)) {
+    if(woodEnabled<.5 && brushActive>.5 && (emitterKind!=6 || burstAge<.10)) {
 
     // A click creates a new fuel source in the same simulated volume. During a
     // drag the source fills the segment between consecutive simulation steps.
@@ -373,9 +387,12 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const rendering = () => `#version 300 es
   ${shared}
   ${room.surfaceGLSL}
+  ${window.WoodMaterialGLSL}
   ${window.FireProps}
   ${groundSurfaceGLSL}
   uniform sampler2D smokeLightTex;
+  uniform sampler2D woodSurfaceTex;
+  uniform float woodSurfaceVisible;
   uniform float roomEnabled;
   uniform float customLighting;
   uniform float viewZoom;
@@ -401,6 +418,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     vec3 propColor;
     if(sourceProp(eye,ray,surfaceDistance,propColor))surface=propColor;
     if(sourceGuideSurface(eye,ray,surfaceDistance,propColor))surface=propColor;
+    if(woodSurfaceVisible>.5){vec4 woodSurface=texelFetch(woodSurfaceTex,ivec2(gl_FragCoord.xy),0);if(woodSurface.a<surfaceDistance){surfaceDistance=woodSurface.a;surface=woodSurface.rgb;}}
     // Sample every simulated depth layer along the camera ray. The volume has
     // actual parallax; no screen-space billboard or rendered fire plane is used.
     bool fineDepth=visibleEmitter==4||visibleEmitter==6;
@@ -472,9 +490,9 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'Shader compile failed');
     return s;
   }
-  function program(fragment) {
+  function program(fragment,customVertex=vertex) {
     const p = gl.createProgram();
-    gl.attachShader(p, shader(gl.VERTEX_SHADER, vertex));
+    gl.attachShader(p, shader(gl.VERTEX_SHADER, customVertex));
     gl.attachShader(p, shader(gl.FRAGMENT_SHADER, fragment));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'Shader link failed');
@@ -527,7 +545,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     brush.active = false;
     brush.fromX = brush.x; brush.fromY = brush.y;
     pointer.vx = 0; pointer.vy = 0;
-    fuelBrush.clear();groundFuel?.clear();fuelGesture=null;manualFuelSession=false;syncFuelControls();
+    fuelBrush.clear();groundFuel?.clear();woodState?.reset();woodMechanics?.reset();fuelGesture=null;manualFuelSession=false;syncFuelControls();
     if (!pressure || !targets) return;
     pressure.reset();
     for (const t of targets) {
@@ -540,8 +558,11 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   function runStep() {
     const from = targets[current], to = targets[1 - current];
     const profile=sharedPresets.get(activePreset);
-    groundFuel.step(from.chem,STEP,fuelBrush.consume(),!profile?.smokeSimulation&&activePreset!=='smoke-burst');
-    if(!freeMode)groundFuel.updateGuide(from.chem,sourceTexture,STEP);
+    configureWood(profile);
+    woodState.step(from.chem,sourceTexture,objectTexture,STEP,{clock:elapsed,age:elapsed-burstStart,starter:!freeMode||brush.active,timeScale:woodTimeScale,mechanics:woodMechanics});
+    if(woodState.enabled)woodMechanics.step(woodState,STEP);
+    groundFuel.step(from.chem,STEP,fuelBrush.consume(),!profile?.smokeSimulation&&activePreset!=='smoke-burst',{wood:fuelControl.value==='wood',timeScale:woodTimeScale});
+    if(!freeMode&&!woodState.enabled)groundFuel.updateGuide(from.chem,sourceTexture,STEP);
     vorticity.update(from.vf,from.chem,brush,freeMode && emitterKind<3,freeMode && emitterKind===6);
     const predictor = advection.step(from.vf, from.chem, pressure.getCorrection(), STEP);
     gl.useProgram(simProgram); gl.bindFramebuffer(gl.FRAMEBUFFER, to.fbo); gl.viewport(0, 0, AW, AH);
@@ -554,6 +575,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     bind(predictor, 6, uniform(simProgram, 'mcPredictorTex'));
     bind(vorticity.texture, 7, uniform(simProgram, 'vortexTex'));
     groundFuel.bind(simProgram);
+    woodState.bind(simProgram);
+    woodMechanics.bind(simProgram);
     gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_3D,objectTexture);gl.uniform1i(uniform(simProgram,'objectTex'),14);
     gl.activeTexture(gl.TEXTURE15);gl.bindTexture(gl.TEXTURE_3D,turbulenceTexture);gl.uniform1i(uniform(simProgram,'turbulenceTex'),15);
     gl.uniform3fv(uniform(simProgram, 'vortexOrigin'), vorticity.origin);
@@ -594,10 +617,11 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     pointer.vx *= .48; pointer.vy *= .48;
   }
   function draw() {
-    if(paused){const packet=fuelBrush.consume();if(packet)groundFuel.step(targets[current].chem,0,packet);}
+    if(paused){const packet=fuelBrush.consume();if(packet)groundFuel.step(targets[current].chem,0,packet,true,{wood:fuelControl.value==='wood',timeScale:woodTimeScale});}
     // Camera changes do not change emission or soot. Reuse their illumination
     // while paused so inspecting the volume does not rebuild all shadow maps.
-    const hasProps=freeMode&&(emitterKind===1||emitterKind===2||(emitterKind>=16&&emitterKind<=20));
+    const activeWoodMesh=woodState.enabled&&woodMesh.ready;
+    const hasProps=activeWoodMesh||freeMode&&(emitterKind===1||emitterKind===2||(emitterKind>=16&&emitterKind<=20));
     const litVolume=roomEnabled||window.SceneLights.active;
     if(lightingRevision!==window.SceneLights.revision||(litVolume?roomLightRevision!==stateRevision:hasProps&&propLightRevision!==stateRevision)){
       const color=FIRE_COLORS.find(c=>c.id===flameColor);
@@ -607,12 +631,16 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     if(!litVolume && smokeLightRevision!==stateRevision){
       smokeLight.update(targets[current].chem);smokeLightRevision=stateRevision;
     }
+    configureWood(sharedPresets.get(activePreset));
+    const guideSource=!freeMode||sharedPresets.get(activePreset)?.object==='wood-sigil';
+    const meshVisible=woodMesh.draw({wood:woodState,mechanics:woodMechanics,room,roomEnabled,sourceVisible:woodState.enabled&&(!guideSource||sourceGuide),camera:camera(),tan:lensTan(),zoom:viewZoom,pan:[panX,panY],lighting:p=>window.SceneLights.bind(gl,name=>uniform(p,name),roomEnabled)});
     gl.useProgram(renderProgram); gl.bindFramebuffer(gl.FRAMEBUFFER, projected.fbo);
     gl.viewport(0, 0, RW, RH);
     bind(targets[current].vf, 0, uniform(renderProgram, 'vfTex'));
     bind(targets[current].chem, 1, uniform(renderProgram, 'chemTex'));
     bind(sourceTexture,2,uniform(renderProgram,'sourceTex'));
-    groundFuel.bind(renderProgram,{render:true,guideVisible:sourceGuide&&!freeMode});
+    groundFuel.bind(renderProgram,{render:true,guideVisible:sourceGuide&&!freeMode&&!woodMesh.ready,wood:fuelControl.value==='wood'});
+    woodState.bind(renderProgram,true);woodMesh.bind(renderProgram,meshVisible);
     gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_3D,objectTexture);gl.uniform1i(uniform(renderProgram,'objectTex'),14);
     bind(smokeLight.texture, 8, uniform(renderProgram, 'smokeLightTex'));
     room.bind(renderProgram,uniform);
@@ -623,7 +651,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     gl.uniform3fv(uniform(renderProgram,'flameTint'),tint?.rgb||[1,1,1]);
     gl.uniform1f(uniform(renderProgram,'tintStrength'),flameColor==='natural'?0:1);
     gl.uniform1f(uniform(renderProgram,'inspectSmoke'),inspectSmoke?1:0);
-    gl.uniform1i(uniform(renderProgram,'visibleEmitter'),freeMode?emitterKind:0);
+    gl.uniform1i(uniform(renderProgram,'visibleEmitter'),freeMode&&!activeWoodMesh?emitterKind:0);
     gl.uniform1f(uniform(renderProgram,'inspectionLight'),litVolume?0:1);
     gl.uniform2f(uniform(renderProgram,'sourcePosition'),brush.x,brush.y);
     gl.uniform1f(uniform(renderProgram,'sourceScale'),shapeFor(activePreset)[0]);
@@ -651,12 +679,23 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   const burstButton=document.querySelector('#burst');
   const fuelProfiles={wood:[1,1,1],gas:[.85,.22,1.25],oil:[1.15,2.4,.85]};
   const sharedPresets=new Map(FIRE_PRESETS.map(p=>[p.id,p]));
+  sharedPresets.set('campfire',{...sharedPresets.get('bonfire'),id:'campfire'});
   // Three distinct wood beds share the same coupled fluid and combustion.
   // Scale the fuel footprint, log receiver and lift together.
   const sourceShapes={campfire:[1,1,1],bonfire:[1.48,.82,1.12],hearth:[.68,.64,.78]};
+  function configureWood(profile){
+    let descriptor=originalWoodSource(activePreset,profile);
+    if(descriptor.kind===1&&freeMode)descriptor={kind:0,bark:0};
+    const scale=descriptor.kind===1?4:shapeFor(activePreset)[0],centre=descriptor.kind===1?[0,MINY+2.95]:[MINX+brush.x*WX,MINY+brush.y*WY];
+    const bounds=descriptor.kind===2?[centre[0]-1.3*scale,centre[1]-.42*scale,centre[0]+1.3*scale,centre[1]+.29*scale]:[centre[0]-1.5*scale,centre[1]-1.5*scale,centre[0]+1.5*scale,centre[1]+1.5*scale];
+    woodState.configure({...descriptor,key:activePreset+':'+descriptor.kind,scale,centre,bounds,sigma:descriptor.kind===1?.055:scale*(descriptor.kind===2?.26:.36),moisture:profile?.moisture==='damp'?WOOD_THERMO.dampMoistureFraction:WOOD_THERMO.dryMoistureFraction,variation:profile?.ignition==='all'?1:profile?.ignition==='crown'?3:0});
+    woodMechanics.configure(centre,scale);
+    woodSpeedControl.disabled=!descriptor.kind&&!(groundFuel?.active&&fuelControl.value==='wood');
+  }
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const response=await fetch('pyro-gpu/objects/'+name+'.rgba16.bin?v=0c4b630ed586cdec');
+    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=5316305f3032d241':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=5316305f3032d241':name+'.rgba16.bin?v=5316305f3032d241';
+    const response=await fetch('pyro-gpu/objects/'+thermalPath);
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
     if(bytes.byteLength!==64*64*64*8)throw new Error('Object geometry has an invalid size: '+name);
@@ -669,7 +708,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     objectModels.set(name,texture);return texture;
   }
   const presets={sigil:0,free:0,campfire:1,bonfire:1,hearth:1,torch:2,ring:3,sphere:4,wall:5,explosion:6};
-  const shapeFor=key=>sourceShapes[key]||[sharedPresets.get(key)?.effect[1]||1,Math.max(.35,Math.min(2,(sharedPresets.get(key)?.dynamics[0]||.5)/.5)),1];
+  const shapeFor=key=>!sharedPresets.get(key)?.object&&sourceShapes[key]||[sharedPresets.get(key)?.effect[1]||1,Math.max(.35,Math.min(2,(sharedPresets.get(key)?.dynamics[0]||.5)/.5)),1];
   function syncFuelControls(){
     const placed=!!groundFuel?.active||fuelBrush.dirty.size>0;
     document.querySelector('#fuel-actions').hidden=!fuelTool&&!placed;
@@ -677,16 +716,18 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     const ignite=document.querySelector('#ignite-fuel');ignite.disabled=!placed||smokeSource;
     ignite.title=smokeSource?'Choose a fire source to ignite fuel.':!placed?'Drop fuel on the floor first.':'Apply a finite thermal ignition to the deposited fuel.';
     clearFuelControl.disabled=!placed;
-    document.querySelector('#sigil-guide-control').hidden=freeMode;
+    document.querySelector('#sigil-guide-control').hidden=freeMode&&sharedPresets.get(activePreset)?.object!=='wood-sigil';
   }
   function describeSource(){
     syncFuelControls();
-    const name=presetControl.selectedOptions[0].textContent;
+    const name=presetControl.selectedOptions[0]?.textContent||sharedPresets.get(activePreset)?.name||(activePreset==='free'?'Free fire':activePreset==='sigil'?'Cybrdelic sigil':activePreset);
+    const finiteWood=originalWoodSource(activePreset,sharedPresets.get(activePreset)).kind>0;
+    extinguishButton.textContent=finiteWood?'Stop ignition':'Stop fuel';
     message.textContent=emitterKind===6?`${name} · click to burst again`:`${name} · drag to move the source`;
     help.textContent=emitterKind===6
       ? 'Click to detonate at the cursor, or use Trigger burst. Each burst adds to the live smoke. Pause to inspect the expansion.'
-      : emitterKind>=16&&emitterKind<=20
-      ? 'Original uses the object distance field and a simpler finite surface burn. Choose 3D volume to inspect detailed moisture, char and damage.'
+      : finiteWood
+      ? 'Surface heat dries and chars finite wood. Stop ignition ends the starter; hot wood keeps burning until its fuel is spent. Original shares its material state through depth.'
       : 'Click or drag to place the source. Release to keep burning. Stop fuel lets the flame die while its smoke drifts.';
     canvas.setAttribute('aria-label',`${name}. ${help.textContent}`);
   }
@@ -700,13 +741,14 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   async function selectPreset(key,frameSource=true){
     const profile=sharedPresets.get(key);
     if(((profile?.effect[0]===0)||false)!==domain.blast||!!profile?.object!==domain.object){onRemount(key);return;}
-    objectTexture=profile?.object?await loadObject(profile.object):emptyObjectTexture;
-    activePreset=key;presetControl.value=key;emitterKind=presets[key]??emitterKindFor(profile);
+    objectTexture=profile?.object?await loadObject(profile.object):['sigil','sigil-cybr','violet-sigil'].includes(key)?await loadObject('wood-sigil'):emptyObjectTexture;
+    activePreset=key;presetControl.value=key;emitterKind=profile?.object?emitterKindFor(profile):presets[key]??emitterKindFor(profile);
+    const woodSource=originalWoodSource(key,profile);await woodMechanics.load(woodSource.kind?profile?.object||(woodSource.kind===2?'logs':'wood-sigil'):null);await woodMesh.load(woodMechanics.asset);
     fuelControl.value=profile?.fuel||'wood';
     flameColor=profile?.color||'natural';colorControl.value=flameColor;
     inspectSmoke=!!profile?.smokeSimulation||key==='smoke-burst';smokeControl.checked=inspectSmoke;
     measurement=null;benchmarkButton.disabled=false;
-    freeMode=!['sigil','sigil-cybr','violet-sigil'].includes(key);
+    freeMode=!!profile?.object||!['sigil','sigil-cybr','violet-sigil'].includes(key);
     pointer.down=false;pointer.id=null;pointer.active=false;endPan();setTool(false);
     reset();burstStart=-100;
     extinguishButton.hidden=!freeMode;
@@ -914,7 +956,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
     brush.active = false;
     pointer.down = false; pointer.id = null;
     extinguishButton.disabled = true;
-    message.textContent = 'Fuel stopped · smoke continues to drift';
+    message.textContent = woodState.enabled?'Ignition stopped · hot wood keeps burning':'Fuel stopped · smoke continues to drift';
     paused = false; captureAt = 0;
     document.querySelector('#pause').textContent = 'Pause';
   };
@@ -943,7 +985,7 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       accumulator += delta;
       while (accumulator >= STEP && steps < 2) {
         elapsed += STEP;
-        if (!freeMode && elapsed > DURATION && !manualFuelSession) { reset(); accumulator = STEP; }
+        if (!freeMode && elapsed > DURATION && !manualFuelSession && !woodState.enabled) { reset(); accumulator = STEP; }
         runStep(); accumulator -= STEP; steps++;
         observedSteps++;
         if (captureAt > 0 && elapsed >= captureAt) { paused = true; document.querySelector('#pause').textContent = 'Resume'; break; }
@@ -991,6 +1033,9 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       smokeLight = SmokeLight.setup(gl, {nx: NX, nz: NZ, depth: DEPTH, tilesX: TILES_X});
       room = FireRoom.setup(gl, {nx: NX, nz: NZ, depth: DEPTH, tilesX: TILES_X});
       groundFuel=createGroundFuelGL(gl,{...fuelBounds,shared,program,uniform,bind,linear:halfFloatLinear});
+      woodState=createWoodStateGL(gl,{shared,program,uniform,bind});
+      woodMechanics=createWoodStructureGL(gl,{shared,program,uniform,bind});
+      woodMesh=createWoodMeshGL(gl,{shared,lightingGLSL:room.surfaceGLSL,materialGLSL:window.WoodMaterialGLSL,program,uniform,bind,width:RW,height:RH});
       simProgram = program(simulation()); renderProgram = program(rendering()); presentProgram = program(presentation);
       gl.bindVertexArray(gl.createVertexArray());
       targets = [target(), target()]; projected = projectionTarget();
@@ -1034,8 +1079,8 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=0c4b630ed586cdec').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=0c4b630ed586cdec').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=5316305f3032d241').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=5316305f3032d241').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);
@@ -1064,12 +1109,13 @@ export async function mountLegacy({initialPreset='sigil',onRemount,onFailure=()=
   on(canvas,'webglcontextrestored', () => location.reload());
   await start();
   return {
-    async dispose(){await scope.stop();groundFuel.destroy();gl.getExtension('WEBGL_lose_context')?.loseContext();},
+    async dispose(){await scope.stop();groundFuel.destroy();woodState.destroy();woodMechanics.destroy();woodMesh.destroy();gl.getExtension('WEBGL_lose_context')?.loseContext();},
     setVisible(value){if(!value)cancelMeasurement();scope.setVisible(value);},
     fire:selectPreset,
-    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:inspectSmoke,color:flameColor,fireLight,room:roomEnabled,sourceGuide,tool:fuelTool?'fuel':panTool?'pan':'fire',camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
+    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:inspectSmoke,color:flameColor,fireLight,woodTimeScale,room:roomEnabled,sourceGuide,tool:fuelTool?'fuel':panTool?'pan':'fire',camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
     look(item){
       if(typeof item.sourceGuide==='boolean'){sourceGuide=item.sourceGuide;guideControl.checked=sourceGuide;needsDraw=true;}
+      if(item.woodTimeScale!==undefined)setWoodSpeed(item.woodTimeScale);
       if(item.tool)setTool(item.tool==='pan',item.tool==='fuel');
       if(item.fuel)fuelControl.value=item.fuel;
       if(FIRE_COLORS.some(c=>c.id===item.color)){flameColor=item.color;colorControl.value=flameColor;markAppearance();}

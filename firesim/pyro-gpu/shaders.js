@@ -1,13 +1,15 @@
-import {objectWGSL} from './objects.js?v=0c4b630ed586cdec';
-import {combustionWGSL} from './combustion.js?v=0c4b630ed586cdec';
-import {floorFuelWGSL} from './floor-fuel.js?v=0c4b630ed586cdec';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=0c4b630ed586cdec';
+import {objectWGSL} from './objects.js?v=5316305f3032d241';
+import {combustionWGSL} from './combustion.js?v=5316305f3032d241';
+import {floorFuelWGSL} from './floor-fuel.js?v=5316305f3032d241';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=5316305f3032d241';
+import {woodFluxWGSL} from './wood-flux.js?v=5316305f3032d241';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
 const common=`
 ${combustionWGSL}
 ${objectWGSL}
+${woodFluxWGSL}
 const N:u32=${N}u;const D:u32=${D}u;const H:f32=6.0/${N}.0;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
 struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f};
@@ -50,6 +52,7 @@ fn jetDirection()->vec3f{
  return normalize(vec3f(cos(sweep),.24+.12*sin(t*2.1),sin(sweep)));
 }
 fn charge(x:vec3f)->f32{
+ if(abs(object.tint.w)>.5){return 0.;}
  if(p.source.w<.5||p.step.z<0.||(p.effect.w<.5&&p.step.z>p.effect.z)){return 0.;}
  let q=(x-p.source.xyz)/p.effect.y;
  if(object.options.x>.5){return surfaceFeed(x);}
@@ -248,7 +251,11 @@ var<workgroup> opticalAlive:atomic<u32>;
  // needs many tiny substeps. It changes density, never display opacity.
  c.x=(c.x+burned*mix(.12,1.8,p.shape.z)*p.chemistry.z)*exp(-p.lifecycle.x*.045);
  if(p.step.w>.5){c.z=0.;c.w=0.;c.y*=exp(-p.step.x*.12);}
- let s=charge(x);if(s>0.&&object.options.x>.5){
+ let s=charge(x);if(abs(object.tint.w)>.5&&objectDistance(x)>=-.02){
+  // Conservative finite solid release, integrated once over this substep.
+  // No art-direction fuel multiplier, synthetic soot or source velocity.
+  let vapor=woodFluxDensity(x);if(p.step.w<.5){c.z+=vapor.x;}c.y+=vapor.y;
+ }else if(s>0.&&object.options.x>.5){
   // Add pyrolysis fuel and sensible heat; never overwrite existing gas state.
   // The surface supplies no soot: soot is produced by the reaction above.
   let heat=surfaceState(x).y;let added=min(s*p.step.x*p.chemistry.y*2.,.2);
@@ -383,6 +390,7 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
   sourceLive=d<.13*object.origin.w+radius&&d>-.02*object.origin.w-radius;
  }
  live=live||(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z)&&sourceLive)||floorWork(at,halfBrick);
+ if(abs(object.tint.w)>.5){live=live||woodFluxLive(at,halfBrick);}
  if(live){let index=atomicAdd(&dispatch.x,1u);bricks[index]=vec4u(id,0u);}
 }`;
 const reduceStats=`

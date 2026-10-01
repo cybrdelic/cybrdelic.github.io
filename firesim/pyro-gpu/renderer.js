@@ -1,9 +1,10 @@
-import {objectWGSL} from './objects.js?v=0c4b630ed586cdec';
-import {combustionWGSL} from './combustion.js?v=0c4b630ed586cdec';
-import {sparseSamplerWGSL} from './sparse-field.js?v=0c4b630ed586cdec';
-import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=0c4b630ed586cdec';
-import {sigilGuideWGSL} from './sigil-guide.js?v=0c4b630ed586cdec';
-import {floorFuelRenderWGSL} from './floor-fuel.js?v=0c4b630ed586cdec';
+import {objectWGSL} from './objects.js?v=5316305f3032d241';
+import {combustionWGSL} from './combustion.js?v=5316305f3032d241';
+import {sparseSamplerWGSL} from './sparse-field.js?v=5316305f3032d241';
+import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=5316305f3032d241';
+import {sigilGuideWGSL} from './sigil-guide.js?v=5316305f3032d241';
+import {floorFuelRenderWGSL} from './floor-fuel.js?v=5316305f3032d241';
+import {woodMaterialWGSL} from '../wood-material.js?v=5316305f3032d241';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
@@ -11,6 +12,7 @@ export const ROOM_SIZE=64;
 function renderSource(tree,sparse,fastSeams){return `
 ${combustionWGSL}
 ${objectWGSL}
+${woodMaterialWGSL}
 struct View{eye:vec4f,right:vec4f,up:vec4f,forward:vec4f,options:vec4f,ambient:vec4f,
  spotPos0:vec4f,spotDir0:vec4f,spotPower0:vec4f,spotPos1:vec4f,spotDir1:vec4f,spotPower1:vec4f};
 ${sparse ? sparseSamplerWGSL({D:256,brick:8,atlasTiles:20,name:'field',atlasBinding:0,pagesBinding:25,samplerName:'smp',declareSampler:false,seamMode:fastSeams?'filtered':'manual'}) : '@group(0) @binding(0) var chem:texture_3d<f32>;'}
@@ -33,6 +35,8 @@ const ROOM_SIZE:f32=${ROOM_SIZE}.;
 ${sparse ? '' : 'fn field(x:vec3f)->vec4f{if(any(x<LO)||any(x>LO+EXT)){return vec4f(0);}return textureSampleLevel(chem,smp,(x-LO)/EXT,0);}' }
 ${sigilGuideWGSL}
 ${floorFuelRenderWGSL}
+@group(0) @binding(45) var floorWoodWear:texture_2d<f32>;
+fn floorWearAt(xz:vec2f)->vec4f{let size=vec2i(textureDimensions(floorWoodWear));return textureLoad(floorWoodWear,clamp(vec2i((xz+3.)/6.*vec2f(size)),vec2i(0),size-1),0);}
 fn extinction(c:vec4f)->f32{return c.x*3.0;}
 fn emission(c:vec4f)->vec3f{
  let reaction=flameActivity(c);
@@ -59,7 +63,7 @@ fn transmission(x:vec3f,l:vec3f,solidShadow:bool)->f32{
 }
 fn shadow(x:vec3f,l:vec3f)->f32{return transmission(x,l,true);}
 ${tree?`fn meshVisibility(at:vec3f,pos:vec4f,dir:vec4f,layer:i32)->f32{
- if(object.tint.w<.5){return 1.;}
+ if(abs(object.tint.w)<.5){return 1.;}
  let delta=at-pos.xyz;let z=dot(delta,dir.xyz);if(z<=.05){return 1.;}
  let right=normalize(cross(dir.xyz,vec3f(0,1,0)));let up=cross(right,dir.xyz);let tan=sqrt(max(1.-dir.w*dir.w,.00001))/dir.w;
  let uv=vec2f(.5+dot(delta,right)/(2.*z*tan),.5-dot(delta,up)/(2.*z*tan));if(any(uv<vec2f(0))||any(uv>vec2f(1))){return 1.;}
@@ -73,7 +77,7 @@ fn spot(at:vec3f,normal:vec3f,pos:vec4f,dir:vec4f,power:vec4f,surface:bool,layer
  let cone=smoothstep(dir.w,power.w,dot(-l,dir.xyz));
  let cosine=select(1.,max(dot(normal,l),0.),surface);
  if(cone*cosine<.0001){return vec3f(0);}
- return power.xyz*cone*cosine/(r2+.2)*${tree?'transmission(at,pos.xyz,object.tint.w<.5)*meshVisibility(at,pos,dir,layer)':'transmission(at,pos.xyz,true)'};
+ return power.xyz*cone*cosine/(r2+.2)*${tree?'transmission(at,pos.xyz,abs(object.tint.w)<.5)*meshVisibility(at,pos,dir,layer)':'transmission(at,pos.xyz,true)'};
 }
 fn directIncoming(at:vec3f,normal:vec3f,surface:bool)->vec3f{
  var light=cam.ambient.xyz*select(1.,.25+.75*max(normal.y,0.),surface);
@@ -102,6 +106,20 @@ fn bounceIncoming(at:vec3f,normal:vec3f,surface:bool)->vec3f{
  }}return sum*cam.options.z;
 }
 fn incoming(at:vec3f,n:vec3f,surface:bool)->vec3f{return directIncoming(at,n,surface)+bounceIncoming(at,n,surface);}
+fn woodLit(at:vec3f,n:vec3f,albedo:vec3f,roughness:f32,grain:vec3f)->vec3f{
+ let view=normalize(cam.eye.xyz-at);let diffuse=albedo/3.14159265;
+ var result=diffuse*(cam.ambient.xyz*(.25+.75*max(n.y,0.))+bounceIncoming(at,n,true));
+ let s0=spot(at,n,cam.spotPos0,cam.spotDir0,cam.spotPower0,true,0);
+ let s1=spot(at,n,cam.spotPos1,cam.spotDir1,cam.spotPower1,true,1);
+ result+=s0*(diffuse+vec3f(woodSpecular(n,normalize(cam.spotPos0.xyz-at),view,grain,roughness)));
+ result+=s1*(diffuse+vec3f(woodSpecular(n,normalize(cam.spotPos1.xyz-at),view,grain,roughness)));
+ for(var i=0u;i<8u;i++){
+  let power=lights[i].power.xyz;if(dot(power,power)<.00001){continue;}
+  let d=lights[i].position.xyz-at;let r2=max(dot(d,d),.001);let l=d*inverseSqrt(r2);let cosine=max(dot(n,l),0.);
+  if(cosine>.001){let incident=power*cosine/(r2+max(.08,lights[i].position.w))*shadow(at,lights[i].position.xyz);
+   result+=incident*(diffuse+vec3f(woodSpecular(n,l,view,grain,roughness)));}
+ }return result;
+}
 fn roomIrradiance(at:vec3f,n:vec3f)->vec3f{
  var face=1.;var uv=vec2f((at.x+7.4)/14.8,at.y/7.2);
  if(abs(n.y)>.5){face=select(4.,0.,n.y>0.);uv=vec2f((at.x+7.4)/14.8,(at.z+3.4)/13.4);}
@@ -118,17 +136,17 @@ fn roomHit(eye:vec3f,ray:vec3f)->vec4f{
 }
 fn objectHit(eye:vec3f,ray:vec3f,limit:f32)->f32{
  if(object.options.x<.5){return limit;}
- let half=vec3f(${tree?'1.5':'1.49'}*object.origin.w);let low=object.origin.xyz-half;let high=object.origin.xyz+half;
+ let half=vec3f(${tree?'1.5':'1.49'}*object.origin.w);let low=select(object.origin.xyz-half,LO,woodMoved());let high=select(object.origin.xyz+half,LO+EXT,woodMoved());
  let safe=select(vec3f(.000001),ray,abs(ray)>vec3f(.000001));let a=(low-eye)/safe;let b=(high-eye)/safe;
  let near=min(a,b);let far=max(a,b);var t=max(0.,max(near.x,max(near.y,near.z)));let end=min(limit,min(far.x,min(far.y,far.z)));
-${tree?` if(object.tint.w>.5){
+${tree?` if(abs(object.tint.w)>.5){
   // For internal fire/GI rays, traverse the collision voxels exactly. The
   // old small sphere-tracing steps repeatedly filtered the same foliage
   // cells. Foliage is porous fuel, not an opaque solid canopy shell.
-  let h=3.*object.origin.w/64.;
-  for(var i=0;i<192;i++){
-   if(t>=end){break;}let at=eye+ray*(t+.00001);let cell=clamp(vec3i(floor((at-low)/h)),vec3i(0),vec3i(63));
-   let m=textureLoad(solid,cell,0);if(m.x<0.&&m.w<7.5){return t;}
+  let h=select(3.*object.origin.w/64.,6./128.,woodMoved());
+  for(var i=0;i<384;i++){
+   if(t>=end){break;}let at=eye+ray*(t+.00001);let cell=clamp(vec3i(floor((at-low)/h)),vec3i(0),vec3i(select(63,127,woodMoved())));
+   let m=select(textureLoad(solid,cell,0),objectSample(at),woodMoved());if(m.x<0.&&m.w<7.5){return t;}
    let edge=low+(vec3f(cell)+select(vec3f(0),vec3f(1),ray>vec3f(0)))*h;
    let cross=select(vec3f(1e20),(edge-eye)/safe,abs(ray)>vec3f(.000001));t=max(t+.00001,min(cross.x,min(cross.y,cross.z)));
   }return limit;
@@ -158,7 +176,8 @@ struct Vert{@builtin(position) pos:vec4f,@location(0) uv:vec2f};
    let mass=smoothstep(.005,.12,bed.x);let char=clamp(bed.w*5.,0.,1.);
    // Cold fuel is a dark material lit by the same room/fire irradiance.
    // Heat emission and irreversible char come from the evolving fuel bed.
-   let material=mix(vec3f(.07,.033,.009),vec3f(.012,.011,.010),char);
+   var material=mix(vec3f(.07,.033,.009),vec3f(.012,.011,.010),char);
+   if(cam.up.w>.5){let wear=floorWearAt(at.xz);let initial=max(wear.x,.000001);material=woodMaterial(at.xzy,hit.xyz,bed.y,bed.x/initial,bed.w/initial,wear.w,0.).rgb;}
    albedo=mix(albedo,material,max(mass,char));
   }
   surface=albedo*roomIrradiance(at,hit.xyz)/3.14159;
@@ -167,16 +186,17 @@ struct Vert{@builtin(position) pos:vec4f,@location(0) uv:vec2f};
  let safe=select(vec3f(.000001),ray,abs(ray)>vec3f(.000001));let a=(LO-eye)/safe;let b=(LO+EXT-eye)/safe;
  let near=min(a,b);let far=max(a,b);let start=max(0.,max(near.x,max(near.y,near.z)));
 ${tree?` let mesh=textureLoad(meshPosition,vec2i(v.pos.xy),0);
- var solidHit=limit;if(object.tint.w<.5){solidHit=objectHit(eye,ray,limit);}
- if(mesh.w>.5&&object.tint.w>.5){
+ var solidHit=limit;if(abs(object.tint.w)<.5){solidHit=objectHit(eye,ray,limit);}
+ if(mesh.w>.5&&abs(object.tint.w)>.5){
   let t=length(mesh.xyz-eye);if(t<limit){limit=t;let normalHeat=textureLoad(meshNormal,vec2i(v.pos.xy),0);let material=textureLoad(meshColor,vec2i(v.pos.xy),0);
-   surface=material.xyz*incoming(mesh.xyz+normalHeat.xyz*.045,normalHeat.xyz,true)/3.14159;
-   surface+=colorEmission(vec3f(1,.14,.012))*pow(max(normalHeat.w-.5,0.),3.)*(.08+material.w*.3);
+   surface=woodLit(mesh.xyz+normalHeat.xyz*.018,normalHeat.xyz,material.xyz,material.w,vec3f(0,1,0));
+   surface+=colorEmission(vec3f(1,.14,.012))*pow(max(normalHeat.w-.72,0.),3.)*.08;
   }
  }
 `:' let solidHit=objectHit(eye,ray,limit);'}
- if(solidHit<limit){limit=solidHit;let at=eye+ray*limit;let n=objectNormal(at);let state=surfaceState(at);let material=objectSample(at).w;
-  let diffuse=objectAlbedo(material,state.w)*incoming(at+n*.035,n,true)/3.14159;
+ if(solidHit<limit){limit=solidHit;let at=eye+ray*limit;var n=objectNormal(at);let state=surfaceState(at);let material=objectSample(at).w;
+  var diffuse=objectAlbedo(material,state.w)*incoming(at+n*.035,n,true)/3.14159;
+  if(material>.5&&material<2.5){let wear=surfaceWear(at);let local=(at-object.origin.xyz)/object.origin.w;let wood=woodMaterial(local,n,state.y,state.x,state.w,wear.z,0.);n=woodNormal(local,n,state.x,state.w,wear.z,0.);diffuse=woodLit(at+n*.02,n,wood.rgb,wood.w,vec3f(0,1,0));}
   let glow=colorEmission(vec3f(1,.14,.012))*pow(max(state.y-.5,0.),3.)*.22;
   surface=diffuse+glow;
  }
