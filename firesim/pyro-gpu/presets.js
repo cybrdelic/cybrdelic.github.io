@@ -12,7 +12,7 @@ const preset = (id, name, description, fuel, effect, dynamics, chemistry, option
   chemistry,
   preview:
     effect[0] >= 5 && effect[0] <= 12
-      ? new URL('./source-previews/' + id + '.jpg?v=7a3bf1fa893730f2', import.meta.url).href
+      ? new URL('./source-previews/' + id + '.jpg?v=54c82352661e679d', import.meta.url).href
       : undefined,
   family: effect[0] >= 8 ? 'Sigils' : effect[0] >= 2 ? 'Shapes' : 'Fire',
   ...options,
@@ -147,7 +147,7 @@ export const FIRE_PRESETS = [
     [15, .7, 0, 1],
     [0.3, 0.08, 0.5, 0.65],
     [1, 1, 1, 0.65],
-    {family:'Fire',object:'logs',source:[0,.45,0],minHeight:.45,preview:new URL('./objects/logs.jpg?v=7a3bf1fa893730f2',import.meta.url).href},
+    {family:'Fire',object:'logs',source:[0,.45,0],minHeight:.45,preview:new URL('./objects/logs.jpg?v=54c82352661e679d',import.meta.url).href},
   ),
 
   preset(
@@ -158,7 +158,7 @@ export const FIRE_PRESETS = [
     [15, 1, 0, 1],
     [0.45, 0.12, 1.5, 0.55],
     [1.2, 1.15, 1.2, 1.6],
-    {family:'Fire',object:'logs',source:[0,.64,0],minHeight:.64,preview:new URL('./objects/logs.jpg?v=7a3bf1fa893730f2',import.meta.url).href},
+    {family:'Fire',object:'logs',source:[0,.64,0],minHeight:.64,preview:new URL('./objects/logs.jpg?v=54c82352661e679d',import.meta.url).href},
   ),
 
   preset(
@@ -174,7 +174,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.45, 0],
       minHeight: 0.45,
-      preview: new URL('./objects/logs.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
 
@@ -191,7 +191,7 @@ export const FIRE_PRESETS = [
       object: 'logs',
       source: [0, 0.64, 0],
       minHeight: 0.64,
-      preview: new URL('./objects/logs.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/logs.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
 
@@ -311,7 +311,7 @@ export const FIRE_PRESETS = [
     [15, 1.8, 0, 1],
     [0.16, 0.018, 0.25, 0.55],
     [1, 0.9, 0.75, 0.75],
-    { family:'Sigils',object:'wood-sigil',ignition:'all',source: [0, 1, 0], minHeight: 0.85,preview:new URL('./source-previews/sigil-cybr.jpg?v=7a3bf1fa893730f2',import.meta.url).href },
+    { family:'Sigils',object:'wood-sigil',ignition:'all',source: [0, 1, 0], minHeight: 0.85,preview:new URL('./source-previews/sigil-cybr.jpg?v=54c82352661e679d',import.meta.url).href },
   ),
   preset(
     'sigil-rune',
@@ -374,7 +374,7 @@ export const FIRE_PRESETS = [
     [0.8, 1, 1.2, 0.75],
     {
       smokeSimulation: true,
-      preview: new URL('./source-previews/twin-jets.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./source-previews/twin-jets.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -410,7 +410,7 @@ export const FIRE_PRESETS = [
       object: 'house',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -427,7 +427,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/house.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/house.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -443,7 +443,7 @@ export const FIRE_PRESETS = [
       object: 'car',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -460,7 +460,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/car.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/car.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -477,7 +477,7 @@ export const FIRE_PRESETS = [
       ignition: 'all',
       source: [0, 1.34, 0],
       minHeight: 1.34,
-      preview: new URL('./objects/mannequin.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/mannequin.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -493,7 +493,7 @@ export const FIRE_PRESETS = [
       object: 'cybr-tree',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -510,7 +510,7 @@ export const FIRE_PRESETS = [
       moisture: 'damp',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -527,7 +527,7 @@ export const FIRE_PRESETS = [
       ignition: 'crown',
       source: [0, 1.35, 0],
       minHeight: 1.35,
-      preview: new URL('./objects/forest-tree/preview.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./objects/forest-tree/preview.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
   preset(
@@ -595,7 +595,7 @@ export const FIRE_PRESETS = [
       color: 'violet',
       source: [0, 1, 0],
       minHeight: 0.85,
-      preview: new URL('./source-previews/sigil-cybr.jpg?v=7a3bf1fa893730f2', import.meta.url).href,
+      preview: new URL('./source-previews/sigil-cybr.jpg?v=54c82352661e679d', import.meta.url).href,
     },
   ),
 ];

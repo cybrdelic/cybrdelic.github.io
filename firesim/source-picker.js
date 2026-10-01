@@ -1,5 +1,5 @@
-import { isExperimental } from './demo-presets.js?v=7a3bf1fa893730f2';
-import { FIRE_PRESETS, LEGACY_PRESETS } from './pyro-gpu/presets.js?v=7a3bf1fa893730f2';
+import { isExperimental } from './demo-presets.js?v=54c82352661e679d';
+import { FIRE_PRESETS, LEGACY_PRESETS } from './pyro-gpu/presets.js?v=54c82352661e679d';
 
 const FAMILIES = ['Fire', 'Powers', 'Shapes', 'Sigils', 'Jets', 'Smoke', 'Objects', 'Other'];
 function familyFor(preset) {

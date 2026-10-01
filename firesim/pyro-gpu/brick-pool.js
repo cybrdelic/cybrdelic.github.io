@@ -1,4 +1,4 @@
-import { simulationShaders } from './shaders.js?v=7a3bf1fa893730f2';
+import { simulationShaders } from './shaders.js?v=54c82352661e679d';
 
 // Chemistry is always RGBA16F at the authored 256^3 voxel spacing. The pool
 // changes storage, not the soot/temperature/fuel/oxygen-deficit equations.
@@ -194,18 +194,20 @@ fn resident(index:u32,page:Page)->bool{if(page.slot==0u||page.slot>${C}u){return
 @compute @workgroup_size(256) fn main(@builtin(local_invocation_index) lane:u32){
  let first=lane*${Math.ceil(P / 256)}u;let end=min(first+${Math.ceil(P / 256)}u,${P}u);
  for(var p=first;p<end;p++){next[p]=current[p];}
- if(lane==0u){mode=meta[0];}
+ if(lane==0u){mode=meta[0];failureFlags=0u;}
  storageBarrier();workgroupBarrier();
- // Storage reads are not proven uniform by WGSL, even for one global mode.
- // Broadcast the snapshot explicitly before any lane exits a barrier phase.
- if(workgroupUniformLoad(&mode)==1u){return;}
+ // Every invocation reaches every collective barrier. Storage-dependent
+ // decisions gate work within a phase, never the barriers between phases.
+ // This also avoids requiring workgroupUniformLoad on older WGSL compilers.
  var w=0u;var n=0u;var f=0u;var overflow=0u;
- for(var p=first;p<end;p++){if(requested[p]!=0u){w++;if(!resident(p,current[p])){n++;}}}
  let slotFirst=lane*${Math.ceil(C / 256)}u;let slotEnd=min(slotFirst+${Math.ceil(C / 256)}u,${C}u);
- for(var s=slotFirst;s<slotEnd;s++){let owner=meta[${O.owner}u+s];if(owner==0u||requested[owner-1u]==0u){f++;if(meta[${O.generation}u+s]==0xffffffffu){overflow=1u;}}}
+ if(mode==0u){
+  for(var p=first;p<end;p++){if(requested[p]!=0u){w++;if(!resident(p,current[p])){n++;}}}
+  for(var s=slotFirst;s<slotEnd;s++){let owner=meta[${O.owner}u+s];if(owner==0u||requested[owner-1u]==0u){f++;if(meta[${O.generation}u+s]==0xffffffffu){overflow=1u;}}}
+ }
  wanted[lane]=w;needed[lane]=n;available[lane]=f;exhausted[lane]=overflow;
  workgroupBarrier();
- if(lane==0u){var ws=0u;var ns=0u;var fs=0u;var gs=0u;
+ if(lane==0u&&mode==0u){var ws=0u;var ns=0u;var fs=0u;var gs=0u;
   for(var t=0u;t<256u;t++){let ww=wanted[t];let nn=needed[t];let ff=available[t];wanted[t]=ws;needed[t]=ns;available[t]=fs;ws+=ww;ns+=nn;fs+=ff;gs|=exhausted[t];}
   totals=vec4u(ws,ns,fs,gs);failureFlags=0u;
   if(ws>${C}u||ns>fs){failureFlags|=1u;}if(ws>${plan.fallbackPages}u){failureFlags|=2u;}
@@ -213,18 +215,23 @@ fn resident(index:u32,page:Page)->bool{if(page.slot==0u||page.slot>${C}u){return
   meta[1]=ws;meta[3]=0u;meta[5]=failureFlags;meta[6]++;
   if(failureFlags!=0u){meta[0]=1u;meta[7]=1u;args(0u,0u,0u,0u);args(3u,0u,0u,0u);args(6u,64u,64u,64u);args(9u,64u,64u,64u);args(12u,0u,0u,0u);args(15u,0u,0u,0u);args(18u,0u,0u,0u);}
  }
- workgroupBarrier();storageBarrier();let failed=workgroupUniformLoad(&failureFlags);if(failed!=0u){return;}
- var freeRank=available[lane];
- for(var s=slotFirst;s<slotEnd;s++){let owner=meta[${O.owner}u+s];if(owner==0u||requested[owner-1u]==0u){meta[${O.free}u+freeRank]=s;freeRank++;meta[${O.owner}u+s]=0u;}}
- for(var p=first;p<end;p++){if(requested[p]==0u){next[p]=Page(0u,0u);}}
- storageBarrier();workgroupBarrier();
- var newRank=needed[lane];var activeRank=wanted[lane];
- for(var p=first;p<end;p++){if(requested[p]==0u){continue;}var page=current[p];
-  if(!resident(p,page)){let s=meta[${O.free}u+newRank];let generation=meta[${O.generation}u+s]+1u;meta[${O.generation}u+s]=generation;meta[${O.owner}u+s]=p+1u;page=Page(s+1u,generation);next[p]=page;meta[${O.newSlot}u+newRank]=s;newRank++;}
-  meta[${O.activePage}u+activeRank]=p;meta[${O.activeSlot}u+activeRank]=page.slot-1u;activeRank++;
+ workgroupBarrier();storageBarrier();
+ let mutate=mode==0u&&failureFlags==0u;
+ if(mutate){
+  var freeRank=available[lane];
+  for(var s=slotFirst;s<slotEnd;s++){let owner=meta[${O.owner}u+s];if(owner==0u||requested[owner-1u]==0u){meta[${O.free}u+freeRank]=s;freeRank++;meta[${O.owner}u+s]=0u;}}
+  for(var p=first;p<end;p++){if(requested[p]==0u){next[p]=Page(0u,0u);}}
  }
  storageBarrier();workgroupBarrier();
- if(lane==0u){meta[2]=totals.x;meta[3]=totals.y;meta[4]=totals.z-totals.y;meta[7]=0u;
+ if(mutate){
+  var newRank=needed[lane];var activeRank=wanted[lane];
+  for(var p=first;p<end;p++){if(requested[p]==0u){continue;}var page=current[p];
+   if(!resident(p,page)){let s=meta[${O.free}u+newRank];let generation=meta[${O.generation}u+s]+1u;meta[${O.generation}u+s]=generation;meta[${O.owner}u+s]=p+1u;page=Page(s+1u,generation);next[p]=page;meta[${O.newSlot}u+newRank]=s;newRank++;}
+   meta[${O.activePage}u+activeRank]=p;meta[${O.activeSlot}u+activeRank]=page.slot-1u;activeRank++;
+  }
+ }
+ storageBarrier();workgroupBarrier();
+ if(lane==0u&&mutate){meta[2]=totals.x;meta[3]=totals.y;meta[4]=totals.z-totals.y;meta[7]=0u;
   args(0u,${Math.ceil(B ** 3 / 64)}u,totals.y,1u);args(3u,${(B / 4) ** 3}u,totals.x,1u);args(6u,0u,0u,0u);args(9u,0u,0u,0u);args(12u,${(B / 4) ** 3}u,totals.x,1u);args(15u,1u,1u,1u);args(18u,0u,0u,0u);
  }
 }`;
@@ -333,8 +340,31 @@ export class ChemistryBrickPool {
     this.zeroExtra = buffer('chemistry-no-extra-requests', this.plan.pageCount * 4);
     this.pipelines = {};
     for (const [name, code] of Object.entries(brickPoolKernels(this.plan))) {
-      const module = this.device.createShaderModule({ label: 'chemistry-pool-' + name, code });
-      this.pipelines[name] = await this.device.createComputePipelineAsync({ label: 'chemistry-pool-' + name, layout: 'auto', compute: { module, entryPoint: 'main' } });
+      const label = 'chemistry-pool-' + name;
+      const scoped = typeof this.device.pushErrorScope === 'function' && typeof this.device.popErrorScope === 'function';
+      if (scoped) this.device.pushErrorScope('validation');
+      let module, info, compilationFailure, creationFailure;
+      try {
+        module = this.device.createShaderModule({ label, code });
+        info = await module.getCompilationInfo();
+      } catch (error) {
+        compilationFailure = error;
+      } finally {
+        if (scoped) {
+          try { creationFailure = await this.device.popErrorScope(); }
+          catch (error) { creationFailure = error; }
+        }
+      }
+      const errors = info?.messages.filter((message) => message.type === 'error') ?? [];
+      if (errors.length) throw Error(label + ': ' + errors.slice(0, 5)
+        .map((message) => 'line ' + message.lineNum + ', column ' + message.linePos + ': ' + message.message.slice(0, 1000)).join('\n'));
+      if (compilationFailure || creationFailure) throw Error(label + ': ' +
+        [compilationFailure, creationFailure].filter(Boolean).map((error) => String(error.message ?? error).slice(0, 2000)).join('\n'));
+      try {
+        this.pipelines[name] = await this.device.createComputePipelineAsync({ label, layout: 'auto', compute: { module, entryPoint: 'main' } });
+      } catch (error) {
+        throw Error(label + ': ' + String(error.message ?? error).slice(0, 2000));
+      }
     }
   }
   get pageTable() { return this.pages[this.pageIndex]; }
@@ -368,7 +398,7 @@ export class ChemistryBrickPool {
     const current = this.pageTable, next = this.pages[1 - this.pageIndex];
     // commands is written by topology, so it cannot also be its indirect
     // dispatch source in the same usage scope. One small fixed workgroup is
-    // safe; dense mode copies the stable table and returns before allocation.
+    // safe; dense mode copies the stable table and skips allocation phases.
     this.pass(encoder, 'topology', [[0, requested, true], [1, current, true], [2, next, true], [3, this.metadata, true], [4, this.commands, true]], undefined, [1]);
     this.pass(encoder, 'clearNew', [[0, this.metadata, true], ...this.fields.map((f, i) => [i + 1, f.view, false])], POOL_INDIRECT.clearNew);
     this.pageIndex = 1 - this.pageIndex;

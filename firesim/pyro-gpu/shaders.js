@@ -1,9 +1,9 @@
-import {objectWGSL} from './objects.js?v=7a3bf1fa893730f2';
-import {combustionWGSL} from './combustion.js?v=7a3bf1fa893730f2';
-import {floorFuelWGSL} from './floor-fuel.js?v=7a3bf1fa893730f2';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=7a3bf1fa893730f2';
-import {woodFluxWGSL} from './wood-flux.js?v=7a3bf1fa893730f2';
-import {powerSourceWGSL} from '../fire-powers.js?v=7a3bf1fa893730f2';
+import {objectWGSL} from './objects.js?v=54c82352661e679d';
+import {combustionWGSL} from './combustion.js?v=54c82352661e679d';
+import {floorFuelWGSL} from './floor-fuel.js?v=54c82352661e679d';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=54c82352661e679d';
+import {woodFluxWGSL} from './wood-flux.js?v=54c82352661e679d';
+import {powerSourceWGSL} from '../fire-powers.js?v=54c82352661e679d';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){

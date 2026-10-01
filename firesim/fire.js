@@ -1,15 +1,15 @@
-import {runtimeScope} from './runtime-scope.js?v=7a3bf1fa893730f2';
-import {legacyProbe} from './legacy-qa.js?v=7a3bf1fa893730f2';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=7a3bf1fa893730f2';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=7a3bf1fa893730f2';
-import {emitterKindFor} from './original-source-profile.js?v=7a3bf1fa893730f2';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=7a3bf1fa893730f2';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=7a3bf1fa893730f2';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=7a3bf1fa893730f2';
-import {WOOD_THERMO} from './wood-thermo.js?v=7a3bf1fa893730f2';
-import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=7a3bf1fa893730f2';
-import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=7a3bf1fa893730f2';
-import {powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=7a3bf1fa893730f2';
+import {runtimeScope} from './runtime-scope.js?v=54c82352661e679d';
+import {legacyProbe} from './legacy-qa.js?v=54c82352661e679d';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=54c82352661e679d';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=54c82352661e679d';
+import {emitterKindFor} from './original-source-profile.js?v=54c82352661e679d';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=54c82352661e679d';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=54c82352661e679d';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=54c82352661e679d';
+import {WOOD_THERMO} from './wood-thermo.js?v=54c82352661e679d';
+import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=54c82352661e679d';
+import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=54c82352661e679d';
+import {powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=54c82352661e679d';
 export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -717,7 +717,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   }
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=7a3bf1fa893730f2':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=7a3bf1fa893730f2':name+'.rgba16.bin?v=7a3bf1fa893730f2';
+    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=54c82352661e679d':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=54c82352661e679d':name+'.rgba16.bin?v=54c82352661e679d';
     const response=await fetch('pyro-gpu/objects/'+thermalPath);
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
@@ -1162,8 +1162,8 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=7a3bf1fa893730f2').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=7a3bf1fa893730f2').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=54c82352661e679d').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=54c82352661e679d').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);

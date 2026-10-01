@@ -1,10 +1,10 @@
-import {objectWGSL} from './objects.js?v=7a3bf1fa893730f2';
-import {combustionWGSL} from './combustion.js?v=7a3bf1fa893730f2';
-import {sparseSamplerWGSL} from './sparse-field.js?v=7a3bf1fa893730f2';
-import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=7a3bf1fa893730f2';
-import {sigilGuideWGSL} from './sigil-guide.js?v=7a3bf1fa893730f2';
-import {floorFuelRenderWGSL} from './floor-fuel.js?v=7a3bf1fa893730f2';
-import {woodMaterialWGSL} from '../wood-material.js?v=7a3bf1fa893730f2';
+import {objectWGSL} from './objects.js?v=54c82352661e679d';
+import {combustionWGSL} from './combustion.js?v=54c82352661e679d';
+import {sparseSamplerWGSL} from './sparse-field.js?v=54c82352661e679d';
+import {lightWorkEntryWGSL,lightReceiverEntryWGSL,withLightingReceiverSupport} from './lighting-work.js?v=54c82352661e679d';
+import {sigilGuideWGSL} from './sigil-guide.js?v=54c82352661e679d';
+import {floorFuelRenderWGSL} from './floor-fuel.js?v=54c82352661e679d';
+import {woodMaterialWGSL} from '../wood-material.js?v=54c82352661e679d';
 // Five room faces share this irradiance resolution. Keep atlas allocation,
 // compute dispatch and sampling coordinates in sync with this value.
 export const ROOM_SIZE=64;
