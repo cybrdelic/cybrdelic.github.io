@@ -3,7 +3,7 @@
 // release kg/m²/s, char kg/m². Wood may store NEGATIVE heat: 293.15K is below
 // the gas coordinate's300K origin. This keeps its cold thermal state exact.
 import {WOOD_THERMO,advanceWood,gasHeatToWoodHeat,woodThermoWGSL,
-  woodHeatCapacity} from '../wood-thermo.js?v=54c82352661e679d';
+  woodHeatCapacity} from '../wood-thermo.js?v=7dfac6909b1f2622';
 export const FLOOR_FUEL_SIZE = 128;
 
 // CPU reference of the same reduced floor-column closure. Wear stores

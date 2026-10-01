@@ -263,7 +263,7 @@ window.createFireRoom = () => {
       }
       `;
     }
-    update(vf,chem,gasFlame=0,shadeRoom=true,roomVisible=true,tint=[1,1,1],tintStrength=0,fireLightGain=1) {
+    update(vf,chem,gasFlame=0,shadeRoom=true,roomVisible=true,tint=[1,1,1],tintStrength=0,fireLightGain=1,powerFlame=0) {
       this.fireLightGain=fireLightGain;
       const gl=this.gl;
       const bind=(program,name,tex,unit)=>{gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(program.u(name),unit);};
@@ -272,6 +272,7 @@ window.createFireRoom = () => {
       for(const unit of [9,10,11,12]) {gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,null);}
       begin(this.gather,this.levels[0]);bind(this.gather,'velocity',vf,0);bind(this.gather,'chemistry',chem,1);
       gl.uniform1f(this.gather.u('gasFlame'),gasFlame);
+      gl.uniform1f(this.gather.u('powerFlame'),powerFlame);
       gl.uniform3fv(this.gather.u('flameTint'),tint);
       gl.uniform1f(this.gather.u('tintStrength'),tintStrength);
       gl.drawArrays(gl.TRIANGLES,0,3);

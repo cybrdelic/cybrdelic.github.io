@@ -250,7 +250,7 @@ export class WoodStructure {
     if(this.initializing)throw Error('Structure initialization already pending');
     this.initializing=true;this.disposed=false;
     try{
-    if(assetURL){const base=new URL(assetURL,globalThis.location?.href||'http://localhost/');const manifest=await(await fetch(new URL('manifest.json?v=54c82352661e679d',base))).json();this.count=manifest.nodes;this.maxDepth=manifest.maxDepth;this.nodes=new Float32Array(await(await fetch(new URL('nodes.bin?v=54c82352661e679d',base))).arrayBuffer());this.boundsData=new Float32Array(await(await fetch(new URL('bounds.bin?v=54c82352661e679d',base))).arrayBuffer());}
+    if(assetURL){const base=new URL(assetURL,globalThis.location?.href||'http://localhost/');const manifest=await(await fetch(new URL('manifest.json?v=7dfac6909b1f2622',base))).json();this.count=manifest.nodes;this.maxDepth=manifest.maxDepth;this.nodes=new Float32Array(await(await fetch(new URL('nodes.bin?v=7dfac6909b1f2622',base))).arrayBuffer());this.boundsData=new Float32Array(await(await fetch(new URL('bounds.bin?v=7dfac6909b1f2622',base))).arrayBuffer());}
     if(this.disposed)throw Error('Structure disposed during initialization');
     if(!this.count||this.nodes?.length!==this.count*16||!Number.isInteger(this.count)||this.maxDepth>256)throw Error('Invalid structure asset');
     const usage=GPUBufferUsage, make=(label,size,u)=>this.device.createBuffer({label,size:Math.max(size,16),usage:u});

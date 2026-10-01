@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#10100f" />
     <title>CYBRDELIC / Fire studio</title>
-    <link rel="icon" href="icon.svg?v=54c82352661e679d" type="image/svg+xml" />
-    <link rel="stylesheet" href="studio.css?v=54c82352661e679d" />
-    <link rel="stylesheet" href="pyro-gpu/library.css?v=54c82352661e679d" />
+    <link rel="icon" href="icon.svg?v=7dfac6909b1f2622" type="image/svg+xml" />
+    <link rel="stylesheet" href="studio.css?v=7dfac6909b1f2622" />
+    <link rel="stylesheet" href="pyro-gpu/library.css?v=7dfac6909b1f2622" />
   </head>
   <body>
     <main>
@@ -99,9 +99,10 @@
             <div class="power-strength"><label for="power-strength">Power strength</label><input id="power-strength" type="range" min="25" max="200" step="5" value="100" /><output id="power-strength-value" for="power-strength">100%</output></div>
             <div id="power-aim-fields" class="power-aim-fields" hidden>
               <label for="power-heading">Heading<input id="power-heading" type="range" min="-180" max="180" step="1" value="0" /><output id="power-heading-value" for="power-heading">0°</output></label>
-              <label for="power-elevation">Elevation<input id="power-elevation" type="range" min="-30" max="80" step="1" value="9" /><output id="power-elevation-value" for="power-elevation">9°</output></label>
+              <label id="power-elevation-field" for="power-elevation">Elevation<input id="power-elevation" type="range" min="-30" max="80" step="1" value="9" /><output id="power-elevation-value" for="power-elevation">9°</output></label>
             </div>
             <p id="power-description"></p>
+            <div class="power-status"><output id="power-phase" role="status">Ready</output><progress id="power-progress" max="1" value="0" aria-label="Cast phase"></progress><small id="power-cast-count">0 / 4 casts</small></div>
           </section>
           <div class="camera-bar" aria-label="View controls">
             <div class="control-group tool-switch">
@@ -192,7 +193,7 @@
         </details>
       </footer>
     </main>
-    <script src="scene-lights.js?v=54c82352661e679d"></script>
-    <script type="module" src="studio.js?v=54c82352661e679d"></script>
+    <script src="scene-lights.js?v=7dfac6909b1f2622"></script>
+    <script type="module" src="studio.js?v=7dfac6909b1f2622"></script>
   </body>
 </html>

@@ -1,15 +1,20 @@
-import {runtimeScope} from './runtime-scope.js?v=54c82352661e679d';
-import {legacyProbe} from './legacy-qa.js?v=54c82352661e679d';
-import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=54c82352661e679d';
-import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=54c82352661e679d';
-import {emitterKindFor} from './original-source-profile.js?v=54c82352661e679d';
-import {FuelBrush,floorHit} from './fuel-ground.js?v=54c82352661e679d';
-import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=54c82352661e679d';
-import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=54c82352661e679d';
-import {WOOD_THERMO} from './wood-thermo.js?v=54c82352661e679d';
-import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=54c82352661e679d';
-import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=54c82352661e679d';
-import {powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=54c82352661e679d';
+import {runtimeScope} from './runtime-scope.js?v=7dfac6909b1f2622';
+import {legacyProbe} from './legacy-qa.js?v=7dfac6909b1f2622';
+import {FIRE_PRESETS} from './pyro-gpu/presets.js?v=7dfac6909b1f2622';
+import {FIRE_COLORS} from './pyro-gpu/fire-colors.js?v=7dfac6909b1f2622';
+import {emitterKindFor} from './original-source-profile.js?v=7dfac6909b1f2622';
+import {FuelBrush,floorHit} from './fuel-ground.js?v=7dfac6909b1f2622';
+import {createGroundFuelGL,groundInjectionGLSL,groundSurfaceGLSL} from './ground-fuel-gl.js?v=7dfac6909b1f2622';
+import {SMOKE_CLEAR_DENSITY} from './smoke-lifecycle.js?v=7dfac6909b1f2622';
+import {WOOD_THERMO} from './wood-thermo.js?v=7dfac6909b1f2622';
+import {createWoodStateGL,originalWoodSource,woodSamplingGLSL} from './wood-state-gl.js?v=7dfac6909b1f2622';
+import {createWoodStructureGL,createWoodMeshGL,woodMechanicsGLSL} from './wood-structure-gl.js?v=7dfac6909b1f2622';
+import {POWER_DEFINITIONS,powerDefinition,powerSourceGLSL,normalizePowerSettings} from './fire-powers.js?v=7dfac6909b1f2622';
+import {PowerCastPool} from './fire-abilities.js?v=7dfac6909b1f2622';
+import {POWER_CAST_CAPACITY} from './fire-power-definitions.js?v=7dfac6909b1f2622';
+
+const MAX_POWER_EMITTER=21+Math.max(...POWER_DEFINITIONS.map(power=>power.kind));
+const DIRECTIONAL_GROUND_POWERS=new Set(['flame-dash','eruption-chain','fire-cross']);
 export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount,onFailure=()=>{}}={}){
   const scope=runtimeScope(onFailure),on=scope.on;
   const qaParams=new URL(location.href).searchParams,qaCaptureStop=qaParams.has('qa')?Number(qaParams.get('capture'))||0:0;
@@ -102,7 +107,9 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   if (!gl) { await scope.stop(); throw new Error('WebGL 2 is unavailable in this browser session. Reload or reopen the browser.'); }
   if (!gl.getExtension('EXT_color_buffer_float')) { await scope.stop(); gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('Floating point GPU targets are unavailable in this browser.'); }
   const probe=legacyProbe(gl);
-  const halfFloatLinear = !!gl.getExtension('OES_texture_float_linear');
+  // RGBA16F filtering is core WebGL2 (OES_texture_half_float_linear moved
+  // into core). OES_texture_float_linear only gates 32-bit float filtering.
+  const halfFloatLinear = true;
 
   const vertex = `#version 300 es
   precision highp float;
@@ -171,10 +178,15 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   uniform float presetBuoyancy;
   uniform float sourceHeat;
   uniform float coolingScale;
+  uniform float powerConfinement;
+  uniform float powerTurbulence;
   ${powerSourceGLSL}
-  ${window.FireEmitters}
+  ${window.createFireEmitters(MAX_POWER_EMITTER-21,POWER_CAST_CAPACITY)}
   ${advection.correctionGLSL}
   ${groundInjectionGLSL}
+  float powerIgnition(float heat,float added,float preheat){
+    return heat+max(1.8*preheat-heat,0.)*(1.-exp(-48.*added));
+  }
   layout(location=0) out vec4 outVF;
   layout(location=1) out vec4 outChem;
   void main(){
@@ -192,7 +204,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     float fuel=scalars.r;
     float oxygen=scalars.g;
     float temp=scalars.b, soot=scalars.a;
-    if(temp+soot>.00001) vf.xyz+=vortexForce(at)*delta*(sourceEnabled<.5&&emitterKind==6?2.2:1.);
+    if(temp+soot>.00001) vf.xyz+=vortexForce(at)*delta*(sourceEnabled<.5&&emitterKind==6?2.2:emitterKind>=22&&emitterKind<=${MAX_POWER_EMITTER}?powerConfinement:1.);
     // The source field enters as fresh gas. It never clips existing fire to glyph edges.
     float worldX=simMin.x+p.x*simExtent.x, worldZ=simMin.y+p.y*simExtent.y, worldY=(depth-.5)*simExtent.z;
     woodFuelGas(vec3(worldX,worldZ,worldY),delta,fuel,oxygen,temp);
@@ -262,12 +274,18 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     float brush; vec3 jet;
     emitter(local,worldY,brush,jet);
     if(brush>.000001) {
-    if(emitterKind>=22&&emitterKind<=27){
+    if(emitterKind>=22&&emitterKind<=${MAX_POWER_EMITTER}){
       // Integrate a release rate over simulation time. Source changes do not
       // replace advected gas or re-initialize the combustion field.
       float added=brush*delta*6.*fuelProfile.x;
       if(smokeOnly>.5)soot+=added*fuelProfile.y;
-      else {fuel+=added;oxygen/=1.+added;temp+=added*.8*sourceHeat/(1.+fuel);}
+      else {
+        fuel+=added;oxygen/=1.+added;
+        // Bound source ignition instead of adding sensible heat every frame.
+        // A hotter transported flame is retained. Oxygen is the absolute
+        // fraction here; the Volume deficit uses (deficit+added)/(1+added).
+        temp=powerIgnition(temp,added,sourceHeat);
+      }
       vf.xyz=mix(vf.xyz,jet/simExtent,1.-exp(-added*3.));
     }else if(emitterKind==6){
       float inject=1.-exp(-brush*delta*9.*fuelProfile.x);
@@ -298,7 +316,9 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     }
     }
 
+    float fuelBeforeGround=fuel;
     groundFuelGas(vec3(worldX,worldZ,worldY),delta,fuel,temp);
+    if(emitterKind>=22&&emitterKind<=${MAX_POWER_EMITTER})oxygen/=1.+max(fuel-fuelBeforeGround,0.);
     // Ambient cells retain transported/projected velocity, but need no
     // combustion, turbulence or buoyancy work. Test after source injection so
     // ignition is never skipped, and retain oxygen deficits until they mix out.
@@ -317,7 +337,8 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     fuel=max(0.0,fuel-burn);
     oxygen=clamp(oxygen-burn/.7,0.0,1.0);
     float cooling=sourceEnabled>.5?1.15:emitterKind==1?2.2:emitterKind==2?2.5:emitterKind==3||emitterKind==4?3.2:emitterKind==6?.72:1.15;
-    temp=min(3.0,(temp+burn*5.5)*exp(-cooling*coolingScale*delta));
+    float heatRelease=emitterKind>=22&&emitterKind<=${MAX_POWER_EMITTER}?2.0:5.5;
+    temp=min(3.0,(temp+burn*heatRelease)*exp(-cooling*coolingScale*delta));
     // Soot travels with the same corrected flow as heat and fuel. Fuel-rich
     // burning produces more soot; hot oxygen oxidizes it. Cold smoke survives
     // cooling, rather than disappearing with the flame's temperature.
@@ -337,9 +358,13 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     float buoyancy=sourceEnabled>.5?6.5:emitterKind==1?3.2*sourceLift:emitterKind==2?3.:emitterKind==3||emitterKind==4?.35:emitterKind>=7?presetBuoyancy:6.5;
     if(sourceEnabled<.5 && emitterKind==6)buoyancy=mix(.3,3.6,smoothstep(.2,1.2,burstAge));
     vf.y+=(temp*buoyancy-soot*.32)*delta/simExtent.y;
-    if(sourceEnabled<.5&&brushActive>.5&&emitterKind==25){
-      vec3 origin=vec3(simMin.xy+brushTo*simExtent.xy,powerOriginZ);
-      vf.xyz+=powerAcceleration(4.,vec3(worldX,worldZ,worldY),origin,sourceScale,burstAge,clock,powerDirection,powerStrength)*delta/simExtent;
+    if(sourceEnabled<.5&&brushActive>.5&&emitterKind>=22&&emitterKind<=${MAX_POWER_EMITTER}){
+      for(int actor=0;actor<${POWER_CAST_CAPACITY};actor++){
+        vec4 kindScale=powerCastKindScale[actor];if(kindScale.z<.5)continue;
+        if(!((kindScale.x>3.5&&kindScale.x<4.5)||(kindScale.x>19.5&&kindScale.x<20.5)))continue;
+        vec4 originAge=powerCastOriginAge[actor],directionStrength=powerCastDirectionStrength[actor],targetCharge=powerCastTargetCharge[actor];
+        vf.xyz+=powerCastAcceleration(kindScale.x,vec3(worldX,worldZ,worldY),originAge.xyz,kindScale.y,originAge.w,clock+kindScale.w*11.37,directionStrength.xyz,directionStrength.w,targetCharge.xyz,targetCharge.w)*delta/simExtent;
+      }
     }
     if(sourceEnabled<.5 && emitterKind==6 && temp>.18){
       // Resolved 3D curl accelerates gas at two smaller scales. Its signal is
@@ -348,6 +373,14 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
       vec3 eddy=curlNoise(q,.23)*9.+curlNoise(q+vec3(3.4,1.1,5.7),.11)*2.;
       float energy=smoothstep(.18,.75,temp)*exp(-max(burstAge,0.)*.4);
       vf.xyz+=eddy*energy*delta/simExtent;
+    }
+    if(sourceEnabled<.5 && emitterKind>=22 && emitterKind<=${MAX_POWER_EMITTER} && temp>.35){
+      // A single resolved 3D curl octave breaks up the transported power gas.
+      // Reuse the existing turbulence basis only in warm cells; no extra pass,
+      // resource, or display-space detail is introduced.
+      vec3 q=vec3(worldX,worldZ-clock*.65,worldY)+vec3(clock*.16,0,-clock*.13);
+      float energy=smoothstep(.35,1.1,temp)*clamp(powerTurbulence,.6,1.2);
+      vf.xyz+=curlNoise(q,.20)*3.4*energy*delta/simExtent;
     }
     // Sculpted fire uses a circulating force field, not a screen-space mask.
     // Fuel, heat and soot still advect and cool through the same solver.
@@ -434,7 +467,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     if(woodSurfaceVisible>.5){vec4 woodSurface=texelFetch(woodSurfaceTex,ivec2(gl_FragCoord.xy),0);if(woodSurface.a<surfaceDistance){surfaceDistance=woodSurface.a;surface=woodSurface.rgb;}}
     // Sample every simulated depth layer along the camera ray. The volume has
     // actual parallax; no screen-space billboard or rendered fire plane is used.
-    bool fineDepth=visibleEmitter==4||visibleEmitter==6;
+    bool fineDepth=visibleEmitter==4||visibleEmitter==6||(visibleEmitter>=22&&visibleEmitter<=${MAX_POWER_EMITTER});
     int sampleCount=fineDepth?${DEPTH*2}:${DEPTH};
     for(int i=0;i<${DEPTH*2};i++){
       if(i>=sampleCount)break;
@@ -558,6 +591,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     brush.active = false;
     brush.fromX = brush.x; brush.fromY = brush.y;
     pointer.vx = 0; pointer.vy = 0;
+    powerPool.reset();
     fuelBrush.clear();groundFuel?.clear();woodState?.reset();woodMechanics?.reset();fuelGesture=null;manualFuelSession=false;syncFuelControls();
     if (!pressure || !targets) return;
     pressure.reset();
@@ -571,6 +605,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   function runStep() {
     const from = targets[current], to = targets[1 - current];
     const profile=sharedPresets.get(activePreset);
+    if(profile?.power)powerPool.step(STEP);
     configureWood(profile);
     woodState.step(from.chem,sourceTexture,objectTexture,STEP,{clock:elapsed,age:elapsed-burstStart,starter:!freeMode||brush.active,timeScale:woodTimeScale,mechanics:woodMechanics});
     if(woodState.enabled)woodMechanics.step(woodState,STEP);
@@ -599,17 +634,28 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     gl.uniform3f(uniform(simProgram,'powerDirection'),...powerDirection(activePowerSettings()));
     gl.uniform1f(uniform(simProgram,'powerStrength'),activePowerSettings().strength);
     gl.uniform1f(uniform(simProgram,'powerOriginZ'),powerOriginZ);
+    if(profile?.power){
+      powerPool.write(powerPacked);
+      for(let slot=0;slot<POWER_CAST_CAPACITY;slot++)for(let field=0;field<4;field++)for(let axis=0;axis<4;axis++)powerUniforms[field][slot*4+axis]=powerPacked[slot*16+field*4+axis];
+      gl.uniform4fv(uniform(simProgram,'powerCastOriginAge[0]'),powerUniforms[0]);
+      gl.uniform4fv(uniform(simProgram,'powerCastDirectionStrength[0]'),powerUniforms[1]);
+      gl.uniform4fv(uniform(simProgram,'powerCastKindScale[0]'),powerUniforms[2]);
+      gl.uniform4fv(uniform(simProgram,'powerCastTargetCharge[0]'),powerUniforms[3]);
+    }
     const sourceShape=shapeFor(activePreset);
     gl.uniform1i(uniform(simProgram,'sourceEffectKind'),profile?.effect[0]??-1);
     gl.uniform1f(uniform(simProgram,'objectVariation'),profile?.ignition==='all'?1:profile?.moisture==='damp'?2:profile?.ignition==='crown'?3:0);
     gl.uniform1f(uniform(simProgram,'burstDuration'),profile?.effect[2]||.10);
     const fuel=fuelProfiles[fuelControl.value];
-    gl.uniform3f(uniform(simProgram,'fuelProfile'),fuel[0]*sourceShape[2]*(profile?.chemistry[0]||1),fuel[1]*(profile?.chemistry[2]||1),fuel[2]);
+    gl.uniform3f(uniform(simProgram,'fuelProfile'),fuel[0]*sourceShape[2]*(profile?.chemistry[profile?.power?1:0]||1),fuel[1]*(profile?.chemistry[2]||1),fuel[2]);
     gl.uniform1f(uniform(simProgram,'sourceScale'),sourceShape[0]);
     gl.uniform1f(uniform(simProgram,'sourceLift'),sourceShape[1]);
     gl.uniform1f(uniform(simProgram,'presetBuoyancy'),(profile?.dynamics[3]||1)*4.);
-    gl.uniform1f(uniform(simProgram,'sourceHeat'),profile?.chemistry[1]||1);
-    gl.uniform1f(uniform(simProgram,'coolingScale'),1/Math.max(.4,profile?.chemistry[1]||1));
+    const sourceHeat=profile?.chemistry[profile?.power?0:1]||1;
+    gl.uniform1f(uniform(simProgram,'sourceHeat'),sourceHeat);
+    gl.uniform1f(uniform(simProgram,'coolingScale'),profile?.power?1:1/Math.max(.4,sourceHeat));
+    gl.uniform1f(uniform(simProgram,'powerConfinement'),profile?.power?profile.dynamics[2]:1);
+    gl.uniform1f(uniform(simProgram,'powerTurbulence'),profile?.power?profile.chemistry[3]:0);
     gl.uniform1f(uniform(simProgram,'smokeOnly'),profile?.smokeSimulation||activePreset==='smoke-burst'?1:0);
     gl.uniform1f(uniform(simProgram, 'clock'), elapsed);
     gl.uniform1f(uniform(simProgram, 'delta'), STEP);
@@ -628,7 +674,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, null);
     const blastAge=elapsed-burstStart;
     const expansion=freeMode&&emitterKind===6?1.25+380.*(sharedPresets.get(activePreset)?.dynamics[1]||1)*Math.exp(-Math.max(blastAge,0)*14.)
-      :brush.active&&(powerKind()===1||powerKind()===6)?12.*activePowerSettings().strength:0;
+      :powerKind()?powerPool.expansion():0;
     pressure.update(targets[current].vf,expansion);
     stateRevision++;
     pointer.vx *= .48; pointer.vy *= .48;
@@ -642,7 +688,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     const litVolume=roomEnabled||window.SceneLights.active;
     if(lightingRevision!==window.SceneLights.revision||(litVolume?roomLightRevision!==stateRevision:hasProps&&propLightRevision!==stateRevision)){
       const color=FIRE_COLORS.find(c=>c.id===flameColor);
-      room.update(targets[current].vf,targets[current].chem,fuelControl.value==='gas'?1:0,litVolume,roomEnabled,color?.rgb||[1,1,1],flameColor==='natural'?0:1,fireLight/24);
+      room.update(targets[current].vf,targets[current].chem,fuelControl.value==='gas'?1:0,litVolume,roomEnabled,color?.rgb||[1,1,1],flameColor==='natural'?0:1,fireLight/24,powerKind()?1:0);
       propLightRevision=stateRevision;roomLightRevision=litVolume?stateRevision:-1;lightingRevision=window.SceneLights.revision;
     }
     if(!litVolume && smokeLightRevision!==stateRevision){
@@ -664,6 +710,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     window.SceneLights.bind(gl,name=>uniform(renderProgram,name),roomEnabled);
     gl.uniform1f(uniform(renderProgram,'customLighting'),window.SceneLights.active?1:0);
     gl.uniform1f(uniform(renderProgram,'gasFlame'),fuelControl.value==='gas'?1:0);
+    gl.uniform1f(uniform(renderProgram,'powerFlame'),powerKind()?1:0);
     const tint=FIRE_COLORS.find(c=>c.id===flameColor);
     gl.uniform3fv(uniform(renderProgram,'flameTint'),tint?.rgb||[1,1,1]);
     gl.uniform1f(uniform(renderProgram,'tintStrength'),flameColor==='natural'?0:1);
@@ -691,10 +738,16 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   const brush = { x: .5, y: .5, fromX: .5, fromY: .5, active: false };
   let freeMode = false, activePreset = initialPreset;
   let emitterKind=0, burstStart=-100,powerOriginZ=0,powerTrailLast=null;
-  let powers=normalizePowerSettings(initialPowers??{strength:qaParams.get('powerStrength')??1,heading:qaParams.get('powerHeading')??0,elevation:qaParams.get('powerElevation')??9});
+  let powerAimTarget=null,powerAimDirection=null;
+  const powerTargetBounds={min:[MINX+.02*WX,.14,domain.minimum[2]+.02*WZ],max:[MINX+.98*WX,MINY+.96*WY,domain.minimum[2]+.98*WZ]};
+  const powerPool=new PowerCastPool({bounds:powerTargetBounds}),powerPacked=new Float32Array(POWER_CAST_CAPACITY*16);
+  const powerUniforms=Array.from({length:4},()=>new Float32Array(POWER_CAST_CAPACITY*4));
+  let powers=normalizePowerSettings(initialPowers??{strength:qaParams.get('powerStrength')??1,heading:qaParams.get('powerHeading')??powerDefinition(initialPreset)?.defaultHeading??0,elevation:qaParams.get('powerElevation')??9});
   let launchedPowers={...powers};
-  const powerKind=()=>emitterKind>=22&&emitterKind<=27?emitterKind-21:0;
-  const finitePower=()=>[1,2,6].includes(powerKind());
+  const currentPower=()=>powerDefinition(activePreset);
+  const powerKind=()=>currentPower()?.kind||0;
+  const floorFuelPower=()=>currentPower()?.floorFuel??powerKind()===5;
+  const finitePower=()=>!!currentPower()&&!currentPower().continuous;
   const activePowerSettings=()=>finitePower()?launchedPowers:powers;
   const powerDirection=(settings=powers)=>{const heading=settings.heading*Math.PI/180,elevation=settings.elevation*Math.PI/180,flat=Math.cos(elevation);return [Math.cos(heading)*flat,Math.sin(elevation),Math.sin(heading)*flat];};
   const presetControl=document.querySelector('#preset');
@@ -717,7 +770,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   }
   async function loadObject(name){
     if(objectModels.has(name))return objectModels.get(name);
-    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=54c82352661e679d':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=54c82352661e679d':name+'.rgba16.bin?v=54c82352661e679d';
+    const thermalPath=name==='cybr-tree'?'forest-tree/wood-solid.rgba16.bin?v=7dfac6909b1f2622':['logs','house','wood-sigil'].includes(name)?name+'/solid.rgba16.bin?v=7dfac6909b1f2622':name+'.rgba16.bin?v=7dfac6909b1f2622';
     const response=await fetch('pyro-gpu/objects/'+thermalPath);
     if(!response.ok)throw new Error('Object geometry missing: '+name);
     const bytes=await response.arrayBuffer();
@@ -745,27 +798,15 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     syncFuelControls();
     const name=presetControl.selectedOptions[0]?.textContent||sharedPresets.get(activePreset)?.name||(activePreset==='free'?'Free fire':activePreset==='sigil'?'Cybrdelic sigil':activePreset);
     const finiteWood=originalWoodSource(activePreset,sharedPresets.get(activePreset)).kind>0;
-    const power=powerKind();
+    const definition=currentPower(),power=definition?.kind||0;
     extinguishButton.textContent=finiteWood?'Stop ignition':power?'Stop casting':'Stop fuel';
-    burstButton.textContent=power===2?'Launch fireball':power===6?'Charge bomb':power?'Cast power':'Trigger burst';
-    message.textContent=power?`${name} · ${finitePower()?'click to cast again':power===5?'drag across the floor':'drag to move the power'}`:emitterKind===6?`${name} · click to burst again`:`${name} · drag to move the source`;
-    help.textContent=power===5
-      ? 'Drag on the floor to leave finite burning fuel. The trail burns down after you leave it. Stop casting ends placement; the deposited fire keeps burning.'
-      :power===2
-      ? 'Click to launch from the cursor. Aim and elevation set its trajectory; each launch stops emitting and leaves advected flame and soot.'
-      :power===6
-      ? 'Click a floor point to charge a finite bomb. The charge ignites after its fuse, breaks into expanding flame and smoke, then extinguishes.'
-      :power===1
-      ? 'Click a floor point for a finite outward blast. Recast adds to the live fire and smoke; Pause freezes the full simulation.'
-      :power===3
-      ? 'Click or drag on the floor to move the overhead rain field. Falling fire enters the live flow. Stop casting ends fresh rain.'
-      :power===4
-      ? 'Click or drag on the floor to move the fire vortex. Fuel, heat and soot circulate in the same live solver. Stop casting releases the remaining plume.'
-      :emitterKind===6
+    burstButton.textContent=definition?.action||(power?'Cast power':'Trigger burst');
+    message.textContent=power?`${name} · ${definition.hold?'hold to charge, drag to aim':finitePower()?'click to cast again':floorFuelPower()?'drag across the floor':'drag to move the power'}`:emitterKind===6?`${name} · click to burst again`:`${name} · drag to move the source`;
+    help.textContent=definition?.hint|| (emitterKind===6
       ? 'Click to detonate at the cursor, or use Trigger burst. Each burst adds to the live smoke. Pause to inspect the expansion.'
       : finiteWood
       ? 'Surface heat dries and chars finite wood. Stop ignition ends the starter; hot wood keeps burning until its fuel is spent. Original shares its material state through depth.'
-      : 'Click or drag to place the source. Release to keep burning. Stop fuel lets the flame die while its smoke drifts.';
+      : 'Click or drag to place the source. Release to keep burning. Stop fuel lets the flame die while its smoke drifts.');
     canvas.setAttribute('aria-label',`${name}. ${help.textContent}`);
   }
   function ignite(){
@@ -776,9 +817,11 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     document.querySelector('#pause').textContent='Pause';
     describeSource();
   }
-  function castPower(){
-    if(!powerKind())return false;
-    if(powerKind()===5){
+  function castPower({held=false,target}={}){
+    const definition=currentPower();if(!definition)return false;
+    const cast=powerPool.cast(definition,{origin:[MINX+brush.x*WX,MINY+brush.y*WY,powerOriginZ],direction:powerAimDirection||powerDirection(powers),target:target||powerAimTarget,strength:powers.strength,scale:shapeFor(activePreset)[0],held});
+    if(!cast)return false;
+    if(floorFuelPower()){
       depositPowerTrail([MINX+brush.x*WX,powerOriginZ]);
       groundFuel.ignite();manualFuelSession=true;
     }
@@ -792,7 +835,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   }
   async function selectPreset(key,frameSource=true){
     const profile=sharedPresets.get(key);
-    if((profile?.effect[0]===0||(profile?.effect[0]>=22&&profile?.effect[0]<=27))!==domain.blast||!!profile?.object!==domain.object){onRemount(key);return;}
+    if((profile?.effect[0]===0||!!profile?.power)!==domain.blast||!!profile?.object!==domain.object){onRemount(key);return;}
     objectTexture=profile?.object?await loadObject(profile.object):['sigil','sigil-cybr','violet-sigil'].includes(key)?await loadObject('wood-sigil'):emptyObjectTexture;
     activePreset=key;presetControl.value=key;emitterKind=profile?.object?emitterKindFor(profile):presets[key]??emitterKindFor(profile);
     const woodSource=originalWoodSource(key,profile);await woodMechanics.load(woodSource.kind?profile?.object||(woodSource.kind===2?'logs':'wood-sigil'):null);await woodMesh.load(woodMechanics.asset);
@@ -802,7 +845,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     measurement=null;benchmarkButton.disabled=false;
     freeMode=!!profile?.object||!['sigil','sigil-cybr','violet-sigil'].includes(key);
     pointer.down=false;pointer.id=null;pointer.active=false;endPan();setTool(false);
-    reset();burstStart=-100;powerOriginZ=profile?.source?.[2]??0;powerTrailLast=null;
+    reset();burstStart=-100;powerOriginZ=profile?.source?.[2]??0;powerTrailLast=null;powerAimTarget=null;powerAimDirection=null;
     extinguishButton.hidden=!freeMode;
     burstButton.hidden=emitterKind!==6&&!powerKind();
     restartButton.textContent=key==='free'?'Clear fire':'Restart';
@@ -811,7 +854,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     const height=profile?.source?.[1]??(key==='ring'?1.65:key==='sphere'?1.6:emitterKind===6?.5:key==='torch'?1.1:key==='hearth'?.28:emitterKind===1?.36:.2);
     brush.y=brush.fromY=(height-MINY)/WY;
     paused=false;document.querySelector('#pause').textContent='Pause';lastFrame=performance.now();
-    if(powerKind()===5&&!roomEnabled){roomToggle.checked=true;roomToggle.dispatchEvent(new Event('change'));}
+    if(floorFuelPower()&&!roomEnabled){roomToggle.checked=true;roomToggle.dispatchEvent(new Event('change'));}
     if(freeMode && key!=='free'){if(powerKind())castPower();else ignite();}
     else if(freeMode){extinguishButton.disabled=true;describeSource();message.textContent='Free fire · click to ignite';}
     else {
@@ -863,10 +906,15 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   function placePower(e,start=false){
     const kind=powerKind();
     if(!kind)return false;
-    if(kind===2){point(e);brush.x=pointer.x;brush.y=pointer.y;powerOriginZ=0;return true;}
+    if(!currentPower().floor){point(e);brush.x=pointer.x;brush.y=pointer.y;powerOriginZ=0;return true;}
     const at=roomEnabled?floorPoint(e):[MINX+Math.max(.02,Math.min(.98,scenePoint(e).x))*WX,0];
-    if(!at){if(kind===5)powerTrailLast=null;message.textContent='Choose a floor point inside the simulation to cast this power.';return false;}
-    if(kind===5){
+    if(!at){if(floorFuelPower())powerTrailLast=null;message.textContent='Choose a floor point inside the simulation to cast this power.';return false;}
+    if(DIRECTIONAL_GROUND_POWERS.has(activePreset)){
+      powerAimTarget=[at[0],.14,at[1]];powerAimDirection=[at[0]-(MINX+brush.x*WX),0,at[1]-powerOriginZ];
+      if(Math.hypot(...powerAimDirection)<.001)powerAimDirection=powerDirection(powers);
+      pointer.x=(at[0]-MINX)/WX;pointer.y=brush.y;pointer.active=true;return true;
+    }
+    if(floorFuelPower()){
       if(start)powerTrailLast=at;
       else if(!powerTrailLast&&brush.active&&depositPowerTrail(at)){groundFuel.ignite();manualFuelSession=true;}
       else if(brush.active&&depositPowerTrail(at,powerTrailLast)){groundFuel.ignite();manualFuelSession=true;}
@@ -874,6 +922,14 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     }
     brush.x=(at[0]-MINX)/WX;brush.y=((sharedPresets.get(activePreset)?.source?.[1]??.18)-MINY)/WY;powerOriginZ=at[1];
     pointer.x=brush.x;pointer.y=brush.y;pointer.active=true;return true;
+  }
+  function aimHeldPower(e,release=false){
+    const cast=powerPool.latest;if(!cast?.active||!cast.held)return false;
+    const floor=roomEnabled&&(currentPower().floor||currentPower().targetMode==='ground')?floorPoint(e):null,point=scenePoint(e);
+    const target=floor?[floor[0],.14,floor[1]]:[MINX+point.x*WX,Math.max(.14,MINY+point.y*WY),0];
+    for(let axis=0;axis<3;axis++)target[axis]=Math.max(powerTargetBounds.min[axis],Math.min(powerTargetBounds.max[axis],target[axis]));
+    const direction=target.map((value,axis)=>value-cast.origin[axis]);
+    return release?powerPool.release(target,direction):powerPool.aim(target,direction);
   }
   function addFuelPoint(e,start=false){
     const at=floorPoint(e);
@@ -893,7 +949,10 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     if(panTool||e.shiftKey||e.buttons===2){pointer.active=false;return;}
     if (pointer.down && e.pointerId !== pointer.id) return;
     if(powerKind()){
-      if(pointer.down&&!finitePower())placePower(e);
+      if(pointer.down){
+        if(powerPool.latest?.held)aimHeldPower(e);
+        else if(!finitePower()&&placePower(e))powerPool.move([MINX+brush.x*WX,MINY+brush.y*WY,powerOriginZ],undefined,{direction:powerDirection(powers),strength:powers.strength});
+      }
       return;
     }
     point(e);
@@ -917,9 +976,10 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     }
     pointer.last=0;
     if(powerKind()){
-      if(!placePower(e,true))return;
+      const held=!!currentPower().hold;
+      if(!held&&!placePower(e,true))return;
       pointer.down=true;pointer.id=e.pointerId;view.setPointerCapture(e.pointerId);
-      brush.fromX=brush.x;brush.fromY=brush.y;castPower();return;
+      brush.fromX=brush.x;brush.fromY=brush.y;castPower({held});if(held)aimHeldPower(e);return;
     }
     point(e);
     pointer.down = true; pointer.id = e.pointerId;
@@ -939,7 +999,8 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     if(fuelGesture?.id===e.pointerId){addFuelPoint(e);fuelGesture=null;return;}
     if (e.pointerId !== pointer.id) return;
     if(powerKind()){
-      if(!finitePower())placePower(e);
+      if(powerPool.latest?.held)aimHeldPower(e,true);
+      else if(!finitePower()&&placePower(e))powerPool.move([MINX+brush.x*WX,MINY+brush.y*WY,powerOriginZ],undefined,{direction:powerDirection(powers),strength:powers.strength});
       pointer.down=false;pointer.id=null;powerTrailLast=null;return;
     }
     point(e);
@@ -950,10 +1011,10 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     if(panGesture?.id===e.pointerId){endPan();return;}
     if(fuelGesture?.id===e.pointerId){fuelGesture=null;return;}
     if (e.pointerId !== pointer.id) return;
-    pointer.down = false; pointer.id = null; pointer.active = false;powerTrailLast=null;
+    powerPool.cancelHeld();pointer.down = false; pointer.id = null; pointer.active = false;powerTrailLast=null;
   });
-  on(view,'lostpointercapture', () => { endPan();fuelGesture=null;pointer.down = false; pointer.id = null;powerTrailLast=null; });
-  on(window,'blur', () => { endPan();fuelGesture=null;pointer.down = false; pointer.id = null; pointer.active = false;powerTrailLast=null; });
+  on(view,'lostpointercapture', () => { endPan();fuelGesture=null;powerPool.cancelHeld();pointer.down = false; pointer.id = null;powerTrailLast=null; });
+  on(window,'blur', () => { endPan();fuelGesture=null;powerPool.cancelHeld();pointer.down = false; pointer.id = null; pointer.active = false;powerTrailLast=null; });
   on(view,'pointerleave', () => { if (!pointer.down) pointer.active = false; });
   let captureAt = Number(new URL(location.href).searchParams.get('capture')) || 0;
   let paused = false, elapsed = 0, accumulator = 0, lastFrame = performance.now();
@@ -976,7 +1037,7 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     updateView();
   }
   function setTool(pan,dropFuel=false){
-    endPan();fuelGesture=null;panTool=pan;fuelTool=dropFuel;pointer.active=false;
+    endPan();fuelGesture=null;powerPool.cancelHeld();pointer.down=false;pointer.id=null;powerTrailLast=null;panTool=pan;fuelTool=dropFuel;pointer.active=false;
     document.querySelector('#fire-tool').setAttribute('aria-pressed',String(!pan&&!dropFuel));
     document.querySelector('#pan-tool').setAttribute('aria-pressed',String(pan));
     fuelToolControl.setAttribute('aria-pressed',String(dropFuel));
@@ -1036,9 +1097,10 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
   document.querySelector('#pause').onclick = () => { paused = !paused; document.querySelector('#pause').textContent = paused ? 'Resume' : 'Pause'; };
   extinguishButton.onclick = () => {
     brush.active = false;
+    powerPool.stop();
     pointer.down = false; pointer.id = null;powerTrailLast=null;
     extinguishButton.disabled = true;
-    message.textContent = woodState.enabled?'Ignition stopped · hot wood keeps burning':powerKind()===5?'Casting stopped · the finite trail keeps burning':powerKind()?'Casting stopped · existing flame and smoke continue':'Fuel stopped · smoke continues to drift';
+    message.textContent = woodState.enabled?'Ignition stopped · hot wood keeps burning':floorFuelPower()?'Casting stopped · the finite trail keeps burning':powerKind()?'Casting stopped · existing flame and smoke continue':'Fuel stopped · smoke continues to drift';
     paused = false; captureAt = 0;
     document.querySelector('#pause').textContent = 'Pause';
   };
@@ -1162,8 +1224,8 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
       gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA16F,1,1,1,0,gl.RGBA,gl.HALF_FLOAT,new Uint16Array([0x4900,0,0,0]));
       objectTexture=emptyObjectTexture;
       const [sourceBytes, widthBytes] = await Promise.all([
-        fetch('source/source-native.rgba8.bin?v=54c82352661e679d').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
-        fetch('source/halfwidth-native.r8.bin?v=54c82352661e679d').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
+        fetch('source/source-native.rgba8.bin?v=7dfac6909b1f2622').then(r => { if (!r.ok) throw new Error('Source field missing'); return r.arrayBuffer(); }),
+        fetch('source/halfwidth-native.r8.bin?v=7dfac6909b1f2622').then(r => { if (!r.ok) throw new Error('Source thickness missing'); return r.arrayBuffer(); })
       ]);
       if (sourceBytes.byteLength !== SOURCE_NX * SOURCE_NZ * 4 || widthBytes.byteLength !== SOURCE_NX * SOURCE_NZ) throw new Error('Source field size mismatch');
       const sourcePixels = new Uint8Array(sourceBytes);
@@ -1196,9 +1258,13 @@ export async function mountLegacy({initialPreset='sigil',initialPowers,onRemount
     setVisible(value){if(!value)cancelMeasurement();scope.setVisible(value);},
     fire:selectPreset,
     castPower,
-    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:inspectSmoke,color:flameColor,fireLight,woodTimeScale,powers:{...powers},room:roomEnabled,sourceGuide,tool:fuelTool?'fuel':panTool?'pan':'fire',camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
+    abilityState:()=>powerPool.snapshot(),
+    aimPower:(target,direction)=>powerPool.aim(target,direction),
+    releasePower:(target,direction)=>powerPool.release(target,direction),
+    cancelPower:()=>powerPool.cancelHeld(),
+    snapshot:()=>({fire:'legacy:'+activePreset,fuel:fuelControl.value,smoke:inspectSmoke,color:flameColor,fireLight,woodTimeScale,powers:{...powers},ability:powerPool.snapshot(),room:roomEnabled,sourceGuide,tool:fuelTool?'fuel':panTool?'pan':'fire',camera:{zoom:viewZoom,angle:viewAngle,pan:[panX,panY]}}),
     look(item){
-      if(item.powers)powers=normalizePowerSettings({...powers,...item.powers});
+      if(item.powers){powers=normalizePowerSettings({...powers,...item.powers});powerPool.updateContinuous({direction:powerDirection(powers),strength:powers.strength});}
       if(typeof item.sourceGuide==='boolean'){sourceGuide=item.sourceGuide;guideControl.checked=sourceGuide;needsDraw=true;}
       if(item.woodTimeScale!==undefined)setWoodSpeed(item.woodTimeScale);
       if(item.tool)setTool(item.tool==='pan',item.tool==='fuel');

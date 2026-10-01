@@ -1,7 +1,7 @@
-import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=54c82352661e679d';
-import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=54c82352661e679d';
-import { lookStore } from '../look-storage.js?v=54c82352661e679d';
-import { modeForFire } from '../simulation-modes.js?v=54c82352661e679d';
+import { ALL_FIRE_PRESETS, SCENES } from './presets.js?v=7dfac6909b1f2622';
+import { DEMO_PRESETS, isExperimental } from '../demo-presets.js?v=7dfac6909b1f2622';
+import { lookStore } from '../look-storage.js?v=7dfac6909b1f2622';
+import { modeForFire } from '../simulation-modes.js?v=7dfac6909b1f2622';
 
 const CATEGORIES = ['Demos', 'Powers', 'Sources', 'Lighting', 'Tests', 'Experiments', 'Saved'];
 const LIGHTING = [
@@ -38,7 +38,7 @@ export function filterLibrary(items, term = '', simulation = 'all', currentFire 
     const searchableMode = original ? 'original' : explicitMode === 'sparse' ? 'sparse voxels' : explicitMode === 'volume' ? '3d volume' : '3d volume sparse voxels';
     return (item.kind === 'lighting' || selected === 'all' ||
       (original === (selected === 'legacy') && (!explicitMode || explicitMode === selected))) &&
-      [item.name, item.description, item.family, searchableMode]
+      [item.name, item.description, item.family, item.abilityGroup, searchableMode]
         .filter(Boolean).join(' ').toLowerCase().includes(query);
   });
 }
@@ -74,7 +74,7 @@ export function mountLibrary(api) {
   categoryControl.append(...CATEGORIES.map((name) => new Option(name, name)));
   const descriptions = {
     Demos: 'Starting scenes for the selected simulation. Present hides the controls.',
-    Powers: 'Cast a blast, launch a fireball, or shape a sustained effect. These run live in both simulations.',
+    Powers: 'Choose projectiles, terrain effects, directed streams, sweeps or moving fields. Casts run live in the selected simulation.',
     Sources: 'Fire, powers, smoke, sigils, and shapes. Switch the simulation filter to compare sources.',
     Lighting: 'Light the current scene with a key, rim, ambient fill, or room bounce.',
     Tests: 'Fixed cameras and lighting for checking smoke transport, shadows, and combustion.',

@@ -1,15 +1,15 @@
-import { readLook, writeLook } from './studio-location.js?v=54c82352661e679d';
-import { createFireDomain } from './fire-domain.js?v=54c82352661e679d';
-import { inspectionState } from './inspection-state.js?v=54c82352661e679d';
-import { loadRuntime } from './runtime-loader.js?v=54c82352661e679d';
-import { studioUI } from './studio-ui.js?v=54c82352661e679d';
-import { DEMO_PRESETS } from './demo-presets.js?v=54c82352661e679d';
-import { matchingPreset } from './preset-pairs.js?v=54c82352661e679d';
-import { sourceGroups, sourceSelection } from './source-picker.js?v=54c82352661e679d';
-import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=54c82352661e679d';
-import { mountLibrary } from './pyro-gpu/library.js?v=54c82352661e679d';
-import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=54c82352661e679d';
-import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=54c82352661e679d';
+import { readLook, writeLook } from './studio-location.js?v=7dfac6909b1f2622';
+import { createFireDomain } from './fire-domain.js?v=7dfac6909b1f2622';
+import { inspectionState } from './inspection-state.js?v=7dfac6909b1f2622';
+import { loadRuntime } from './runtime-loader.js?v=7dfac6909b1f2622';
+import { studioUI } from './studio-ui.js?v=7dfac6909b1f2622';
+import { DEMO_PRESETS } from './demo-presets.js?v=7dfac6909b1f2622';
+import { matchingPreset } from './preset-pairs.js?v=7dfac6909b1f2622';
+import { sourceGroups, sourceSelection } from './source-picker.js?v=7dfac6909b1f2622';
+import { modeForFire, readSimulation, runtimeFamily } from './simulation-modes.js?v=7dfac6909b1f2622';
+import { mountLibrary } from './pyro-gpu/library.js?v=7dfac6909b1f2622';
+import { LEGACY_PRESETS, FIRE_PRESETS, SCENES } from './pyro-gpu/presets.js?v=7dfac6909b1f2622';
+import { powerDefinition, normalizePowerSettings } from './fire-powers.js?v=7dfac6909b1f2622';
 
 const $ = (selector) => document.querySelector(selector);
 const params = new URL(location.href).searchParams;
@@ -121,14 +121,16 @@ function transitionLook(kind, chosen, old, force) {
   }
   if (force && old.fire === chosen.id) return old;
   return { room: old.room, fireLight: old.fireLight, fuel: chosen.fuel,
-    ...(powerDefinition(chosen) && powerDefinition(old.fire) ? {powers:old.powers}: {}) };
+    ...(powerDefinition(chosen) ? {powers:normalizePowerSettings({strength:old.powers?.strength??1,heading:powerDefinition(chosen).defaultHeading,elevation:9})}: {}) };
 }
 
 function syncPowerControls() {
   const definition=powerDefinition($('#preset').value);
   $('#power-controls').hidden=!definition;
   if(!definition)return;
-  $('#power-aim-fields').hidden=definition.kind!==2;
+  const directed=['aim','projectile'].includes(definition.targetMode)||['flame-dash','eruption-chain','fire-cross','flame-wall','phoenix-dive','meteor-strike','meteor-barrage'].includes(definition.id);
+  $('#power-aim-fields').hidden=!directed;
+  $('#power-elevation-field').hidden=definition.floor;
   $('#power-description').textContent=definition.hint;
   const display=()=>{
     const settings=normalizePowerSettings(runtime?.snapshot()?.powers);
@@ -145,6 +147,16 @@ function syncPowerControls() {
   };
   display();
 }
+
+// UI telemetry stays off the physics step and changes only a few DOM values.
+window.setInterval?.(()=>{
+  if(document.hidden||$('#power-controls').hidden)return;
+  const ability=runtime?.abilityState?.();if(!ability)return;
+  const phase=ability.phase?.name||'Ready',held=ability.casts?.find(c=>c.held);
+  if($('#power-phase').textContent!==phase)$('#power-phase').textContent=phase;
+  $('#power-progress').value=held?held.charge:ability.phase?.progress||0;
+  $('#power-cast-count').textContent=ability.active+' / '+ability.capacity+' casts';
+},150);
 
 async function mount(kind, chosen, plain, old, look) {
   const original = kind === 'legacy';

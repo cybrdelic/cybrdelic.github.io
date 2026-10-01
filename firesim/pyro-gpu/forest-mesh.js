@@ -1,9 +1,9 @@
 // The reviewed forest-surface asset is rasterized at its original topology.
 // A separate 64³ fuel/collision proxy is used by the fluid solver.
-import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=54c82352661e679d';
-import { woodStateWGSL } from './objects.js?v=54c82352661e679d';
-import { woodMaterialWGSL } from '../wood-material.js?v=54c82352661e679d';
-import {woodPoseWGSL} from '../wood-structure.js?v=54c82352661e679d';
+import { SOURCE_SCALE, SOURCE_CENTER } from './objects/forest-tree/source-space.js?v=7dfac6909b1f2622';
+import { woodStateWGSL } from './objects.js?v=7dfac6909b1f2622';
+import { woodMaterialWGSL } from '../wood-material.js?v=7dfac6909b1f2622';
+import {woodPoseWGSL} from '../wood-structure.js?v=7dfac6909b1f2622';
 export const forestMeshWGSL = `
 ${woodStateWGSL}
 ${woodMaterialWGSL}
@@ -159,7 +159,7 @@ export class ForestMesh {
       d = s.device,
       base = new URL('./objects/'+(s.objectId==='cybr-tree'?'forest-tree/structure':s.objectId)+'/', import.meta.url);
     const get = async (name) => {
-      const r = await fetch(new URL(name + '?v=54c82352661e679d', base));
+      const r = await fetch(new URL(name + '?v=7dfac6909b1f2622', base));
       if (!r.ok) throw Error('Reviewed tree asset unavailable: ' + name);
       return r;
     };
@@ -176,7 +176,7 @@ export class ForestMesh {
     this.draws=[{vertices:await buffer('vertices.bin',GPUBufferUsage.VERTEX),indices:await buffer('indices.bin',GPUBufferUsage.INDEX),owners:await buffer('owners.bin',GPUBufferUsage.VERTEX),count:this.manifest.partitionTriangles*3}];
     if(this.manifest.caps.triangles>0)this.draws.push({vertices:await buffer('cap-vertices.bin',GPUBufferUsage.VERTEX),indices:await buffer('cap-indices.bin',GPUBufferUsage.INDEX),owners:await buffer('cap-owner-pairs.bin',GPUBufferUsage.VERTEX),count:this.manifest.caps.triangles*3});
     const texture = async (name, format) => {
-      const bitmap = await createImageBitmap(await (await fetch(new URL('./objects/forest-tree/'+name + "?v=54c82352661e679d",import.meta.url))).blob(), {
+      const bitmap = await createImageBitmap(await (await fetch(new URL('./objects/forest-tree/'+name + "?v=7dfac6909b1f2622",import.meta.url))).blob(), {
         colorSpaceConversion: 'none',
         imageOrientation: 'flipY',
       });

@@ -708,6 +708,10 @@ body[data-demo='true'] main:fullscreen .view {
 .power-controls p { margin: .55rem 0 0; font-size: .8rem; line-height: 1.45; color: var(--muted, #aaa69f); }
 .power-controls input { min-width: 0; width: 100%; }
 .power-controls output { font-variant-numeric: tabular-nums; text-align: right; }
+.power-status { display: grid; grid-template-columns: minmax(7rem, auto) 1fr auto; gap: .75rem; align-items: center; margin-top: .55rem; font-size: .75rem; }
+.power-status output { text-align: left; color: var(--muted, #aaa69f); }
+.power-status progress { width: 100%; height: .25rem; accent-color: #f49340; }
+.power-status small { font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .power-aim-fields { grid-template-columns: 1fr; gap: .4rem; } }
 @media (min-width: 721px) {
   .view {

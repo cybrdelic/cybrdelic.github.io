@@ -1,12 +1,12 @@
-import { FIRE_COLORS } from './fire-colors.js?v=54c82352661e679d';
-import { PyroSolver } from './solver.js?v=54c82352661e679d';
-import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=54c82352661e679d';
-import { runtimeScope } from '../runtime-scope.js?v=54c82352661e679d';
-import { outputSize } from './output-size.js?v=54c82352661e679d';
-import { gpuSessionTimeout } from './gpu-session.js?v=54c82352661e679d';
-import { floorHit } from '../fuel-ground.js?v=54c82352661e679d';
-import { volumeOptions } from '../simulation-modes.js?v=54c82352661e679d';
-import { powerDefinition, normalizePowerSettings, powerDirection } from '../fire-powers.js?v=54c82352661e679d';
+import { FIRE_COLORS } from './fire-colors.js?v=7dfac6909b1f2622';
+import { PyroSolver } from './solver.js?v=7dfac6909b1f2622';
+import { FIRE_PRESETS, sourceOrigin } from './presets.js?v=7dfac6909b1f2622';
+import { runtimeScope } from '../runtime-scope.js?v=7dfac6909b1f2622';
+import { outputSize } from './output-size.js?v=7dfac6909b1f2622';
+import { gpuSessionTimeout } from './gpu-session.js?v=7dfac6909b1f2622';
+import { floorHit } from '../fuel-ground.js?v=7dfac6909b1f2622';
+import { volumeOptions } from '../simulation-modes.js?v=7dfac6909b1f2622';
+import { powerDefinition, normalizePowerSettings, powerDirection } from '../fire-powers.js?v=7dfac6909b1f2622';
 export async function mountVolume({
   initialPreset = 'explosion',
   initialPowers,
@@ -41,7 +41,7 @@ export async function mountVolume({
     trace = [],
     captureIndex = 0,
     saved = false;
-  let powers=normalizePowerSettings(initialPowers??{strength:params.get('powerStrength')??1,heading:params.get('powerHeading')??0,elevation:params.get('powerElevation')??9});
+  let powers=normalizePowerSettings(initialPowers??{strength:params.get('powerStrength')??1,heading:params.get('powerHeading')??powerDefinition(initialPreset)?.defaultHeading??0,elevation:params.get('powerElevation')??9});
   let frameCount = 0,
     queueLimitedRafs = 0,
     testScenario = null,
@@ -276,6 +276,17 @@ export async function mountVolume({
     const at=floorPoint(e);
     return at ? [at[0],activeFire.source?.[1]??.18,at[1]] : null;
   }
+  function powerAim(e) {
+    const definition=powerDefinition(activeFire);
+    if(definition?.floor){const at=floorPoint(e);return at?[at[0],.14,at[1]]:null;}
+    return locationPoint(e);
+  }
+  function aimDirection(at,origin=solver.source) {
+    const d=at.map((v,i)=>v-origin[i]),n=Math.hypot(...d);
+    if(n<.08)return powerDirection(powers);
+    powers=normalizePowerSettings({...powers,heading:Math.atan2(d[2],d[0])*180/Math.PI,elevation:Math.atan2(d[1],Math.hypot(d[0],d[2]))*180/Math.PI});
+    return d.map(v=>v/n);
+  }
   function releaseBusy() {
     busy = false;
     if (!resetQueued) return;
@@ -354,7 +365,7 @@ export async function mountVolume({
   $('#restart').onclick = () => restart().catch(onFailure);
   $('#burst').onclick = burst;
   $('#extinguish').onclick = () => {
-    if (solver) solver.active = false;
+    if (solver) {if(activeFire.power)solver.stopPower();else solver.active = false;}
     message.textContent = activeFire.object ? 'Ignition stopped · hot material can keep burning' : activeFire.power ? 'Power stopped · released fire and smoke continue' : 'Source stopped · smoke continues to drift';
   };
   $('#smoke-only').onchange = () => {
@@ -406,6 +417,7 @@ export async function mountVolume({
     sync();
   };
   function tool(next) {
+    if(gesture?.held)solver?.cancelPower();
     if(gesture&&view.hasPointerCapture?.(gesture.id))view.releasePointerCapture(gesture.id);
     gesture=null;
     activeTool=next;
@@ -431,8 +443,15 @@ export async function mountVolume({
     if (!isPan) {
       if(activeTool==='fuel')placeFuel(e);
       else if(activeFire.power) {
-        const at=powerPoint(e);
-        if(at){solver.source=at;burst();}
+        const definition=powerDefinition(activeFire),at=powerPoint(e),aim=powerAim(e);
+        if(definition.hold&&aim){
+          gesture.held=true;gesture.target=aim;gesture.direction=aimDirection(aim);
+          solver.castPower(solver.source,gesture.direction,powers.strength,{target:aim,held:true});paused=false;sync();
+        }else if(at){
+          if(['flame-dash','eruption-chain','fire-cross'].includes(definition.id)&&aim){
+            solver.castPower(solver.source,aimDirection(aim),powers.strength,{target:aim});paused=false;sync();
+          }else{solver.source=at;burst();}
+        }
         else message.textContent='Choose a floor point inside the simulation to cast this power.';
       } else {solver.source = locationPoint(e);burst();}
     }
@@ -446,16 +465,16 @@ export async function mountVolume({
       sync();
     } else if(activeTool==='fuel')placeFuel(e);
     else if(activeFire.power) {
+      if(gesture.held){const target=powerAim(e);if(target){gesture.target=target;gesture.direction=aimDirection(target);solver.aimPower(target,gesture.direction);}markDirty();return;}
       const at=powerPoint(e);
       if(!at&&activeFire.power==='floor-trail')solver.powerTrailLast=null;
       if(at&&solver.active)solver.movePower(at,powerDirection(powers));
       markDirty();
     } else solver.source = locationPoint(e);
   });
-  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'])
-    on(view, name, () => {
-      gesture = null;
-    });
+  on(view,'pointerup',e=>{if(!gesture||gesture.id!==e.pointerId)return;if(gesture.held)solver.releasePower(gesture.target,gesture.direction);gesture=null;sync();});
+  for(const name of ['pointercancel','lostpointercapture'])on(view,name,e=>{if(!gesture||gesture.id!==e.pointerId)return;if(gesture.held)solver?.cancelPower();gesture=null;});
+  on(window,'blur',()=>{if(gesture?.held)solver?.cancelPower();gesture=null;});
   on(view, 'contextmenu', (e) => e.preventDefault());
   on(
     view,
@@ -523,7 +542,7 @@ export async function mountVolume({
           }
         : null;
     return {
-      build: 'fire-studio-rc-17',
+      build: 'fire-studio-rc-18',
       adapter: solver.adapter,
       grid: { velocity: solver.N, scalar: solver.D },
       settings: {
@@ -579,7 +598,7 @@ export async function mountVolume({
   }
   function advanceTest() {
     if (testScenario?.stopAfter && !testStopped && solver.time >= testScenario.stopAfter) {
-      solver.active = false;
+      if(activeFire.power)solver.stopPower();else solver.active = false;
       testStopped = true;
       message.textContent =
         'Test: fuel stopped at ' +
@@ -820,7 +839,7 @@ export async function mountVolume({
     solver = await PyroSolver.create(canvas, volumeOptions(params, simulation));
     solver.woodTimeScale = woodTimeScale;
     if (params.has('validate')) {
-      const { pressureCheck } = await import('./pressure-check.js?v=54c82352661e679d');
+      const { pressureCheck } = await import('./pressure-check.js?v=7dfac6909b1f2622');
       const report = await pressureCheck(solver.device);
       await save(params.get('qa') + '-pressure', report);
       if (!report.pass) throw Error('GPU pressure reference failed: ' + JSON.stringify(report));
@@ -860,11 +879,13 @@ export async function mountVolume({
     },
     setVisible: scope.setVisible,
     fire: applyFire,
+    abilityState:()=>solver?.powerCasts?.snapshot(),
     snapshot: () => ({
       simulation,
       tool: activeTool,
       woodTimeScale,
       powers:{...powers},
+      ability:solver?.powerCasts?.snapshot(),
       fire: activeFire.id,
       color: flameColor,
       embers,

@@ -22,7 +22,9 @@
     constructor(gl, options) {
       if (!gl || typeof gl.createFramebuffer !== 'function') throw new Error('WebGL 2 required');
       if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('EXT_color_buffer_float required');
-      if (!gl.getExtension('OES_texture_float_linear')) throw new Error('Linear float textures required for MacCormack');
+      // These predictor/scalar targets are RGBA16F. Linear half-float sampling
+      // is core WebGL2; the optional OES_texture_float_linear extension only
+      // controls 32-bit float formats, which this transport never samples.
       const { nx, nz, depth, tilesX, tilesY, pressureSamplingGLSL } = options || {};
       for (const [name, value] of Object.entries({ nx, nz, depth, tilesX, tilesY })) {
         if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${name}`);

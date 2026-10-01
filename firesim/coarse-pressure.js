@@ -69,8 +69,10 @@
       if (this.atlasWidth > gl.getParameter(gl.MAX_TEXTURE_SIZE) || this.atlasHeight > gl.getParameter(gl.MAX_TEXTURE_SIZE)) {
         throw new Error('Coarse pressure atlas exceeds MAX_TEXTURE_SIZE');
       }
-      this.linearFloat = !!gl.getExtension('OES_texture_float_linear');
-      this.packedCorrection = !this.linearFloat;
+      // Only the RGBA16F correction is linearly sampled. Half-float filtering
+      // is core WebGL2; R32F pressure/divergence remain NEAREST/texelFetch.
+      this.linearFloat = true;
+      this.packedCorrection = false;
       this.vao = gl.createVertexArray();
       this.targets = [];
       this.programs = [];

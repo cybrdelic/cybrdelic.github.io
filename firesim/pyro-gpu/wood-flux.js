@@ -1,6 +1,6 @@
-import { objectWGSL } from './objects.js?v=54c82352661e679d';
-import { woodPoseWGSL } from '../wood-structure.js?v=54c82352661e679d';
-import { WOOD_THERMO } from '../wood-thermo.js?v=54c82352661e679d';
+import { objectWGSL } from './objects.js?v=7dfac6909b1f2622';
+import { woodPoseWGSL } from '../wood-structure.js?v=7dfac6909b1f2622';
+import { WOOD_THERMO } from '../wood-thermo.js?v=7dfac6909b1f2622';
 
 // The first four words are two unsigned64 counters implemented with ordinary
 // u32 atomics. Word4 is the reciprocal masked-fine-kernel integral; word5 marks

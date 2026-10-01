@@ -1,9 +1,9 @@
-import {objectWGSL} from './objects.js?v=54c82352661e679d';
-import {combustionWGSL} from './combustion.js?v=54c82352661e679d';
-import {floorFuelWGSL} from './floor-fuel.js?v=54c82352661e679d';
-import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=54c82352661e679d';
-import {woodFluxWGSL} from './wood-flux.js?v=54c82352661e679d';
-import {powerSourceWGSL} from '../fire-powers.js?v=54c82352661e679d';
+import {objectWGSL} from './objects.js?v=7dfac6909b1f2622';
+import {combustionWGSL} from './combustion.js?v=7dfac6909b1f2622';
+import {floorFuelWGSL} from './floor-fuel.js?v=7dfac6909b1f2622';
+import {SMOKE_CLEAR_DENSITY} from '../smoke-lifecycle.js?v=7dfac6909b1f2622';
+import {woodFluxWGSL} from './wood-flux.js?v=7dfac6909b1f2622';
+import {powerSourceWGSL, POWER_DEFINITIONS} from '../fire-powers.js?v=7dfac6909b1f2622';
 // MAC velocity components live on their own faces in one (N+1)^3 texture.
 // Scalars live at cell centers. All distances and velocities use world units.
 export function simulationShaders(N=128,D=256,{flowSupport=false}={}){
@@ -13,7 +13,8 @@ ${objectWGSL}
 ${woodFluxWGSL}
 const N:u32=${N}u;const D:u32=${D}u;const H:f32=6.0/${N}.0;
 const LO=vec3f(-3,0,-3);const EXT=vec3f(6);
-struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f,power:vec4f};
+struct PowerCast{originAge:vec4f,directionStrength:vec4f,kindScale:vec4f,targetCharge:vec4f};
+struct Params{step:vec4f,source:vec4f,shape:vec4f,effect:vec4f,dynamics:vec4f,chemistry:vec4f,lifecycle:vec4f,power:vec4f,casts:array<PowerCast,4>};
 @group(0) @binding(0) var<uniform> p:Params;
 @group(0) @binding(1) var smp:sampler;
 @group(0) @binding(8) var sigilSource:texture_2d<f32>;
@@ -54,33 +55,47 @@ fn jetDirection()->vec3f{
 }
 ${powerSourceWGSL}
 fn powerKind()->f32{return p.effect.x-21.;}
-fn isPower()->bool{return p.effect.x>=22.&&p.effect.x<=27.;}
-fn powerSample(x:vec3f)->vec4f{return powerSource(powerKind(),x,p.source.xyz,p.effect.y,p.step.z,p.step.y,p.power.xyz,p.power.w);}
+fn isPower()->bool{return ${POWER_DEFINITIONS.map(definition=>`p.effect.x==${definition.kind+21}.`).join('||')};}
+struct PowerInjection{gas:vec4f,expansion:f32};
+fn powerInjection(x:vec3f)->PowerInjection{
+ if(p.source.w<.5){return PowerInjection(vec4f(0),0.);}
+ var momentum=vec3f(0);var weight=0.;var expansion=0.;
+ for(var i=0u;i<4u;i++){
+  let actor=p.casts[i];if(actor.kindScale.z<.5){continue;}
+  let value=powerCastSource(actor.kindScale.x,x,actor.originAge.xyz,actor.kindScale.y,actor.originAge.w,p.step.y+actor.kindScale.w,actor.directionStrength.xyz,actor.directionStrength.w,actor.targetCharge.xyz,actor.targetCharge.w);
+  momentum+=value.xyz*value.w;weight+=value.w;
+  expansion+=value.w*powerCastExpansion(actor.kindScale.x,actor.originAge.w);
+ }
+ return PowerInjection(vec4f(momentum/max(weight,.00001),weight),expansion/max(weight,.00001));
+}
+fn powerSample(x:vec3f)->vec4f{return powerInjection(x).gas;}
+fn powerForce(x:vec3f)->vec3f{
+ if(p.source.w<.5){return vec3f(0);}
+ var force=vec3f(0);
+ for(var i=0u;i<4u;i++){
+  let actor=p.casts[i];if(actor.kindScale.z<.5){continue;}
+  force+=powerCastAcceleration(actor.kindScale.x,x,actor.originAge.xyz,actor.kindScale.y,actor.originAge.w,p.step.y+actor.kindScale.w,actor.directionStrength.xyz,actor.directionStrength.w,actor.targetCharge.xyz,actor.targetCharge.w);
+ }
+ return force;
+}
+fn powerIgnition(heat:f32,added:f32,preheat:f32)->f32{
+ let pilotHeat=1.8*preheat;
+ return heat+max(pilotHeat-heat,0.)*(1.-exp(-48.*added));
+}
+fn powerOxygen(deficit:f32,added:f32)->f32{return (deficit+added)/(1.+added);}
 fn powerBrickLive(at:vec3f,halfBrick:f32)->bool{
- let kind=powerKind();let scale=max(p.effect.y,.05);
- if(p.step.z<0.){return false;}
- if(kind>1.5&&kind<2.5){
-  if(p.step.z>1.15){return false;}
-  let center=powerFireballCenter(p.source.xyz,scale,p.step.z,p.power.xyz);
-  let near=max(abs(at-center)-vec3f(halfBrick),vec3f(0));
-  return dot(near,near)<=pow(.43*scale,2.);
+ if(p.source.w<.5){return false;}
+ for(var i=0u;i<4u;i++){
+  let actor=p.casts[i];if(actor.kindScale.z<.5){continue;}
+  if(powerCastSupport(actor.kindScale.x,at,actor.originAge.xyz,actor.kindScale.y,actor.originAge.w,halfBrick*1.733,actor.targetCharge.xyz,actor.directionStrength.xyz,actor.targetCharge.w)){return true;}
  }
- if(kind>2.5&&kind<3.5){
-  // Nine tests per brick, not per gas cell: exact moving packet bounds avoid
-  // marking the entire empty rain box as chemistry work every substep.
-  for(var z=0u;z<3u;z++){for(var x=0u;x<3u;x++){
-   let center=p.source.xyz+powerRainCenter(vec2f(f32(x),f32(z)),p.step.z)*scale;
-   let near=max(abs(at-center)-vec3f(halfBrick),vec3f(0))/(vec3f(.15,.23,.15)*scale);
-   if(dot(near,near)<=12.){return true;}
-  }}return false;
- }
- return powerSupport(kind,at,p.source.xyz,scale,p.step.z,halfBrick*1.733);
+ return false;
 }
 fn charge(x:vec3f)->f32{
  if(abs(object.tint.w)>.5){return 0.;}
+ if(isPower()){return powerSample(x).w;}
  if(p.source.w<.5||p.step.z<0.||(p.effect.w<.5&&p.step.z>p.effect.z)){return 0.;}
  let q=(x-p.source.xyz)/p.effect.y;
- if(isPower()){return powerSample(x).w;}
  if(object.options.x>.5){return surfaceFeed(x);}
  if(p.effect.x>18.5){
   let d=jetDirection();let axial=dot(q,d);let radial=length(q-d*axial);
@@ -209,14 +224,22 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  let x=LO+(vec3f(i)+.5)*H;let c=scalar(chem,x);
  let w=scalar(vort,x);let dx=vec3f(H,0,0);let dy=vec3f(0,H,0);let dz=vec3f(0,0,H);
  let g=vec3f(scalar(vort,x+dx).w-scalar(vort,x-dx).w,scalar(vort,x+dy).w-scalar(vort,x-dy).w,scalar(vort,x+dz).w-scalar(vort,x-dz).w);
- let confinement=2.0*H*cross(g/max(length(g),.00001),w.xyz);
+ let confinement=2.0*H*select(1.,p.dynamics.z,isPower())*cross(g/max(length(g),.00001),w.xyz);
  let forcing=confinement+turbulence(x)*min(c.x+c.y,1.)*.9*p.chemistry.w+vec3f(0,c.y*3.0*p.dynamics.w-c.x*.10,0);
  out+=forcing*p.step.x;
- if(isPower()&&p.source.w>.5){out+=powerAcceleration(powerKind(),x,p.source.xyz,p.effect.y,p.step.z,p.step.y,p.power.xyz,p.power.w)*p.step.x;}
+ if(isPower()&&p.source.w>.5){out+=powerForce(x)*p.step.x;}
  // Brinkman-style damping inside stationary solids before projection.
  // Scalars are separately excluded; this is not a cut-cell pressure solve.
  if(objectDistance(x)<-.018){out*=exp(-p.step.x*240.);}
- let s=charge(x);if(s>0.){out=mix(out,sourceVelocity(x),1.-exp(-s*p.step.x*65.));}
+ var s=0.;var sourceExpansion=45.;
+ if(isPower()){
+  // Fuel and momentum are one sample of the same moving packet. Evaluating
+  // charge and sourceVelocity separately repeats its folds and rain lanes.
+  if(abs(object.tint.w)<=.5&&p.source.w>=.5){
+   let injected=powerInjection(x);s=injected.gas.w;sourceExpansion=injected.expansion;
+   if(s>0.){out=mix(out,injected.gas.xyz,1.-exp(-s*p.step.x*65.));}
+  }
+ }else{s=charge(x);if(s>0.){out=mix(out,sourceVelocity(x),1.-exp(-s*p.step.x*65.));}}
  if(i.y==0u){out.y=0.;}
  // Open sides and top; only incoming boundary velocities are suppressed.
  if(i.x==0u){out.x=min(out.x,0.);}if(i.x==N){out.x=max(out.x,0.);}
@@ -224,7 +247,6 @@ fn limited(x:vec3f,k:u32,value:f32)->f32{
  if(i.y==N){out.y=max(out.y,0.);}
  // Power sources supply short finite impulses or modest ongoing expansion.
  // A swirling force does not continuously inflate the entire tornado column.
- let sourceExpansion=select(45.,select(4.,18.,powerKind()<1.5||powerKind()>5.5),isPower());
  let expansion=s*sourceExpansion*p.dynamics.y+flameActivity(c)*1.2;
  textureStore(dst,vec3i(i),vec4f(out,expansion));
 }`;
@@ -277,7 +299,7 @@ var<workgroup> opticalAlive:atomic<u32>;
  c.w=min(c.w,1.);
  let burned=min(c.z,reactionRate(c)*(1.-exp(-4.*p.step.x))/4.);
  c.z=max(c.z-burned,0.);c.w=min(c.w+burned*.7,1.);
- c.y=(c.y+burned*3.2/(1.+c.z))*exp(-p.step.x*(.9+.7*max(c.y-1.4,0.)));
+ c.y=(c.y+burned*select(3.2,2.0,isPower())/(1.+c.z))*exp(-p.step.x*(.9+.7*max(c.y-1.4,0.)));
  // Accumulated 30 Hz decay survives half-float writes even when pressure
  // needs many tiny substeps. It changes density, never display opacity.
  c.x=(c.x+burned*mix(.12,1.8,p.shape.z)*p.chemistry.z)*exp(-p.lifecycle.x*.045);
@@ -298,7 +320,12 @@ var<workgroup> opticalAlive:atomic<u32>;
   // Soot is created by the same combustion reaction as every other source.
   let added=s*p.step.x*6.*p.chemistry.y;
   if(p.step.w>.5){c.x+=added*.8*p.chemistry.z;c.y+=added*.28;}
-  else{c.y+=added*.8*p.chemistry.x/(1.+c.z);c.z+=added;c.w/=1.+added;}
+  else{
+   // Pilot heat is bounded; fuel-rich source interiors do not gain oxygen
+   // or accumulate unlimited preheat. Mixing with advected air determines
+   // where the same fuel/oxygen reaction actually produces the flame.
+   c.y=powerIgnition(c.y,added,p.chemistry.x);c.z+=added;c.w=powerOxygen(c.w,added);
+  }
  }else if(s>0.){let n=noise((x-p.source.xyz)*12.+vec3f(p.shape.x,7.,4.));
  let weight=1.-exp(-s*p.step.x*90.);
  // Continuous emitters feed fuel; most soot is formed by combustion.
@@ -313,7 +340,9 @@ var<workgroup> opticalAlive:atomic<u32>;
  // Finite floor fuel supplies warmed vapor. Soot and flame are created only
  // by the same gas combustion on the next step, never by a brush stamp.
  let bed=floorFeed(x);let floorAdded=bed.x*p.step.x;
- if(floorAdded>0.&&p.step.w<.5){let gasMass=1.+c.z;c.y=(c.y*gasMass+floorAdded*bed.y)/(gasMass+floorAdded);c.z+=floorAdded;}
+ if(floorAdded>0.&&p.step.w<.5){let gasMass=1.+c.z;c.y=(c.y*gasMass+floorAdded*bed.y)/(gasMass+floorAdded);c.z+=floorAdded;
+  if(isPower()){c.w=powerOxygen(c.w,floorAdded);}
+ }
  if(objectDistance(x)<-.02){c=vec4f(0);}
  // Quantize only numerical residue below the renderer's visible support.
  // Keeping half-float subnormals alive otherwise expands sparse work forever.
@@ -431,7 +460,8 @@ struct Dispatch{x:atomic<u32>,y:u32,z:u32};
   let radius=halfBrick*1.733+.05*object.origin.w;
   sourceLive=d<.13*object.origin.w+radius&&d>-.02*object.origin.w-radius;
  }
- live=live||(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z)&&sourceLive)||floorWork(at,halfBrick);
+ let injecting=select(p.source.w>.5&&(p.effect.w>.5||p.step.z<p.effect.z),p.source.w>.5,isPower());
+ live=live||(injecting&&sourceLive)||floorWork(at,halfBrick);
  if(abs(object.tint.w)>.5){live=live||woodFluxLive(at,halfBrick);}
  if(live){let index=atomicAdd(&dispatch.x,1u);bricks[index]=vec4u(id,0u);}
 }`;
